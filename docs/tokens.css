@@ -1,0 +1,154 @@
+/* Sightline design tokens — the single source of colour for the application.
+ *
+ * No component stylesheet may declare a colour literal. Every colour comes from
+ * a token defined here.
+ *
+ * Three theme states, not two. An explicit user choice stamps data-theme on the
+ * root element; the default "system" setting stamps nothing, so the un-stamped
+ * document must still resolve correctly from prefers-color-scheme alone. Every
+ * token is therefore declared in the bare :root block first, and only redefined
+ * in the media query and the [data-theme] block.
+ */
+
+:root {
+  /* ---- surfaces ---- */
+  --ground:        #F5F7F6;  /* page background */
+  --surface:       #FFFFFF;  /* cards, panels, table bodies */
+  --surface-2:     #EEF2F0;  /* table headers, insets, hover */
+
+  /* ---- ink ---- */
+  --ink:           #141F1D;  /* body text, headings */
+  --ink-mid:       #3E4E4A;  /* secondary text */
+  --ink-soft:      #66766F;  /* captions, labels, disabled */
+
+  /* ---- rules ---- */
+  --rule:          #D8E0DC;  /* hairlines, table borders */
+  --rule-strong:   #B9C6C0;  /* emphasised borders, header underline */
+
+  /* ---- accent ---- */
+  --accent:        #0B6E63;  /* fills, active state, tier A */
+  --accent-ink:    #075048;  /* accent text on light ground — AA on --surface */
+  --accent-wash:   #E2EFEB;  /* accent backgrounds, tier B */
+
+  /* ---- semantic: distinct from the accent, never used decoratively ---- */
+  --amber:         #96620E;  /* needs discussion, needs measurement */
+  --amber-wash:    #F6EDDD;
+  --rust:          #9E3826;  /* error, critical, tier D, blocked */
+  --rust-wash:     #F7E8E4;
+
+  --shadow: 0 1px 2px rgba(20,31,29,.06), 0 8px 24px -16px rgba(20,31,29,.28);
+
+  /* ---- type ---- */
+  --f-display: "Instrument Serif", Georgia, "Times New Roman", serif;
+  --f-body:    "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --f-mono:    "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --measure: 68ch;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground:      #0E1513;
+    --surface:     #151F1D;
+    --surface-2:   #1B2725;
+    --ink:         #E7EDEA;
+    --ink-mid:     #B3C2BD;
+    --ink-soft:    #8B9C96;
+    --rule:        #27352F;
+    --rule-strong: #3A4A44;
+    --accent:      #4FC7B4;
+    --accent-ink:  #7BDCCC;
+    --accent-wash: #14302C;
+    --amber:       #E0A64B;
+    --amber-wash:  #2E2618;
+    --rust:        #E4806B;
+    --rust-wash:   #31201C;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.8);
+  }
+}
+
+:root[data-theme="dark"] {
+  --ground:      #0E1513;
+  --surface:     #151F1D;
+  --surface-2:   #1B2725;
+  --ink:         #E7EDEA;
+  --ink-mid:     #B3C2BD;
+  --ink-soft:    #8B9C96;
+  --rule:        #27352F;
+  --rule-strong: #3A4A44;
+  --accent:      #4FC7B4;
+  --accent-ink:  #7BDCCC;
+  --accent-wash: #14302C;
+  --amber:       #E0A64B;
+  --amber-wash:  #2E2618;
+  --rust:        #E4806B;
+  --rust-wash:   #31201C;
+  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.8);
+}
+
+/* ---------------------------------------------------------------------------
+ * Determinacy tiers: ink density encodes evidence density.
+ * Filled = computed. Washed = evidenced. Dashed = judgement. Dotted = unreachable.
+ * These four classes are the app's most important visual convention — a designer
+ * must always know whether they are confirming arithmetic or making a call.
+ * ------------------------------------------------------------------------- */
+
+.tier {
+  font-family: var(--f-mono);
+  font-size: .68rem;
+  font-weight: 600;
+  letter-spacing: .06em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.55rem;
+  padding: .12rem .38rem;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+.tier-a { background: var(--accent);     color: var(--surface);    border-color: var(--accent); }
+.tier-b { background: var(--accent-wash); color: var(--accent-ink); border-color: var(--accent); }
+.tier-c { background: transparent;       color: var(--ink-soft);   border-color: var(--rule-strong); border-style: dashed; }
+.tier-d { background: transparent;       color: var(--rust);       border-color: var(--rust);        border-style: dotted; }
+
+/* Tier A is a filled chip, so its label must flip against the dark accent. */
+:root[data-theme="dark"] .tier-a { color: #0E1513; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .tier-a { color: #0E1513; }
+}
+
+/* ---------------------------------------------------------------------------
+ * Roadmap readiness labels.
+ * ------------------------------------------------------------------------- */
+
+.lbl {
+  font-family: var(--f-mono);
+  font-size: .63rem;
+  font-weight: 500;
+  letter-spacing: .08em;
+  padding: .14rem .42rem;
+  border: 1px solid;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+.lbl-ready   { color: var(--accent-ink); border-color: var(--accent);      background: var(--accent-wash); }
+.lbl-discuss { color: var(--amber);      border-color: var(--amber);       background: var(--amber-wash); }
+.lbl-measure { color: var(--rust);       border-color: var(--rust);        background: var(--rust-wash); }
+.lbl-blocked { color: var(--ink-soft);   border-color: var(--rule-strong); background: var(--surface-2); }
+
+/* ---------------------------------------------------------------------------
+ * Base. The viewer composites over a ground painted in its own theme, so body
+ * must set an explicit background or it borrows the host's.
+ * ------------------------------------------------------------------------- */
+
+body {
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--f-body);
+  line-height: 1.62;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}

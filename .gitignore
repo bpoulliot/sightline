@@ -1,0 +1,55 @@
+# ---------------------------------------------------------------------------
+# THIS REPOSITORY IS PUBLIC. Anything committed is world-readable forever, and
+# git history keeps it after a later deletion.
+#
+# The rubric workbooks in rubrics/source/ ARE committed deliberately — they are
+# a blank review template with no personal data. Course exports are NOT.
+# ---------------------------------------------------------------------------
+
+# Working data. Root is configurable as SIGHTLINE_DATA_DIR (default ./data).
+# Course exports, caches, run state and generated reports all live under it and
+# none of it is ever committed. Exports carry instructor-authored content, page
+# text naming real people, and unpublished drafts.
+data/
+*.imscc
+
+# Secrets. The Canvas base URL is institution-identifying and is treated as a
+# secret in this repo, not just the token.
+.env
+.env.*
+!.env.example
+secrets/
+*.pem
+*.key
+*.token
+config.local.*
+instance/
+
+# Local scratch — an escape hatch for anything that must stay off the remote.
+private/
+
+# Runtime
+*.sqlite
+*.sqlite3
+*.db
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# examples/ is committed on purpose — it is the synthetic sample course and a
+# sample report, so a new user sees the shape of both without a Canvas token.
+!examples/

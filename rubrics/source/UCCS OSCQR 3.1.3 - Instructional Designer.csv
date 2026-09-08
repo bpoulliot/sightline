@@ -1,0 +1,528 @@
+, [UCCS OSCQR 3.1.3],,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,Number,,,,OPEN SUNY,PRIORITY 2,PRIORITY 3,PRIORITY 4,PRIORITY 5,PRIORITY 6,REVIEWER,INTEGRATED STANDARD,,,,Sufficiently Present,Minor Revision,Moderate Revision,Major Revision,Not Applicable,Action Plan,,,,,
+,,,,,,,,,,,,,,,,,Estimated time needed for revision:,,1/2 hour or less,1/2-2 hours,2+ hours,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,1. COURSE ALIGNMENT,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,1,1,a,1a,1,Essential,,,,,,,UCCS,COAL,1,"Course objectives are clearly articulated, describe a single discrete behavior, support learner achievement of program objectives, and define the measurement of success.",,,,,,,,,,NR,No Response
+,,,2,b,2b,2,Important,,,,,,,UCCS,COAL,2,"Module objectives are clearly articulated, describe a single discrete behavior, support learner achievement of course objectives, and define the measurement of success.",,,,,,,,,,NR,No Response
+,,,3,c,3c,3,Essential,,,,,,,UCCS,COAL,3,Course and module objectives are appropriate to the academic level of the course and consistent with the course series (if applicable).,,,,,,,,,,NR,No Response
+,,,4,d,4d,4,Essential,,,,,,,UCCS,COAL,4,Learning materials and activities demonstrably support the achievement of module and course objectives.,,,,,,,,,,NR,No Response
+,,,5,e,5e,5,Essential,,,,,,,UCCS,COAL,5,Assessments measure progress towards and/or achievement of module and course objectives.,,,,,,,,,,NR,No Response
+,,,6,f,6f,6,Essential,,,,,,,UCCS,COAL,6,"The relationship between all content, activities, assessments and module, course objectives is clearly and explicitly stated to learners.",,,,,,,,,,NR,No Response
+,,,7,g,7g,7,Important,,,,,,,UCCS,COAL,7,Technology tools clearly support learner achievement of module and course objectives and elevate learner engagement.,,,,,,,,,,NR,No Response
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,2. GETTING STARTED AND OVERVIEWS,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,2,8,a,8a,8,Important,,,,,,,UCCS,GSOV,1,"Course includes information about required technology tools (websites, software, and hardware), requisite skills for use, support resources, and links to privacy policies.",,,,,,,,,,NR,No Response
+,,,9,b,9b,9,Important,,,,,,,UCCS,GSOV,2,"Course provides links to relevant campus policies on plagiarism, computer use, filing grievances, disability accommodation, etc.",,,,,,,,,,NR,No Response
+,,,10,c,10c,10,Important,,,,,,,UCCS,GSOV,3,"Course presents information on navigating the course, locating and/or purchasing learning materials, and a list of next steps students should complete as preparation for success in the course",,,,,,,,,,NR,No Response
+,,,11,d,11d,11,Essential,,,,,,,UCCS,GSOV,4,"An overview is provided for the course overall and for each module that informs learners how to navigate, relevant course and module objectives, and what tasks are due.",,,,,,,,,,NR,No Response
+,,,12,e,12e,12,Essential,,,,,,,UCCS,GSOV,5,"Tentative course schedule provided with due dates for all activities and assessments, learning materials, and relevant academic calendar information (e.g., Spring Break, drop/withdraw deadline).",,,,,,,,,,NR,No Response
+,,,13,f,13f,13,Important,,,,,,,UCCS,GSOV,6,"Welcome Announcement posted that includes course details, how to access the course, technical requirements, accessibility information, instructor contact information, and guides students to a Getting Started module.",,,,,,,,,,NR,No Response
+,,,14,g,14g,14,Essential,,,,,,,UCCS,GSOV,7,"Syllabus states the duration, purpose, and structure of the course and how the course is delivered based on the current accepted instructional modes.",,,,,,,,,,NR,No Response
+,,,15,h,15h,15,Important,,,,,,,UCCS,GSOV,8,"Syllabus includes instructor/student interaction requirements, expectations, and communication preferences as well as contact information for the instructor, department, and program.",,,,,,,,,,NR,No Response
+,,,16,i,16i,16,Important,,,,,,,UCCS,GSOV,9,"Syllabus features measurable, student-focused course objectives prominently.",,,,,,,,,,NR,No Response
+,,,17,j,17j,17,Essential,,,,,,,UCCS,GSOV,10,"Course grading policies, including consequences of late submissions, are clearly stated in the syllabus.",,,,,,,,,,NR,No Response
+,,,18,k,18k,18,Important,,,,,,,UCCS,GSOV,11,"Resources for student success (e.g., institutional supports, course-specific strategies) are readily available.",,,,,,,,,,NR,No Response
+,,,19,l,19l,19,Important,,,,,,,UCCS,GSOV,12,"Syllabus is easily printable (PDF or HTML) and appropriately divided into logical, related sections using preformatted headings.",,,,,,,,,,NR,No Response
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,3. ORGANIZATION AND REPRESENTATION,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,3,20,a,20a,20,Essential,,,,,,,UCCS,OREP,1,"Course, content, and associated technology tools are easy to access and navigate; extraneous information (e.g., irrelevant privacy policies, information from previous semesters) is removed from course content.",,,,,,,,,,NR,No Response
+,,,21,b,21b,21,Important,,,,,,,UCCS,OREP,2,"Course organization is logical and consistent throughout; modules separate content into distinct learning units, broken up by topic or by week.",,,,,,,,,,NR,No Response
+,,,22,c,22c,22,Important,,,,,,,UCCS,OREP,3,"Each module Overview contains introductory information and lists of: module objectives, associated course objectives, learning materials, activities, and assessments.",,,,,,,,,,NR,No Response
+,,,23,d,23d,23,Important,,,,,,,UCCS,OREP,4,"Content pages have appropriate titles, group related learning materials together, and use consistent iconography and color.",,,,,,,,,,NR,No Response
+,,,24,e,24e,24,Important,,,,,,,UCCS,OREP,5,Large blocks of information on Pages are divided into sections using headings or separate content pages.,,,,,,,,,,NR,No Response
+,,,25,f,25f,25,Essential,,,,,,,UCCS,OREP,6,"All learning materials include copyright or licensing information, model proper attribution, and explicitly state any permissions granted by the copyright owner.",,,,,,,,,,NR,No Response
+,,,26,g,26g,26,Important,,,,,,,UCCS,OREP,7,"HTML (Pages) is used as the primary delivery method for text content, excluding copyrighted materials.",,,,,,,,,,NR,No Response
+,,,27,h,27h,27,Important,,,,,,,UCCS,OREP,8,Open Educational Resources and low- or no-cost learning materials are utilized prominently.,,,,,,,,,,NR,No Response
+,,,28,i,28i,28,Essential,,,,,,,UCCS,OREP,9,"Course offers access to a variety of learning material types (e.g., text, video, hyperdocs) that facilitate communication and collaboration, deliver content, and provide options for engagement.",,,,,,,,,,NR,No Response
+,,,29,j,29j,29,Essential,,,,,,,UCCS,OREP,10,Diverse sources and voices are represented in learning materials.,,,,,,,,,,NR,No Response
+,,,30,k,30k,30,Essential,,,,,,,UCCS,OREP,11,"Course navigation menu is aligned with how learners progress through the course (i.e., extraneous tools and links are removed from course navigation).",,,,,,,,,,NR,No Response
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,4. ACCESSIBLE COURSE DESIGN,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,4,31,a,31a,31,Essential,,,,,,,UCCS,ACD,1,"All technology tools include accessibility information (e.g., an accessibility statement).",,,,,,,,,,NR,No Response
+,,,32,b,32b,32,Essential,,,,,,,UCCS,ACD,2,"Contrast between text and background colors in pages and any images is sufficient (text:background ratio of 4.5:1 for normal-sized text and 3:1 for large text greater than 18 point); text in documents (Word, PDF) uses sans serif font and size is at least 12 pt. Canvas does this automatically.",,,,,,,,,,NR,No Response
+,,,33,c,33c,33,Essential,,,,,,,UCCS,ACD,3,"Content is properly formatted using preformatted styles (e.g., Title, Normal, H2, Paragraph), including all PDFs, slideshow presentations, Word documents, and HTML pages.",,,,,,,,,,NR,No Response
+,,,34,d,34d,34,Important,,,,,,,UCCS,ACD,4,"All documents (Word, PDF, PowerPoint) in content are printable and/or downloadable.",,,,,,,,,,NR,No Response
+,,,35,e,35e,35,Important,,,,,,,UCCS,ACD,5,Hyperlinks use descriptive text instead of raw URLs or phrases such as “click here”.,,,,,,,,,,NR,No Response
+,,,36,f,36f,36,Essential,,,,,,,UCCS,ACD,6,"Tables are used for tabular data (not page layout), contain header rows or columns, and include a caption and summary.",,,,,,,,,,NR,No Response
+,,,37,g,37g,37,Essential,,,,,,,UCCS,ACD,7,All text and images provide the same information when viewed with or without color and color is not used to convey meaning to learners in content or communication.,,,,,,,,,,NR,No Response
+,,,38,h,38h,38,Essential,,,,,,,UCCS,ACD,8,"All images, including images in content such as PDFs, have appropriate, descriptive alt text (or summaries) and decorative images are labeled as decorative.",,,,,,,,,,NR,No Response
+,,,39,i,39i,39,Essential,,,,,,,UCCS,ACD,9,"All video content includes accurate closed captioning (automatic captioning may require editing) and audio content is accompanied by a transcript, including all instructor-generated media.",,,,,,,,,,NR,No Response
+,,,40,j,40j,40,Important,,,,,,,UCCS,ACD,10,Learners are informed when a timed response is required. Proper lead time is provided to ensure there is an opportunity to prepare an accommodation.,,,,,,,,,,NR,No Response
+,,,41,k,41k,41,Essential,,,,,,,UCCS,ACD,11,"All activities and assessments include clear instructions, due dates, and submission guidelines (i.e., what is to be submitted, acceptable file formats, where to submit).",,,,,,,,,,NR,No Response
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,5. ENGAGEMENT AND INTERACTION,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,5,42,a,42a,42,Important,,,,,,,UCCS,ENIN,1,"Learning materials, activities, and planned learner-instructor interactions integrate getting to know the instructor (e.g., personality, online presence)",,,,,,,,,,NR,No Response
+,,,43,b,43b,43,Essential,,,,,,,UCCS,ENIN,2,"Expectations for interaction are clearly stated (netiquette, grade weighting, models/examples, and timing and frequency of contributions).",,,,,,,,,,NR,No Response
+,,,44,c,44c,44,Important,,,,,,,UCCS,ENIN,3,"Course contains activities intended to build a sense of class community, support open communication, and establish trust (e.g., class introductions, course questions discussion).",,,,,,,,,,NR,No Response
+,,,45,d,45d,45,Essential,,,,,,,UCCS,ENIN,4,"Expectations for timely and regular interaction with the instructor are clearly stated (feedback, additional help, questions, mode preference).",,,,,,,,,,NR,No Response
+,,,46,e,46e,46,Essential,,,,,,,UCCS,ENIN,5,"Activities help learners develop higher-order thinking and problem-solving skills, such as critical reflection and analysis.",,,,,,,,,,NR,No Response
+,,,47,f,47f,47,Important,,,,,,,UCCS,ENIN,6,Course provides activities that emulate real world applications of the discipline and connect the learning experience with personal context.,,,,,,,,,,NR,No Response
+,,,48,g,48g,48,Important,,,,,,,UCCS,ENIN,7,"Course leverages varied types of activities and options for learners to engage with the instructor, their peers, and the content.",,,,,,,,,,NR,No Response
+,,,49,h,49h,49,Important,,,,,,,UCCS,ENIN,8,"Learning activities incorporate varied learner interactions (i.e., self-reflection, one-on-one, small group, whole class).",,,,,,,,,,NR,No Response
+,,,50,i,50i,50,Essential,,,,,,,UCCS,ENIN,9,Levels of difficulty and complexity in learning activities are scaffolded throughout the course.,,,,,,,,,,NR,No Response
+,,,51,j,51j,51,Important,,,,,,,UCCS,ENIN,10,"Learners are encouraged to share outside resources, inject knowledge from diverse sources of information and their personal experiences, and further the discussion in their course interactions.",,,,,,,,,,NR,No Response
+,,,52,k,52k,52,Essential,,,,,,,UCCS,ENIN,11,"Learners have multiple opportunities to provide descriptive feedback on course design, course content, course experience, and ease of online technology.",,,,,,,,,,NR,No Response
+,,,53,l,53l,53,Essential,,,,,,,UCCS,ENIN,12,Technical skills required for participation in course activities provide opportunities for guided orientation and learner-driven practice.,,,,,,,,,,NR,No Response
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,6. ASSESSMENT AND FEEDBACK,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,6,54,a,54a,54,Important,,,,,,,UCCS,ASFE,1,Course objectives associated with assessments are clearly stated within assessment information.,,,,,,,,,,NR,No Response
+,,,55,b,55b,55,Essential,,,,,,,UCCS,ASFE,2,"Activities include evaluation criteria and clearly articulate expectations (e.g., rubrics, exemplars).",,,,,,,,,,NR,No Response
+,,,56,c,56c,56,Essential,,,,,,,UCCS,ASFE,3,Course offers learners options for demonstrating learning and achievement of learning objectives through multiple activities and assessments without relying exclusively on limited summative or cumulative assessments.,,,,,,,,,,NR,No Response
+,,,57,d,57d,57,Essential,,,,,,,UCCS,ASFE,4,The course offers opportunities to provide formative feedback on the achievement of learning objectives,,,,,,,,,,NR,No Response
+,,,58,e,58e,58,Essential,,,,,,,UCCS,ASFE,5,"Assessments with a prolonged duration are scaffolded and provide the opportunity to receive constructive feedback (e.g., drafts, peer review).",,,,,,,,,,NR,No Response
+,,,59,f,59f,59,Important,,,,,,,UCCS,ASFE,7,Learners have easy access to a logical and frequently-updated gradebook.,,,,,,,,,,NR,No Response
+,,7. MOBILE STANDARDS,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,M,M,A,M-A,M-A,,,,,,,,INT,MOB,1,Hyperlinks are provided for embedded content.,,,,,,,,,,NR,No Response
+,,,M,B,M-B,M-B,,,,,,,,INT,MOB,2,The course avoids the use of tables and multiple levels of indents.,,,,,,,,,,NR,No Response
+,,,M,C,M-C,M-C,,,,,,,,INT,MOB,3,Text is not placed to the left or right of images.,,,,,,,,,,NR,No Response
+,,,M,D,M-D,M-D,,,,,,,,INT,MOB,4,"When specifying width, percentages are used instead of pixels.",,,,,,,,,,NR,No Response
+,,,M,E,M-E,M-E,,,,,,,,INT,MOB,5,The course is tested on multiple mobile devices.,,,,,,,,,,NR,No Response
+,,,M,F,M-F,M-F,,,,,,,,INT,MOB,6,Any apps that are required for students are available on both Android and iOS mobile platforms.,,,,,,,,,,NR,No Response
+,,,M,G,M-G,M-G,,,,,,,,INT,MOB,7,Efforts are made to minimize the use of content that does not work on mobile devices (such as Flash and Java).,,,,,,,,,,NR,No Response
+,,,M,H,M-H,M-H,,,,,,,,INT,MOB,8,"When file attachments are necessary, PDF is used as much as possible.",,,,,,,,,,NR,No Response
+,,,M,I,M-I,M-I,,,,,,,,INT,MOB,9,"Content is divided into small, manageable chunks.",,,,,,,,,,NR,No Response
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,8. <For future use>,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,EMPTY,EMPTY,A,EMPTY-A,EMPTY-A,,,,,,,,INT,TBA8,1,,,,,,,,,,,NR,No Response
+,,,EMPTY,B,EMPTY-B,EMPTY-B,,,,,,,,INT,TBA8,2,,,,,,,,,,,NR,No Response
+,,,EMPTY,C,EMPTY-C,EMPTY-C,,,,,,,,INT,TBA8,3,,,,,,,,,,,NR,No Response
+,,,EMPTY,D,EMPTY-D,EMPTY-D,,,,,,,,INT,TBA8,4,,,,,,,,,,,NR,No Response
+,,,EMPTY,E,EMPTY-E,EMPTY-E,,,,,,,,INT,TBA8,5,,,,,,,,,,,NR,No Response
+,,,EMPTY,F,EMPTY-F,EMPTY-F,,,,,,,,INT,TBA8,6,,,,,,,,,,,NR,No Response
+,,,EMPTY,G,EMPTY-G,EMPTY-G,,,,,,,,INT,TBA8,7,,,,,,,,,,,NR,No Response
+,,,EMPTY,H,EMPTY-H,EMPTY-H,,,,,,,,INT,TBA8,8,,,,,,,,,,,NR,No Response
+,,,EMPTY,I,EMPTY-I,EMPTY-I,,,,,,,,INT,TBA8,9,,,,,,,,,,,NR,No Response
+,,,EMPTY,J,EMPTY-J,EMPTY-J,,,,,,,,INT,TBA8,10,,,,,,,,,,,NR,No Response
+,,,EMPTY,K,EMPTY-K,EMPTY-K,,,,,,,,INT,TBA8,11,,,,,,,,,,,NR,No Response
+,,,EMPTY,L,EMPTY-L,EMPTY-L,,,,,,,,INT,TBA8,12,,,,,,,,,,,NR,No Response
+,,,EMPTY,M,EMPTY-M,EMPTY-M,,,,,,,,INT,TBA8,13,,,,,,,,,,,NR,No Response
+,,,EMPTY,N,EMPTY-N,EMPTY-N,,,,,,,,INT,TBA8,14,,,,,,,,,,,NR,No Response
+,,,EMPTY,O,EMPTY-O,EMPTY-O,,,,,,,,INT,TBA8,15,,,,,,,,,,,NR,No Response
+,,,EMPTY,P,EMPTY-P,EMPTY-P,,,,,,,,INT,TBA8,16,,,,,,,,,,,NR,No Response
+,,,EMPTY,Q,EMPTY-Q,EMPTY-Q,,,,,,,,INT,TBA8,17,,,,,,,,,,,NR,No Response
+,,,EMPTY,R,EMPTY-R,EMPTY-R,,,,,,,,INT,TBA8,18,,,,,,,,,,,NR,No Response
+,,,EMPTY,S,EMPTY-S,EMPTY-S,,,,,,,,INT,TBA8,19,,,,,,,,,,,NR,No Response
+,,,EMPTY,T,EMPTY-T,EMPTY-T,,,,,,,,INT,TBA8,20,,,,,,,,,,,NR,No Response
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,9. <For future use>,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,EMPTY,EMPTY,A,EMPTY-A,EMPTY-A,,,,,,,,INT,TBA9,1,,,,,,,,,,,NR,No Response
+,,,EMPTY,B,EMPTY-B,EMPTY-B,,,,,,,,INT,TBA9,2,,,,,,,,,,,NR,No Response
+,,,EMPTY,C,EMPTY-C,EMPTY-C,,,,,,,,INT,TBA9,3,,,,,,,,,,,NR,No Response
+,,,EMPTY,D,EMPTY-D,EMPTY-D,,,,,,,,INT,TBA9,4,,,,,,,,,,,NR,No Response
+,,,EMPTY,E,EMPTY-E,EMPTY-E,,,,,,,,INT,TBA9,5,,,,,,,,,,,NR,No Response
+,,,EMPTY,F,EMPTY-F,EMPTY-F,,,,,,,,INT,TBA9,6,,,,,,,,,,,NR,No Response
+,,,EMPTY,G,EMPTY-G,EMPTY-G,,,,,,,,INT,TBA9,7,,,,,,,,,,,NR,No Response
+,,,EMPTY,H,EMPTY-H,EMPTY-H,,,,,,,,INT,TBA9,8,,,,,,,,,,,NR,No Response
+,,,EMPTY,I,EMPTY-I,EMPTY-I,,,,,,,,INT,TBA9,9,,,,,,,,,,,NR,No Response
+,,,EMPTY,J,EMPTY-J,EMPTY-J,,,,,,,,INT,TBA9,10,,,,,,,,,,,NR,No Response
+,,,EMPTY,K,EMPTY-K,EMPTY-K,,,,,,,,INT,TBA9,11,,,,,,,,,,,NR,No Response
+,,,EMPTY,L,EMPTY-L,EMPTY-L,,,,,,,,INT,TBA9,12,,,,,,,,,,,NR,No Response
+,,,EMPTY,M,EMPTY-M,EMPTY-M,,,,,,,,INT,TBA9,13,,,,,,,,,,,NR,No Response
+,,,EMPTY,N,EMPTY-N,EMPTY-N,,,,,,,,INT,TBA9,14,,,,,,,,,,,NR,No Response
+,,,EMPTY,O,EMPTY-O,EMPTY-O,,,,,,,,INT,TBA9,15,,,,,,,,,,,NR,No Response
+,,,EMPTY,P,EMPTY-P,EMPTY-P,,,,,,,,INT,TBA9,16,,,,,,,,,,,NR,No Response
+,,,EMPTY,Q,EMPTY-Q,EMPTY-Q,,,,,,,,INT,TBA9,17,,,,,,,,,,,NR,No Response
+,,,EMPTY,R,EMPTY-R,EMPTY-R,,,,,,,,INT,TBA9,18,,,,,,,,,,,NR,No Response
+,,,EMPTY,S,EMPTY-S,EMPTY-S,,,,,,,,INT,TBA9,19,,,,,,,,,,,NR,No Response
+,,,EMPTY,T,EMPTY-T,EMPTY-T,,,,,,,,INT,TBA9,20,,,,,,,,,,,NR,No Response
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,10. <For future use>,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,EMPTY,EMPTY,A,EMPTY-A,EMPTY-A,,,,,,,,INT,TBA10,1,,,,,,,,,,,NR,No Response
+,,,EMPTY,B,EMPTY-B,EMPTY-B,,,,,,,,INT,TBA10,2,,,,,,,,,,,NR,No Response
+,,,EMPTY,C,EMPTY-C,EMPTY-C,,,,,,,,INT,TBA10,3,,,,,,,,,,,NR,No Response
+,,,EMPTY,D,EMPTY-D,EMPTY-D,,,,,,,,INT,TBA10,4,,,,,,,,,,,NR,No Response
+,,,EMPTY,E,EMPTY-E,EMPTY-E,,,,,,,,INT,TBA10,5,,,,,,,,,,,NR,No Response
+,,,EMPTY,F,EMPTY-F,EMPTY-F,,,,,,,,INT,TBA10,6,,,,,,,,,,,NR,No Response
+,,,EMPTY,G,EMPTY-G,EMPTY-G,,,,,,,,INT,TBA10,7,,,,,,,,,,,NR,No Response
+,,,EMPTY,H,EMPTY-H,EMPTY-H,,,,,,,,INT,TBA10,8,,,,,,,,,,,NR,No Response
+,,,EMPTY,I,EMPTY-I,EMPTY-I,,,,,,,,INT,TBA10,9,,,,,,,,,,,NR,No Response
+,,,EMPTY,J,EMPTY-J,EMPTY-J,,,,,,,,INT,TBA10,10,,,,,,,,,,,NR,No Response
+,,,EMPTY,K,EMPTY-K,EMPTY-K,,,,,,,,INT,TBA10,11,,,,,,,,,,,NR,No Response
+,,,EMPTY,L,EMPTY-L,EMPTY-L,,,,,,,,INT,TBA10,12,,,,,,,,,,,NR,No Response
+,,,EMPTY,M,EMPTY-M,EMPTY-M,,,,,,,,INT,TBA10,13,,,,,,,,,,,NR,No Response
+,,,EMPTY,N,EMPTY-N,EMPTY-N,,,,,,,,INT,TBA10,14,,,,,,,,,,,NR,No Response
+,,,EMPTY,O,EMPTY-O,EMPTY-O,,,,,,,,INT,TBA10,15,,,,,,,,,,,NR,No Response
+,,,EMPTY,P,EMPTY-P,EMPTY-P,,,,,,,,INT,TBA10,16,,,,,,,,,,,NR,No Response
+,,,EMPTY,Q,EMPTY-Q,EMPTY-Q,,,,,,,,INT,TBA10,17,,,,,,,,,,,NR,No Response
+,,,EMPTY,R,EMPTY-R,EMPTY-R,,,,,,,,INT,TBA10,18,,,,,,,,,,,NR,No Response
+,,,EMPTY,S,EMPTY-S,EMPTY-S,,,,,,,,INT,TBA10,19,,,,,,,,,,,NR,No Response
+,,,EMPTY,T,EMPTY-T,EMPTY-T,,,,,,,,INT,TBA10,20,,,,,,,,,,,NR,No Response
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,11. <For future use>,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,EMPTY,EMPTY,A,EMPTY-A,EMPTY-A,,,,,,,,INT,TBA11,1,,,,,,,,,,,NR,No Response
+,,,EMPTY,B,EMPTY-B,EMPTY-B,,,,,,,,INT,TBA11,2,,,,,,,,,,,NR,No Response
+,,,EMPTY,C,EMPTY-C,EMPTY-C,,,,,,,,INT,TBA11,3,,,,,,,,,,,NR,No Response
+,,,EMPTY,D,EMPTY-D,EMPTY-D,,,,,,,,INT,TBA11,4,,,,,,,,,,,NR,No Response
+,,,EMPTY,E,EMPTY-E,EMPTY-E,,,,,,,,INT,TBA11,5,,,,,,,,,,,NR,No Response
+,,,EMPTY,F,EMPTY-F,EMPTY-F,,,,,,,,INT,TBA11,6,,,,,,,,,,,NR,No Response
+,,,EMPTY,G,EMPTY-G,EMPTY-G,,,,,,,,INT,TBA11,7,,,,,,,,,,,NR,No Response
+,,,EMPTY,H,EMPTY-H,EMPTY-H,,,,,,,,INT,TBA11,8,,,,,,,,,,,NR,No Response
+,,,EMPTY,I,EMPTY-I,EMPTY-I,,,,,,,,INT,TBA11,9,,,,,,,,,,,NR,No Response
+,,,EMPTY,J,EMPTY-J,EMPTY-J,,,,,,,,INT,TBA11,10,,,,,,,,,,,NR,No Response
+,,,EMPTY,K,EMPTY-K,EMPTY-K,,,,,,,,INT,TBA11,11,,,,,,,,,,,NR,No Response
+,,,EMPTY,L,EMPTY-L,EMPTY-L,,,,,,,,INT,TBA11,12,,,,,,,,,,,NR,No Response
+,,,EMPTY,M,EMPTY-M,EMPTY-M,,,,,,,,INT,TBA11,13,,,,,,,,,,,NR,No Response
+,,,EMPTY,N,EMPTY-N,EMPTY-N,,,,,,,,INT,TBA11,14,,,,,,,,,,,NR,No Response
+,,,EMPTY,O,EMPTY-O,EMPTY-O,,,,,,,,INT,TBA11,15,,,,,,,,,,,NR,No Response
+,,,EMPTY,P,EMPTY-P,EMPTY-P,,,,,,,,INT,TBA11,16,,,,,,,,,,,NR,No Response
+,,,EMPTY,Q,EMPTY-Q,EMPTY-Q,,,,,,,,INT,TBA11,17,,,,,,,,,,,NR,No Response
+,,,EMPTY,R,EMPTY-R,EMPTY-R,,,,,,,,INT,TBA11,18,,,,,,,,,,,NR,No Response
+,,,EMPTY,S,EMPTY-S,EMPTY-S,,,,,,,,INT,TBA11,19,,,,,,,,,,,NR,No Response
+,,,EMPTY,T,EMPTY-T,EMPTY-T,,,,,,,,INT,TBA11,20,,,,,,,,,,,NR,No Response
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,12. <For future use>,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,EMPTY,EMPTY,A,EMPTY-A,EMPTY-A,,,,,,,,INT,TBA12,1,,,,,,,,,,,NR,No Response
+,,,EMPTY,B,EMPTY-B,EMPTY-B,,,,,,,,INT,TBA12,2,,,,,,,,,,,NR,No Response
+,,,EMPTY,C,EMPTY-C,EMPTY-C,,,,,,,,INT,TBA12,3,,,,,,,,,,,NR,No Response
+,,,EMPTY,D,EMPTY-D,EMPTY-D,,,,,,,,INT,TBA12,4,,,,,,,,,,,NR,No Response
+,,,EMPTY,E,EMPTY-E,EMPTY-E,,,,,,,,INT,TBA12,5,,,,,,,,,,,NR,No Response
+,,,EMPTY,F,EMPTY-F,EMPTY-F,,,,,,,,INT,TBA12,6,,,,,,,,,,,NR,No Response
+,,,EMPTY,G,EMPTY-G,EMPTY-G,,,,,,,,INT,TBA12,7,,,,,,,,,,,NR,No Response
+,,,EMPTY,H,EMPTY-H,EMPTY-H,,,,,,,,INT,TBA12,8,,,,,,,,,,,NR,No Response
+,,,EMPTY,I,EMPTY-I,EMPTY-I,,,,,,,,INT,TBA12,9,,,,,,,,,,,NR,No Response
+,,,EMPTY,J,EMPTY-J,EMPTY-J,,,,,,,,INT,TBA12,10,,,,,,,,,,,NR,No Response
+,,,EMPTY,K,EMPTY-K,EMPTY-K,,,,,,,,INT,TBA12,11,,,,,,,,,,,NR,No Response
+,,,EMPTY,L,EMPTY-L,EMPTY-L,,,,,,,,INT,TBA12,12,,,,,,,,,,,NR,No Response
+,,,EMPTY,M,EMPTY-M,EMPTY-M,,,,,,,,INT,TBA12,13,,,,,,,,,,,NR,No Response
+,,,EMPTY,N,EMPTY-N,EMPTY-N,,,,,,,,INT,TBA12,14,,,,,,,,,,,NR,No Response
+,,,EMPTY,O,EMPTY-O,EMPTY-O,,,,,,,,INT,TBA12,15,,,,,,,,,,,NR,No Response
+,,,EMPTY,P,EMPTY-P,EMPTY-P,,,,,,,,INT,TBA12,16,,,,,,,,,,,NR,No Response
+,,,EMPTY,Q,EMPTY-Q,EMPTY-Q,,,,,,,,INT,TBA12,17,,,,,,,,,,,NR,No Response
+,,,EMPTY,R,EMPTY-R,EMPTY-R,,,,,,,,INT,TBA12,18,,,,,,,,,,,NR,No Response
+,,,EMPTY,S,EMPTY-S,EMPTY-S,,,,,,,,INT,TBA12,19,,,,,,,,,,,NR,No Response
+,,,EMPTY,T,EMPTY-T,EMPTY-T,,,,,,,,INT,TBA12,20,,,,,,,,,,,NR,No Response
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,13. <For future use>,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,EMPTY,EMPTY,A,EMPTY-A,EMPTY-A,,,,,,,,INT,TBA13,1,,,,,,,,,,,NR,No Response
+,,,EMPTY,B,EMPTY-B,EMPTY-B,,,,,,,,INT,TBA13,2,,,,,,,,,,,NR,No Response
+,,,EMPTY,C,EMPTY-C,EMPTY-C,,,,,,,,INT,TBA13,3,,,,,,,,,,,NR,No Response
+,,,EMPTY,D,EMPTY-D,EMPTY-D,,,,,,,,INT,TBA13,4,,,,,,,,,,,NR,No Response
+,,,EMPTY,E,EMPTY-E,EMPTY-E,,,,,,,,INT,TBA13,5,,,,,,,,,,,NR,No Response
+,,,EMPTY,F,EMPTY-F,EMPTY-F,,,,,,,,INT,TBA13,6,,,,,,,,,,,NR,No Response
+,,,EMPTY,G,EMPTY-G,EMPTY-G,,,,,,,,INT,TBA13,7,,,,,,,,,,,NR,No Response
+,,,EMPTY,H,EMPTY-H,EMPTY-H,,,,,,,,INT,TBA13,8,,,,,,,,,,,NR,No Response
+,,,EMPTY,I,EMPTY-I,EMPTY-I,,,,,,,,INT,TBA13,9,,,,,,,,,,,NR,No Response
+,,,EMPTY,J,EMPTY-J,EMPTY-J,,,,,,,,INT,TBA13,10,,,,,,,,,,,NR,No Response
+,,,EMPTY,K,EMPTY-K,EMPTY-K,,,,,,,,INT,TBA13,11,,,,,,,,,,,NR,No Response
+,,,EMPTY,L,EMPTY-L,EMPTY-L,,,,,,,,INT,TBA13,12,,,,,,,,,,,NR,No Response
+,,,EMPTY,M,EMPTY-M,EMPTY-M,,,,,,,,INT,TBA13,13,,,,,,,,,,,NR,No Response
+,,,EMPTY,N,EMPTY-N,EMPTY-N,,,,,,,,INT,TBA13,14,,,,,,,,,,,NR,No Response
+,,,EMPTY,O,EMPTY-O,EMPTY-O,,,,,,,,INT,TBA13,15,,,,,,,,,,,NR,No Response
+,,,EMPTY,P,EMPTY-P,EMPTY-P,,,,,,,,INT,TBA13,16,,,,,,,,,,,NR,No Response
+,,,EMPTY,Q,EMPTY-Q,EMPTY-Q,,,,,,,,INT,TBA13,17,,,,,,,,,,,NR,No Response
+,,,EMPTY,R,EMPTY-R,EMPTY-R,,,,,,,,INT,TBA13,18,,,,,,,,,,,NR,No Response
+,,,EMPTY,S,EMPTY-S,EMPTY-S,,,,,,,,INT,TBA13,19,,,,,,,,,,,NR,No Response
+,,,EMPTY,T,EMPTY-T,EMPTY-T,,,,,,,,INT,TBA13,20,,,,,,,,,,,NR,No Response
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,14. <For future use>,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,EMPTY,EMPTY,A,EMPTY-A,EMPTY-A,,,,,,,,INT,TBA14,1,,,,,,,,,,,NR,No Response
+,,,EMPTY,B,EMPTY-B,EMPTY-B,,,,,,,,INT,TBA14,2,,,,,,,,,,,NR,No Response
+,,,EMPTY,C,EMPTY-C,EMPTY-C,,,,,,,,INT,TBA14,3,,,,,,,,,,,NR,No Response
+,,,EMPTY,D,EMPTY-D,EMPTY-D,,,,,,,,INT,TBA14,4,,,,,,,,,,,NR,No Response
+,,,EMPTY,E,EMPTY-E,EMPTY-E,,,,,,,,INT,TBA14,5,,,,,,,,,,,NR,No Response
+,,,EMPTY,F,EMPTY-F,EMPTY-F,,,,,,,,INT,TBA14,6,,,,,,,,,,,NR,No Response
+,,,EMPTY,G,EMPTY-G,EMPTY-G,,,,,,,,INT,TBA14,7,,,,,,,,,,,NR,No Response
+,,,EMPTY,H,EMPTY-H,EMPTY-H,,,,,,,,INT,TBA14,8,,,,,,,,,,,NR,No Response
+,,,EMPTY,I,EMPTY-I,EMPTY-I,,,,,,,,INT,TBA14,9,,,,,,,,,,,NR,No Response
+,,,EMPTY,J,EMPTY-J,EMPTY-J,,,,,,,,INT,TBA14,10,,,,,,,,,,,NR,No Response
+,,,EMPTY,K,EMPTY-K,EMPTY-K,,,,,,,,INT,TBA14,11,,,,,,,,,,,NR,No Response
+,,,EMPTY,L,EMPTY-L,EMPTY-L,,,,,,,,INT,TBA14,12,,,,,,,,,,,NR,No Response
+,,,EMPTY,M,EMPTY-M,EMPTY-M,,,,,,,,INT,TBA14,13,,,,,,,,,,,NR,No Response
+,,,EMPTY,N,EMPTY-N,EMPTY-N,,,,,,,,INT,TBA14,14,,,,,,,,,,,NR,No Response
+,,,EMPTY,O,EMPTY-O,EMPTY-O,,,,,,,,INT,TBA14,15,,,,,,,,,,,NR,No Response
+,,,EMPTY,P,EMPTY-P,EMPTY-P,,,,,,,,INT,TBA14,16,,,,,,,,,,,NR,No Response
+,,,EMPTY,Q,EMPTY-Q,EMPTY-Q,,,,,,,,INT,TBA14,17,,,,,,,,,,,NR,No Response
+,,,EMPTY,R,EMPTY-R,EMPTY-R,,,,,,,,INT,TBA14,18,,,,,,,,,,,NR,No Response
+,,,EMPTY,S,EMPTY-S,EMPTY-S,,,,,,,,INT,TBA14,19,,,,,,,,,,,NR,No Response
+,,,EMPTY,T,EMPTY-T,EMPTY-T,,,,,,,,INT,TBA14,20,,,,,,,,,,,NR,No Response
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,15. <For future use>,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,EMPTY,EMPTY,A,EMPTY-A,EMPTY-A,,,,,,,,INT,TBA15,1,,,,,,,,,,,NR,No Response
+,,,EMPTY,B,EMPTY-B,EMPTY-B,,,,,,,,INT,TBA15,2,,,,,,,,,,,NR,No Response
+,,,EMPTY,C,EMPTY-C,EMPTY-C,,,,,,,,INT,TBA15,3,,,,,,,,,,,NR,No Response
+,,,EMPTY,D,EMPTY-D,EMPTY-D,,,,,,,,INT,TBA15,4,,,,,,,,,,,NR,No Response
+,,,EMPTY,E,EMPTY-E,EMPTY-E,,,,,,,,INT,TBA15,5,,,,,,,,,,,NR,No Response
+,,,EMPTY,F,EMPTY-F,EMPTY-F,,,,,,,,INT,TBA15,6,,,,,,,,,,,NR,No Response
+,,,EMPTY,G,EMPTY-G,EMPTY-G,,,,,,,,INT,TBA15,7,,,,,,,,,,,NR,No Response
+,,,EMPTY,H,EMPTY-H,EMPTY-H,,,,,,,,INT,TBA15,8,,,,,,,,,,,NR,No Response
+,,,EMPTY,I,EMPTY-I,EMPTY-I,,,,,,,,INT,TBA15,9,,,,,,,,,,,NR,No Response
+,,,EMPTY,J,EMPTY-J,EMPTY-J,,,,,,,,INT,TBA15,10,,,,,,,,,,,NR,No Response
+,,,EMPTY,K,EMPTY-K,EMPTY-K,,,,,,,,INT,TBA15,11,,,,,,,,,,,NR,No Response
+,,,EMPTY,L,EMPTY-L,EMPTY-L,,,,,,,,INT,TBA15,12,,,,,,,,,,,NR,No Response
+,,,EMPTY,M,EMPTY-M,EMPTY-M,,,,,,,,INT,TBA15,13,,,,,,,,,,,NR,No Response
+,,,EMPTY,N,EMPTY-N,EMPTY-N,,,,,,,,INT,TBA15,14,,,,,,,,,,,NR,No Response
+,,,EMPTY,O,EMPTY-O,EMPTY-O,,,,,,,,INT,TBA15,15,,,,,,,,,,,NR,No Response
+,,,EMPTY,P,EMPTY-P,EMPTY-P,,,,,,,,INT,TBA15,16,,,,,,,,,,,NR,No Response
+,,,EMPTY,Q,EMPTY-Q,EMPTY-Q,,,,,,,,INT,TBA15,17,,,,,,,,,,,NR,No Response
+,,,EMPTY,R,EMPTY-R,EMPTY-R,,,,,,,,INT,TBA15,18,,,,,,,,,,,NR,No Response
+,,,EMPTY,S,EMPTY-S,EMPTY-S,,,,,,,,INT,TBA15,19,,,,,,,,,,,NR,No Response
+,,,EMPTY,T,EMPTY-T,EMPTY-T,,,,,,,,INT,TBA15,20,,,,,,,,,,,NR,No Response
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,16. <For future use>,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,EMPTY,EMPTY,A,EMPTY-A,EMPTY-A,,,,,,,,INT,TBA16,1,,,,,,,,,,,NR,No Response
+,,,EMPTY,B,EMPTY-B,EMPTY-B,,,,,,,,INT,TBA16,2,,,,,,,,,,,NR,No Response
+,,,EMPTY,C,EMPTY-C,EMPTY-C,,,,,,,,INT,TBA16,3,,,,,,,,,,,NR,No Response
+,,,EMPTY,D,EMPTY-D,EMPTY-D,,,,,,,,INT,TBA16,4,,,,,,,,,,,NR,No Response
+,,,EMPTY,E,EMPTY-E,EMPTY-E,,,,,,,,INT,TBA16,5,,,,,,,,,,,NR,No Response
+,,,EMPTY,F,EMPTY-F,EMPTY-F,,,,,,,,INT,TBA16,6,,,,,,,,,,,NR,No Response
+,,,EMPTY,G,EMPTY-G,EMPTY-G,,,,,,,,INT,TBA16,7,,,,,,,,,,,NR,No Response
+,,,EMPTY,H,EMPTY-H,EMPTY-H,,,,,,,,INT,TBA16,8,,,,,,,,,,,NR,No Response
+,,,EMPTY,I,EMPTY-I,EMPTY-I,,,,,,,,INT,TBA16,9,,,,,,,,,,,NR,No Response
+,,,EMPTY,J,EMPTY-J,EMPTY-J,,,,,,,,INT,TBA16,10,,,,,,,,,,,NR,No Response
+,,,EMPTY,K,EMPTY-K,EMPTY-K,,,,,,,,INT,TBA16,11,,,,,,,,,,,NR,No Response
+,,,EMPTY,L,EMPTY-L,EMPTY-L,,,,,,,,INT,TBA16,12,,,,,,,,,,,NR,No Response
+,,,EMPTY,M,EMPTY-M,EMPTY-M,,,,,,,,INT,TBA16,13,,,,,,,,,,,NR,No Response
+,,,EMPTY,N,EMPTY-N,EMPTY-N,,,,,,,,INT,TBA16,14,,,,,,,,,,,NR,No Response
+,,,EMPTY,O,EMPTY-O,EMPTY-O,,,,,,,,INT,TBA16,15,,,,,,,,,,,NR,No Response
+,,,EMPTY,P,EMPTY-P,EMPTY-P,,,,,,,,INT,TBA16,16,,,,,,,,,,,NR,No Response
+,,,EMPTY,Q,EMPTY-Q,EMPTY-Q,,,,,,,,INT,TBA16,17,,,,,,,,,,,NR,No Response
+,,,EMPTY,R,EMPTY-R,EMPTY-R,,,,,,,,INT,TBA16,18,,,,,,,,,,,NR,No Response
+,,,EMPTY,S,EMPTY-S,EMPTY-S,,,,,,,,INT,TBA16,19,,,,,,,,,,,NR,No Response
+,,,EMPTY,T,EMPTY-T,EMPTY-T,,,,,,,,INT,TBA16,20,,,,,,,,,,,NR,No Response
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,17. <For future use>,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,EMPTY,EMPTY,A,EMPTY-A,EMPTY-A,,,,,,,,INT,TBA17,1,,,,,,,,,,,NR,No Response
+,,,EMPTY,B,EMPTY-B,EMPTY-B,,,,,,,,INT,TBA17,2,,,,,,,,,,,NR,No Response
+,,,EMPTY,C,EMPTY-C,EMPTY-C,,,,,,,,INT,TBA17,3,,,,,,,,,,,NR,No Response
+,,,EMPTY,D,EMPTY-D,EMPTY-D,,,,,,,,INT,TBA17,4,,,,,,,,,,,NR,No Response
+,,,EMPTY,E,EMPTY-E,EMPTY-E,,,,,,,,INT,TBA17,5,,,,,,,,,,,NR,No Response
+,,,EMPTY,F,EMPTY-F,EMPTY-F,,,,,,,,INT,TBA17,6,,,,,,,,,,,NR,No Response
+,,,EMPTY,G,EMPTY-G,EMPTY-G,,,,,,,,INT,TBA17,7,,,,,,,,,,,NR,No Response
+,,,EMPTY,H,EMPTY-H,EMPTY-H,,,,,,,,INT,TBA17,8,,,,,,,,,,,NR,No Response
+,,,EMPTY,I,EMPTY-I,EMPTY-I,,,,,,,,INT,TBA17,9,,,,,,,,,,,NR,No Response
+,,,EMPTY,J,EMPTY-J,EMPTY-J,,,,,,,,INT,TBA17,10,,,,,,,,,,,NR,No Response
+,,,EMPTY,K,EMPTY-K,EMPTY-K,,,,,,,,INT,TBA17,11,,,,,,,,,,,NR,No Response
+,,,EMPTY,L,EMPTY-L,EMPTY-L,,,,,,,,INT,TBA17,12,,,,,,,,,,,NR,No Response
+,,,EMPTY,M,EMPTY-M,EMPTY-M,,,,,,,,INT,TBA17,13,,,,,,,,,,,NR,No Response
+,,,EMPTY,N,EMPTY-N,EMPTY-N,,,,,,,,INT,TBA17,14,,,,,,,,,,,NR,No Response
+,,,EMPTY,O,EMPTY-O,EMPTY-O,,,,,,,,INT,TBA17,15,,,,,,,,,,,NR,No Response
+,,,EMPTY,P,EMPTY-P,EMPTY-P,,,,,,,,INT,TBA17,16,,,,,,,,,,,NR,No Response
+,,,EMPTY,Q,EMPTY-Q,EMPTY-Q,,,,,,,,INT,TBA17,17,,,,,,,,,,,NR,No Response
+,,,EMPTY,R,EMPTY-R,EMPTY-R,,,,,,,,INT,TBA17,18,,,,,,,,,,,NR,No Response
+,,,EMPTY,S,EMPTY-S,EMPTY-S,,,,,,,,INT,TBA17,19,,,,,,,,,,,NR,No Response
+,,,EMPTY,T,EMPTY-T,EMPTY-T,,,,,,,,INT,TBA17,20,,,,,,,,,,,NR,No Response
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,18. <For future use>,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,EMPTY,EMPTY,A,EMPTY-A,EMPTY-A,,,,,,,,INT,TBA18,1,,,,,,,,,,,NR,No Response
+,,,EMPTY,B,EMPTY-B,EMPTY-B,,,,,,,,INT,TBA18,2,,,,,,,,,,,NR,No Response
+,,,EMPTY,C,EMPTY-C,EMPTY-C,,,,,,,,INT,TBA18,3,,,,,,,,,,,NR,No Response
+,,,EMPTY,D,EMPTY-D,EMPTY-D,,,,,,,,INT,TBA18,4,,,,,,,,,,,NR,No Response
+,,,EMPTY,E,EMPTY-E,EMPTY-E,,,,,,,,INT,TBA18,5,,,,,,,,,,,NR,No Response
+,,,EMPTY,F,EMPTY-F,EMPTY-F,,,,,,,,INT,TBA18,6,,,,,,,,,,,NR,No Response
+,,,EMPTY,G,EMPTY-G,EMPTY-G,,,,,,,,INT,TBA18,7,,,,,,,,,,,NR,No Response
+,,,EMPTY,H,EMPTY-H,EMPTY-H,,,,,,,,INT,TBA18,8,,,,,,,,,,,NR,No Response
+,,,EMPTY,I,EMPTY-I,EMPTY-I,,,,,,,,INT,TBA18,9,,,,,,,,,,,NR,No Response
+,,,EMPTY,J,EMPTY-J,EMPTY-J,,,,,,,,INT,TBA18,10,,,,,,,,,,,NR,No Response
+,,,EMPTY,K,EMPTY-K,EMPTY-K,,,,,,,,INT,TBA18,11,,,,,,,,,,,NR,No Response
+,,,EMPTY,L,EMPTY-L,EMPTY-L,,,,,,,,INT,TBA18,12,,,,,,,,,,,NR,No Response
+,,,EMPTY,M,EMPTY-M,EMPTY-M,,,,,,,,INT,TBA18,13,,,,,,,,,,,NR,No Response
+,,,EMPTY,N,EMPTY-N,EMPTY-N,,,,,,,,INT,TBA18,14,,,,,,,,,,,NR,No Response
+,,,EMPTY,O,EMPTY-O,EMPTY-O,,,,,,,,INT,TBA18,15,,,,,,,,,,,NR,No Response
+,,,EMPTY,P,EMPTY-P,EMPTY-P,,,,,,,,INT,TBA18,16,,,,,,,,,,,NR,No Response
+,,,EMPTY,Q,EMPTY-Q,EMPTY-Q,,,,,,,,INT,TBA18,17,,,,,,,,,,,NR,No Response
+,,,EMPTY,R,EMPTY-R,EMPTY-R,,,,,,,,INT,TBA18,18,,,,,,,,,,,NR,No Response
+,,,EMPTY,S,EMPTY-S,EMPTY-S,,,,,,,,INT,TBA18,19,,,,,,,,,,,NR,No Response
+,,,EMPTY,T,EMPTY-T,EMPTY-T,,,,,,,,INT,TBA18,20,,,,,,,,,,,NR,No Response
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,19. <For future use>,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,EMPTY,EMPTY,A,EMPTY-A,EMPTY-A,,,,,,,,INT,TBA19,1,,,,,,,,,,,NR,No Response
+,,,EMPTY,B,EMPTY-B,EMPTY-B,,,,,,,,INT,TBA19,2,,,,,,,,,,,NR,No Response
+,,,EMPTY,C,EMPTY-C,EMPTY-C,,,,,,,,INT,TBA19,3,,,,,,,,,,,NR,No Response
+,,,EMPTY,D,EMPTY-D,EMPTY-D,,,,,,,,INT,TBA19,4,,,,,,,,,,,NR,No Response
+,,,EMPTY,E,EMPTY-E,EMPTY-E,,,,,,,,INT,TBA19,5,,,,,,,,,,,NR,No Response
+,,,EMPTY,F,EMPTY-F,EMPTY-F,,,,,,,,INT,TBA19,6,,,,,,,,,,,NR,No Response
+,,,EMPTY,G,EMPTY-G,EMPTY-G,,,,,,,,INT,TBA19,7,,,,,,,,,,,NR,No Response
+,,,EMPTY,H,EMPTY-H,EMPTY-H,,,,,,,,INT,TBA19,8,,,,,,,,,,,NR,No Response
+,,,EMPTY,I,EMPTY-I,EMPTY-I,,,,,,,,INT,TBA19,9,,,,,,,,,,,NR,No Response
+,,,EMPTY,J,EMPTY-J,EMPTY-J,,,,,,,,INT,TBA19,10,,,,,,,,,,,NR,No Response
+,,,EMPTY,K,EMPTY-K,EMPTY-K,,,,,,,,INT,TBA19,11,,,,,,,,,,,NR,No Response
+,,,EMPTY,L,EMPTY-L,EMPTY-L,,,,,,,,INT,TBA19,12,,,,,,,,,,,NR,No Response
+,,,EMPTY,M,EMPTY-M,EMPTY-M,,,,,,,,INT,TBA19,13,,,,,,,,,,,NR,No Response
+,,,EMPTY,N,EMPTY-N,EMPTY-N,,,,,,,,INT,TBA19,14,,,,,,,,,,,NR,No Response
+,,,EMPTY,O,EMPTY-O,EMPTY-O,,,,,,,,INT,TBA19,15,,,,,,,,,,,NR,No Response
+,,,EMPTY,P,EMPTY-P,EMPTY-P,,,,,,,,INT,TBA19,16,,,,,,,,,,,NR,No Response
+,,,EMPTY,Q,EMPTY-Q,EMPTY-Q,,,,,,,,INT,TBA19,17,,,,,,,,,,,NR,No Response
+,,,EMPTY,R,EMPTY-R,EMPTY-R,,,,,,,,INT,TBA19,18,,,,,,,,,,,NR,No Response
+,,,EMPTY,S,EMPTY-S,EMPTY-S,,,,,,,,INT,TBA19,19,,,,,,,,,,,NR,No Response
+,,,EMPTY,T,EMPTY-T,EMPTY-T,,,,,,,,INT,TBA19,20,,,,,,,,,,,NR,No Response
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,20. <For future use>,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,EMPTY,EMPTY,A,EMPTY-A,EMPTY-A,,,,,,,,INT,TBA20,1,,,,,,,,,,,NR,No Response
+,,,EMPTY,B,EMPTY-B,EMPTY-B,,,,,,,,INT,TBA20,2,,,,,,,,,,,NR,No Response
+,,,EMPTY,C,EMPTY-C,EMPTY-C,,,,,,,,INT,TBA20,3,,,,,,,,,,,NR,No Response
+,,,EMPTY,D,EMPTY-D,EMPTY-D,,,,,,,,INT,TBA20,4,,,,,,,,,,,NR,No Response
+,,,EMPTY,E,EMPTY-E,EMPTY-E,,,,,,,,INT,TBA20,5,,,,,,,,,,,NR,No Response
+,,,EMPTY,F,EMPTY-F,EMPTY-F,,,,,,,,INT,TBA20,6,,,,,,,,,,,NR,No Response
+,,,EMPTY,G,EMPTY-G,EMPTY-G,,,,,,,,INT,TBA20,7,,,,,,,,,,,NR,No Response
+,,,EMPTY,H,EMPTY-H,EMPTY-H,,,,,,,,INT,TBA20,8,,,,,,,,,,,NR,No Response
+,,,EMPTY,I,EMPTY-I,EMPTY-I,,,,,,,,INT,TBA20,9,,,,,,,,,,,NR,No Response
+,,,EMPTY,J,EMPTY-J,EMPTY-J,,,,,,,,INT,TBA20,10,,,,,,,,,,,NR,No Response
+,,,EMPTY,K,EMPTY-K,EMPTY-K,,,,,,,,INT,TBA20,11,,,,,,,,,,,NR,No Response
+,,,EMPTY,L,EMPTY-L,EMPTY-L,,,,,,,,INT,TBA20,12,,,,,,,,,,,NR,No Response
+,,,EMPTY,M,EMPTY-M,EMPTY-M,,,,,,,,INT,TBA20,13,,,,,,,,,,,NR,No Response
+,,,EMPTY,N,EMPTY-N,EMPTY-N,,,,,,,,INT,TBA20,14,,,,,,,,,,,NR,No Response
+,,,EMPTY,O,EMPTY-O,EMPTY-O,,,,,,,,INT,TBA20,15,,,,,,,,,,,NR,No Response
+,,,EMPTY,P,EMPTY-P,EMPTY-P,,,,,,,,INT,TBA20,16,,,,,,,,,,,NR,No Response
+,,,EMPTY,Q,EMPTY-Q,EMPTY-Q,,,,,,,,INT,TBA20,17,,,,,,,,,,,NR,No Response
+,,,EMPTY,R,EMPTY-R,EMPTY-R,,,,,,,,INT,TBA20,18,,,,,,,,,,,NR,No Response
+,,,EMPTY,S,EMPTY-S,EMPTY-S,,,,,,,,INT,TBA20,19,,,,,,,,,,,NR,No Response
+,,,EMPTY,T,EMPTY-T,EMPTY-T,,,,,,,,INT,TBA20,20,,,,,,,,,,,NR,No Response
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,21. <For future use>,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,EMPTY,EMPTY,A,EMPTY-A,EMPTY-A,,,,,,,,INT,TBA21,1,,,,,,,,,,,NR,No Response
+,,,EMPTY,B,EMPTY-B,EMPTY-B,,,,,,,,INT,TBA21,2,,,,,,,,,,,NR,No Response
+,,,EMPTY,C,EMPTY-C,EMPTY-C,,,,,,,,INT,TBA21,3,,,,,,,,,,,NR,No Response
+,,,EMPTY,D,EMPTY-D,EMPTY-D,,,,,,,,INT,TBA21,4,,,,,,,,,,,NR,No Response
+,,,EMPTY,E,EMPTY-E,EMPTY-E,,,,,,,,INT,TBA21,5,,,,,,,,,,,NR,No Response
+,,,EMPTY,F,EMPTY-F,EMPTY-F,,,,,,,,INT,TBA21,6,,,,,,,,,,,NR,No Response
+,,,EMPTY,G,EMPTY-G,EMPTY-G,,,,,,,,INT,TBA21,7,,,,,,,,,,,NR,No Response
+,,,EMPTY,H,EMPTY-H,EMPTY-H,,,,,,,,INT,TBA21,8,,,,,,,,,,,NR,No Response
+,,,EMPTY,I,EMPTY-I,EMPTY-I,,,,,,,,INT,TBA21,9,,,,,,,,,,,NR,No Response
+,,,EMPTY,J,EMPTY-J,EMPTY-J,,,,,,,,INT,TBA21,10,,,,,,,,,,,NR,No Response
+,,,EMPTY,K,EMPTY-K,EMPTY-K,,,,,,,,INT,TBA21,11,,,,,,,,,,,NR,No Response
+,,,EMPTY,L,EMPTY-L,EMPTY-L,,,,,,,,INT,TBA21,12,,,,,,,,,,,NR,No Response
+,,,EMPTY,M,EMPTY-M,EMPTY-M,,,,,,,,INT,TBA21,13,,,,,,,,,,,NR,No Response
+,,,EMPTY,N,EMPTY-N,EMPTY-N,,,,,,,,INT,TBA21,14,,,,,,,,,,,NR,No Response
+,,,EMPTY,O,EMPTY-O,EMPTY-O,,,,,,,,INT,TBA21,15,,,,,,,,,,,NR,No Response
+,,,EMPTY,P,EMPTY-P,EMPTY-P,,,,,,,,INT,TBA21,16,,,,,,,,,,,NR,No Response
+,,,EMPTY,Q,EMPTY-Q,EMPTY-Q,,,,,,,,INT,TBA21,17,,,,,,,,,,,NR,No Response
+,,,EMPTY,R,EMPTY-R,EMPTY-R,,,,,,,,INT,TBA21,18,,,,,,,,,,,NR,No Response
+,,,EMPTY,S,EMPTY-S,EMPTY-S,,,,,,,,INT,TBA21,19,,,,,,,,,,,NR,No Response
+,,,EMPTY,T,EMPTY-T,EMPTY-T,,,,,,,,INT,TBA21,20,,,,,,,,,,,NR,No Response
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,22. <For future use>,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,EMPTY,EMPTY,A,EMPTY-A,EMPTY-A,,,,,,,,INT,TBA22,1,,,,,,,,,,,NR,No Response
+,,,EMPTY,B,EMPTY-B,EMPTY-B,,,,,,,,INT,TBA22,2,,,,,,,,,,,NR,No Response
+,,,EMPTY,C,EMPTY-C,EMPTY-C,,,,,,,,INT,TBA22,3,,,,,,,,,,,NR,No Response
+,,,EMPTY,D,EMPTY-D,EMPTY-D,,,,,,,,INT,TBA22,4,,,,,,,,,,,NR,No Response
+,,,EMPTY,E,EMPTY-E,EMPTY-E,,,,,,,,INT,TBA22,5,,,,,,,,,,,NR,No Response
+,,,EMPTY,F,EMPTY-F,EMPTY-F,,,,,,,,INT,TBA22,6,,,,,,,,,,,NR,No Response
+,,,EMPTY,G,EMPTY-G,EMPTY-G,,,,,,,,INT,TBA22,7,,,,,,,,,,,NR,No Response
+,,,EMPTY,H,EMPTY-H,EMPTY-H,,,,,,,,INT,TBA22,8,,,,,,,,,,,NR,No Response
+,,,EMPTY,I,EMPTY-I,EMPTY-I,,,,,,,,INT,TBA22,9,,,,,,,,,,,NR,No Response
+,,,EMPTY,J,EMPTY-J,EMPTY-J,,,,,,,,INT,TBA22,10,,,,,,,,,,,NR,No Response
+,,,EMPTY,K,EMPTY-K,EMPTY-K,,,,,,,,INT,TBA22,11,,,,,,,,,,,NR,No Response
+,,,EMPTY,L,EMPTY-L,EMPTY-L,,,,,,,,INT,TBA22,12,,,,,,,,,,,NR,No Response
+,,,EMPTY,M,EMPTY-M,EMPTY-M,,,,,,,,INT,TBA22,13,,,,,,,,,,,NR,No Response
+,,,EMPTY,N,EMPTY-N,EMPTY-N,,,,,,,,INT,TBA22,14,,,,,,,,,,,NR,No Response
+,,,EMPTY,O,EMPTY-O,EMPTY-O,,,,,,,,INT,TBA22,15,,,,,,,,,,,NR,No Response
+,,,EMPTY,P,EMPTY-P,EMPTY-P,,,,,,,,INT,TBA22,16,,,,,,,,,,,NR,No Response
+,,,EMPTY,Q,EMPTY-Q,EMPTY-Q,,,,,,,,INT,TBA22,17,,,,,,,,,,,NR,No Response
+,,,EMPTY,R,EMPTY-R,EMPTY-R,,,,,,,,INT,TBA22,18,,,,,,,,,,,NR,No Response
+,,,EMPTY,S,EMPTY-S,EMPTY-S,,,,,,,,INT,TBA22,19,,,,,,,,,,,NR,No Response
+,,,EMPTY,T,EMPTY-T,EMPTY-T,,,,,,,,INT,TBA22,20,,,,,,,,,,,NR,No Response
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,23. <For future use>,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,EMPTY,EMPTY,A,EMPTY-A,EMPTY-A,,,,,,,,INT,TBA23,1,,,,,,,,,,,NR,No Response
+,,,EMPTY,B,EMPTY-B,EMPTY-B,,,,,,,,INT,TBA23,2,,,,,,,,,,,NR,No Response
+,,,EMPTY,C,EMPTY-C,EMPTY-C,,,,,,,,INT,TBA23,3,,,,,,,,,,,NR,No Response
+,,,EMPTY,D,EMPTY-D,EMPTY-D,,,,,,,,INT,TBA23,4,,,,,,,,,,,NR,No Response
+,,,EMPTY,E,EMPTY-E,EMPTY-E,,,,,,,,INT,TBA23,5,,,,,,,,,,,NR,No Response
+,,,EMPTY,F,EMPTY-F,EMPTY-F,,,,,,,,INT,TBA23,6,,,,,,,,,,,NR,No Response
+,,,EMPTY,G,EMPTY-G,EMPTY-G,,,,,,,,INT,TBA23,7,,,,,,,,,,,NR,No Response
+,,,EMPTY,H,EMPTY-H,EMPTY-H,,,,,,,,INT,TBA23,8,,,,,,,,,,,NR,No Response
+,,,EMPTY,I,EMPTY-I,EMPTY-I,,,,,,,,INT,TBA23,9,,,,,,,,,,,NR,No Response
+,,,EMPTY,J,EMPTY-J,EMPTY-J,,,,,,,,INT,TBA23,10,,,,,,,,,,,NR,No Response
+,,,EMPTY,K,EMPTY-K,EMPTY-K,,,,,,,,INT,TBA23,11,,,,,,,,,,,NR,No Response
+,,,EMPTY,L,EMPTY-L,EMPTY-L,,,,,,,,INT,TBA23,12,,,,,,,,,,,NR,No Response
+,,,EMPTY,M,EMPTY-M,EMPTY-M,,,,,,,,INT,TBA23,13,,,,,,,,,,,NR,No Response
+,,,EMPTY,N,EMPTY-N,EMPTY-N,,,,,,,,INT,TBA23,14,,,,,,,,,,,NR,No Response
+,,,EMPTY,O,EMPTY-O,EMPTY-O,,,,,,,,INT,TBA23,15,,,,,,,,,,,NR,No Response
+,,,EMPTY,P,EMPTY-P,EMPTY-P,,,,,,,,INT,TBA23,16,,,,,,,,,,,NR,No Response
+,,,EMPTY,Q,EMPTY-Q,EMPTY-Q,,,,,,,,INT,TBA23,17,,,,,,,,,,,NR,No Response
+,,,EMPTY,R,EMPTY-R,EMPTY-R,,,,,,,,INT,TBA23,18,,,,,,,,,,,NR,No Response
+,,,EMPTY,S,EMPTY-S,EMPTY-S,,,,,,,,INT,TBA23,19,,,,,,,,,,,NR,No Response
+,,,EMPTY,T,EMPTY-T,EMPTY-T,,,,,,,,INT,TBA23,20,,,,,,,,,,,NR,No Response
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,24. <For future use>,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,EMPTY,EMPTY,A,EMPTY-A,EMPTY-A,,,,,,,,INT,TBA24,1,,,,,,,,,,,NR,No Response
+,,,EMPTY,B,EMPTY-B,EMPTY-B,,,,,,,,INT,TBA24,2,,,,,,,,,,,NR,No Response
+,,,EMPTY,C,EMPTY-C,EMPTY-C,,,,,,,,INT,TBA24,3,,,,,,,,,,,NR,No Response
+,,,EMPTY,D,EMPTY-D,EMPTY-D,,,,,,,,INT,TBA24,4,,,,,,,,,,,NR,No Response
+,,,EMPTY,E,EMPTY-E,EMPTY-E,,,,,,,,INT,TBA24,5,,,,,,,,,,,NR,No Response
+,,,EMPTY,F,EMPTY-F,EMPTY-F,,,,,,,,INT,TBA24,6,,,,,,,,,,,NR,No Response
+,,,EMPTY,G,EMPTY-G,EMPTY-G,,,,,,,,INT,TBA24,7,,,,,,,,,,,NR,No Response
+,,,EMPTY,H,EMPTY-H,EMPTY-H,,,,,,,,INT,TBA24,8,,,,,,,,,,,NR,No Response
+,,,EMPTY,I,EMPTY-I,EMPTY-I,,,,,,,,INT,TBA24,9,,,,,,,,,,,NR,No Response
+,,,EMPTY,J,EMPTY-J,EMPTY-J,,,,,,,,INT,TBA24,10,,,,,,,,,,,NR,No Response
+,,,EMPTY,K,EMPTY-K,EMPTY-K,,,,,,,,INT,TBA24,11,,,,,,,,,,,NR,No Response
+,,,EMPTY,L,EMPTY-L,EMPTY-L,,,,,,,,INT,TBA24,12,,,,,,,,,,,NR,No Response
+,,,EMPTY,M,EMPTY-M,EMPTY-M,,,,,,,,INT,TBA24,13,,,,,,,,,,,NR,No Response
+,,,EMPTY,N,EMPTY-N,EMPTY-N,,,,,,,,INT,TBA24,14,,,,,,,,,,,NR,No Response
+,,,EMPTY,O,EMPTY-O,EMPTY-O,,,,,,,,INT,TBA24,15,,,,,,,,,,,NR,No Response
+,,,EMPTY,P,EMPTY-P,EMPTY-P,,,,,,,,INT,TBA24,16,,,,,,,,,,,NR,No Response
+,,,EMPTY,Q,EMPTY-Q,EMPTY-Q,,,,,,,,INT,TBA24,17,,,,,,,,,,,NR,No Response
+,,,EMPTY,R,EMPTY-R,EMPTY-R,,,,,,,,INT,TBA24,18,,,,,,,,,,,NR,No Response
+,,,EMPTY,S,EMPTY-S,EMPTY-S,,,,,,,,INT,TBA24,19,,,,,,,,,,,NR,No Response
+,,,EMPTY,T,EMPTY-T,EMPTY-T,,,,,,,,INT,TBA24,20,,,,,,,,,,,NR,No Response
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,25. <For future use>,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,EMPTY,EMPTY,A,EMPTY-A,EMPTY-A,,,,,,,,INT,TBA25,1,,,,,,,,,,,NR,No Response
+,,,EMPTY,B,EMPTY-B,EMPTY-B,,,,,,,,INT,TBA25,2,,,,,,,,,,,NR,No Response
+,,,EMPTY,C,EMPTY-C,EMPTY-C,,,,,,,,INT,TBA25,3,,,,,,,,,,,NR,No Response
+,,,EMPTY,D,EMPTY-D,EMPTY-D,,,,,,,,INT,TBA25,4,,,,,,,,,,,NR,No Response
+,,,EMPTY,E,EMPTY-E,EMPTY-E,,,,,,,,INT,TBA25,5,,,,,,,,,,,NR,No Response
+,,,EMPTY,F,EMPTY-F,EMPTY-F,,,,,,,,INT,TBA25,6,,,,,,,,,,,NR,No Response
+,,,EMPTY,G,EMPTY-G,EMPTY-G,,,,,,,,INT,TBA25,7,,,,,,,,,,,NR,No Response
+,,,EMPTY,H,EMPTY-H,EMPTY-H,,,,,,,,INT,TBA25,8,,,,,,,,,,,NR,No Response
+,,,EMPTY,I,EMPTY-I,EMPTY-I,,,,,,,,INT,TBA25,9,,,,,,,,,,,NR,No Response
+,,,EMPTY,J,EMPTY-J,EMPTY-J,,,,,,,,INT,TBA25,10,,,,,,,,,,,NR,No Response
+,,,EMPTY,K,EMPTY-K,EMPTY-K,,,,,,,,INT,TBA25,11,,,,,,,,,,,NR,No Response
+,,,EMPTY,L,EMPTY-L,EMPTY-L,,,,,,,,INT,TBA25,12,,,,,,,,,,,NR,No Response
+,,,EMPTY,M,EMPTY-M,EMPTY-M,,,,,,,,INT,TBA25,13,,,,,,,,,,,NR,No Response
+,,,EMPTY,N,EMPTY-N,EMPTY-N,,,,,,,,INT,TBA25,14,,,,,,,,,,,NR,No Response
+,,,EMPTY,O,EMPTY-O,EMPTY-O,,,,,,,,INT,TBA25,15,,,,,,,,,,,NR,No Response
+,,,EMPTY,P,EMPTY-P,EMPTY-P,,,,,,,,INT,TBA25,16,,,,,,,,,,,NR,No Response
+,,,EMPTY,Q,EMPTY-Q,EMPTY-Q,,,,,,,,INT,TBA25,17,,,,,,,,,,,NR,No Response
+,,,EMPTY,R,EMPTY-R,EMPTY-R,,,,,,,,INT,TBA25,18,,,,,,,,,,,NR,No Response
+,,,EMPTY,S,EMPTY-S,EMPTY-S,,,,,,,,INT,TBA25,19,,,,,,,,,,,NR,No Response
+,,,EMPTY,T,EMPTY-T,EMPTY-T,,,,,,,,INT,TBA25,20,,,,,,,,,,,NR,No Response
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,26. <For future use>,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,EMPTY,EMPTY,A,EMPTY-A,EMPTY-A,,,,,,,,INT,TBA26,1,,,,,,,,,,,NR,No Response
+,,,EMPTY,B,EMPTY-B,EMPTY-B,,,,,,,,INT,TBA26,2,,,,,,,,,,,NR,No Response
+,,,EMPTY,C,EMPTY-C,EMPTY-C,,,,,,,,INT,TBA26,3,,,,,,,,,,,NR,No Response
+,,,EMPTY,D,EMPTY-D,EMPTY-D,,,,,,,,INT,TBA26,4,,,,,,,,,,,NR,No Response
+,,,EMPTY,E,EMPTY-E,EMPTY-E,,,,,,,,INT,TBA26,5,,,,,,,,,,,NR,No Response
+,,,EMPTY,F,EMPTY-F,EMPTY-F,,,,,,,,INT,TBA26,6,,,,,,,,,,,NR,No Response
+,,,EMPTY,G,EMPTY-G,EMPTY-G,,,,,,,,INT,TBA26,7,,,,,,,,,,,NR,No Response
+,,,EMPTY,H,EMPTY-H,EMPTY-H,,,,,,,,INT,TBA26,8,,,,,,,,,,,NR,No Response
+,,,EMPTY,I,EMPTY-I,EMPTY-I,,,,,,,,INT,TBA26,9,,,,,,,,,,,NR,No Response
+,,,EMPTY,J,EMPTY-J,EMPTY-J,,,,,,,,INT,TBA26,10,,,,,,,,,,,NR,No Response
+,,,EMPTY,K,EMPTY-K,EMPTY-K,,,,,,,,INT,TBA26,11,,,,,,,,,,,NR,No Response
+,,,EMPTY,L,EMPTY-L,EMPTY-L,,,,,,,,INT,TBA26,12,,,,,,,,,,,NR,No Response
+,,,EMPTY,M,EMPTY-M,EMPTY-M,,,,,,,,INT,TBA26,13,,,,,,,,,,,NR,No Response
+,,,EMPTY,N,EMPTY-N,EMPTY-N,,,,,,,,INT,TBA26,14,,,,,,,,,,,NR,No Response
+,,,EMPTY,O,EMPTY-O,EMPTY-O,,,,,,,,INT,TBA26,15,,,,,,,,,,,NR,No Response
+,,,EMPTY,P,EMPTY-P,EMPTY-P,,,,,,,,INT,TBA26,16,,,,,,,,,,,NR,No Response
+,,,EMPTY,Q,EMPTY-Q,EMPTY-Q,,,,,,,,INT,TBA26,17,,,,,,,,,,,NR,No Response
+,,,EMPTY,R,EMPTY-R,EMPTY-R,,,,,,,,INT,TBA26,18,,,,,,,,,,,NR,No Response
+,,,EMPTY,S,EMPTY-S,EMPTY-S,,,,,,,,INT,TBA26,19,,,,,,,,,,,NR,No Response
+,,,EMPTY,T,EMPTY-T,EMPTY-T,,,,,,,,INT,TBA26,20,,,,,,,,,,,NR,No Response
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,27. <For future use>,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,EMPTY,EMPTY,A,EMPTY-A,EMPTY-A,,,,,,,,INT,TBA27,1,,,,,,,,,,,NR,No Response
+,,,EMPTY,B,EMPTY-B,EMPTY-B,,,,,,,,INT,TBA27,2,,,,,,,,,,,NR,No Response
+,,,EMPTY,C,EMPTY-C,EMPTY-C,,,,,,,,INT,TBA27,3,,,,,,,,,,,NR,No Response
+,,,EMPTY,D,EMPTY-D,EMPTY-D,,,,,,,,INT,TBA27,4,,,,,,,,,,,NR,No Response
+,,,EMPTY,E,EMPTY-E,EMPTY-E,,,,,,,,INT,TBA27,5,,,,,,,,,,,NR,No Response
+,,,EMPTY,F,EMPTY-F,EMPTY-F,,,,,,,,INT,TBA27,6,,,,,,,,,,,NR,No Response
+,,,EMPTY,G,EMPTY-G,EMPTY-G,,,,,,,,INT,TBA27,7,,,,,,,,,,,NR,No Response
+,,,EMPTY,H,EMPTY-H,EMPTY-H,,,,,,,,INT,TBA27,8,,,,,,,,,,,NR,No Response
+,,,EMPTY,I,EMPTY-I,EMPTY-I,,,,,,,,INT,TBA27,9,,,,,,,,,,,NR,No Response
+,,,EMPTY,J,EMPTY-J,EMPTY-J,,,,,,,,INT,TBA27,10,,,,,,,,,,,NR,No Response
+,,,EMPTY,K,EMPTY-K,EMPTY-K,,,,,,,,INT,TBA27,11,,,,,,,,,,,NR,No Response
+,,,EMPTY,L,EMPTY-L,EMPTY-L,,,,,,,,INT,TBA27,12,,,,,,,,,,,NR,No Response
+,,,EMPTY,M,EMPTY-M,EMPTY-M,,,,,,,,INT,TBA27,13,,,,,,,,,,,NR,No Response
+,,,EMPTY,N,EMPTY-N,EMPTY-N,,,,,,,,INT,TBA27,14,,,,,,,,,,,NR,No Response
+,,,EMPTY,O,EMPTY-O,EMPTY-O,,,,,,,,INT,TBA27,15,,,,,,,,,,,NR,No Response
+,,,EMPTY,P,EMPTY-P,EMPTY-P,,,,,,,,INT,TBA27,16,,,,,,,,,,,NR,No Response
+,,,EMPTY,Q,EMPTY-Q,EMPTY-Q,,,,,,,,INT,TBA27,17,,,,,,,,,,,NR,No Response
+,,,EMPTY,R,EMPTY-R,EMPTY-R,,,,,,,,INT,TBA27,18,,,,,,,,,,,NR,No Response
+,,,EMPTY,S,EMPTY-S,EMPTY-S,,,,,,,,INT,TBA27,19,,,,,,,,,,,NR,No Response
+,,,EMPTY,T,EMPTY-T,EMPTY-T,,,,,,,,INT,TBA27,20,,,,,,,,,,,NR,No Response
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,OVERALL NARRATIVE,,,,,,,,,,,,,,,,,,,,,,,,,,

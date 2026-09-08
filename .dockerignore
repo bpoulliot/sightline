@@ -1,0 +1,42 @@
+# Mirrors .gitignore, and matters for the same reason: anything copied into an
+# image layer ships with that image. A .env or a course export baked into a
+# layer is as exposed as a commit — more so if the image is ever pushed.
+
+.git
+.gitignore
+data/
+*.imscc
+.env
+.env.*
+!.env.example
+secrets/
+*.pem
+*.key
+*.token
+config.local.*
+instance/
+private/
+
+*.sqlite
+*.sqlite3
+*.db
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Not needed at runtime — keeps the image small and the layer set boring.
+docs/
+examples/sample-report/

@@ -1,0 +1,510 @@
+# Sightline — build specification
+
+**Rev B · 8 September 2026**
+
+An automated first pass over online Canvas courses against the UCCS OSCQR 3.1.3 rubric, a local
+adaptation of SUNY OSCQR. It gathers
+evidence, computes remediation effort, and hands an instructional designer a pre-populated action
+plan. **It does not grade courses and it does not grade faculty.**
+
+The shareable rendering of this document lives at
+<https://claude.ai/code/artifact/d9f97cbe-ba46-420c-b6bb-057c81454cdb>. This file is canonical.
+
+---
+
+## §01 The verdict, and the condition on it
+
+Buildable, and the rubric in use is unusually well suited to it — but only if the product never
+issues a verdict on a subjective item.
+
+The risk was never that a language model can't judge whether a course develops higher-order
+thinking. It's that a model *will* judge it, fluently, and be wrong often enough that faculty
+discard the whole report — including the forty-odd findings that were arithmetic. One bad call on a
+pedagogical item costs every alt-text finding in the document.
+
+> **Design rule.** The model produces checkable artifacts, never verdicts. Every machine-authored
+> line is a computed count, a verbatim quote with a location, or an explicit statement that no
+> evidence was found. A reviewer can falsify any of those in seconds. A rating cannot be falsified
+> without redoing the review, which is why a wrong one is so expensive.
+
+### Why redundancy doesn't rescue the subjective items
+
+Majority-voting over N samples works on maths and code because those have a ground-truth attractor:
+correct answers concentrate, wrong ones scatter. Rubric judgment has no attractor. Five samples
+recover the model's prior, not the right answer — so a mildly agreeable model returns five confident
+agreements on a weak discussion prompt, with zero variance. That manufactures high confidence in a
+wrong call, strictly worse than one uncertain call. Verbalized self-confidence fares worse; small
+local models cluster at the top of any scale offered them.
+
+Redundancy earns its place as a **router, not a validator**. See §06 and roadmap item 11.
+
+### What replaces judgment
+
+Decompose each subjective criterion into extraction questions that are individually near-objective,
+then let a deterministic rule or a person judge. ENIN 5 — *"Activities help learners develop
+higher-order thinking and problem-solving skills, such as critical reflection and analysis"* — is
+built like this:
+
+1. **Extract.** Every graded activity, with the verbatim sentence stating what the student must
+   produce, and its Canvas location.
+2. **Extract.** The task verb from each sentence.
+3. **Compute.** Map verbs against a Bloom's table in code. Produce a distribution.
+4. **Present.** "17 activities: 12 identify/describe/summarize, 3 apply, 2 analyze, 0
+   evaluate/create" — every item linked to source.
+
+The model extracted, a lookup table judged, a human decided.
+
+---
+
+## §02 Determinacy tiers
+
+Every criterion carries a tier. The tier governs how the finding is computed, how confidently it is
+worded, and whether Sightline may pre-select a rating at all.
+
+| Tier | Name | Handling |
+|---|---|---|
+| **A** | Deterministic | Computed by a parser. No model. Rating pre-selected, stated declaratively. |
+| **B** | Evidenced | Model locates and quotes the passage. Rating proposed, worded as evidence. |
+| **C** | Judgment | Pedagogical decision. Context assembled, question drafted, **never** pre-rated. Left at `No Response`. |
+| **D** | Out of scope | Not determinable from artifacts. Defaults to `N/A` with a note. |
+
+Ink density encodes tier throughout the UI (see `docs/tokens.css`): filled is computed, washed is
+evidenced, dashed is judgment, dotted is unreachable.
+
+### Coverage
+
+| Tier | Criteria |
+|---|---|
+| A — deterministic | 29 |
+| B — evidenced | 21 |
+| C — judgment | 14 |
+| D — out of scope | 2 |
+| Unmapped, human-only for now | 2 |
+| **Total** | **68** |
+
+Tier A is large because the accessibility and mobile clusters — ACD 1–11 and MOB 1–9, twenty
+criteria — are almost entirely parser work. Those are also where reviewers currently spend the most
+tedious time. That's the wedge, and it is roadmap item 06.
+
+> **Presentation constraint.** Tier A findings and Tier C prompts must never share a visual channel.
+> Separate blocks in the PDF, distinct treatment in the workbook, different language registers.
+> Blending them transfers the uncertainty of the weakest finding onto the strongest.
+
+---
+
+## §03 What the rubric actually is
+
+Read directly from the workbooks committed at `rubrics/source/`. The reference instrument is
+**UCCS OSCQR 3.1.3** — a local adaptation, **not** stock SUNY OSCQR 4.0 — carrying **68 criteria
+across 7 categories**, not 50. The differences are load-bearing.
+
+| Code | Category | Criteria |
+|---|---|---|
+| COAL | Course Alignment | 7 |
+| GSOV | Getting Started & Overviews | 12 |
+| OREP | Organization & Representation | 11 |
+| ACD | Accessible Course Design | 11 |
+| ENIN | Engagement & Interaction | 12 |
+| ASFE | Assessment & Feedback | 6 |
+| MOB | Mobile Standards | 9 |
+
+### Three properties that make this automate well
+
+**The rating scale is denominated in effort, not quality.** *Sufficiently Present / Minor Revision /
+Moderate Revision / Major Revision / Not Applicable*, with bands: ≤ ½ hour, ½–2 hours, 2+ hours.
+Materially better for automation than a quality scale — for Tier A the rating becomes arithmetic,
+and arithmetic is defensible to a skeptical faculty member in a way a quality score never is.
+
+**The crosswalk already exists.** Every criterion row carries a sequential number, a letter, a
+composite key (`20a`), an OPEN SUNY number, a reviewer origin flag, and a category code with a
+within-category index.
+
+**The instrument already wants evidence.** There is a *Course Example/Evidence of Compliance*
+column, an *Action Plan* column, an *Additional Narrative* block, and an `Essential`/`Important`
+flag per criterion. The default cell state is `NR / No Response` — abstention is native to the
+sheet. Sightline fills columns that already exist.
+
+### Findings from the files
+
+- **ASFE skips index 6.** The category runs 1, 2, 3, 4, 5, 7. The importer must key on the
+  composite code, never on positional index.
+- **The two CSV exports use different encodings.** The `Instructional Designer` sheet is clean
+  UTF-8 with curly quotes intact; the RSI export contains mojibake (`?click here?`). Spreadsheet
+  exports are authoritative; CSV is a lossy fallback.
+- **`UCCS OSCQR RSI Review.xlsm` will not open in openpyxl at all.** It raises on a malformed
+  `mergeCell` range — already unreadable by the standard Python toolchain, which is independent
+  confirmation that macro-free, UTF-8, CSV-clean output is correct rather than merely preferred.
+  It also carries a 4.6 KB compiled `vbaProject.bin`, which Sightline neither reads nor reproduces.
+- **Mobile criteria carry no Essential/Important flag.** Only the UCCS-origin criteria are
+  prioritised; the integrated mobile set has a blank priority column. Action-plan ordering must
+  tolerate a null priority rather than assuming one.
+
+### Sheet inventory and disposition
+
+| Sheet | State | Extent | Disposition |
+|---|---|---|---|
+| Course Profile | visible | A1:J23 | Blank metadata template — import as run metadata |
+| **Instructional Designer** | visible | A1:AD531 | **Canonical criterion source** |
+| Faculty | visible | A1:AD531 | Duplicate — ignore |
+| Reviewer | visible | A1:AD531 | Duplicate — ignore |
+| Reviewer 2 | hidden | A1:AD532 | Duplicate — ignore |
+| Action Plan | visible | A1:AF1001 | Aggregate — regenerate, don't import |
+| Self-Assessment | hidden | A1:AD522 | Ignore |
+| Self-Assessment Action Plan | hidden | A1:AF984 | Ignore |
+| CONFIG | hidden | A1:EU1919 | Cross-reference only — never a source |
+| Change Log | hidden | A2:C9 | Ignore |
+
+`CONFIG` holds defined names including `RubricConversion`, `timeToFix`, `PriorityList`, `standNum`
+and `scale` — a crosswalk and an effort model already present as data. It is **a cross-reference,
+never a source**: hand-maintained, and it drifts from the working sheet. Disagreement between the
+two is reported rather than silently resolved.
+
+The workbooks contain no personal data. A scan across every sheet found zero email addresses, and
+`Course Profile` is an unfilled template; the apparent name hints in `CONFIG` are dropdown options
+(*Current instructor*, *Previous instructor*), not people.
+
+### The RSI rubric is the same instrument at lower resolution
+
+`UCCS OSCQR RSI Review` collapses the 68 into 18: its criterion 8 is ACD 5 verbatim, and its
+criterion 6 folds together ACD 2 and part of ACD 3. That many-to-one relationship is what dictates
+§04 — detectors are primary and rubrics are projections over them.
+
+---
+
+## §04 Architecture
+
+### Detectors are primary; rubrics are projections
+
+The naive shape — one routine per criterion — forces a rewrite per rubric and makes user-uploaded
+rubrics impossible. Invert it. Build ~50 detectors once, each producing typed findings. A **rubric
+pack** is a mapping from detector findings onto its own rows.
+
+One `link_text` detector fires once. The 3.1.3 pack renders it at ACD 5; the RSI pack at criterion
+8; an uploaded rubric wherever its mapping says. Adding a rubric costs a mapping file, not code.
+
+### Pipeline
+
+| # | Stage | Detail |
+|---|---|---|
+| 1 | Acquire | Canvas API + content export. Reuse the AccessLens fetch/unzip layer. |
+| 2 | Normalize | One document model: pages, files, assignments, modules, embeds — each with a Canvas deep link. |
+| 3 | Detect | Deterministic parsers. No model. Typed findings with locations and examined counts. |
+| 4 | Extract | Model-backed extractors. JSON schema, verified quotes only, 3× for routing. |
+| 5 | Project | Map findings onto the selected rubric's rows. |
+| 6 | Score | Effort model turns defect counts into revision tiers. |
+| 7 | Review | Designer confirms, overrides, annotates. |
+| 8 | Emit | XLSX workbook + PDF course report + narrative. |
+
+### Runtime
+
+Single FastAPI process, SQLite for run state, asyncio for background work. No Celery, no Redis, no
+worker container. At 1–16 courses the work is I/O-bound against Ollama and there is nothing to
+distribute. Run state persists to SQLite so a restart resumes. Follows the van1sh footprint
+deliberately.
+
+### Nothing institution-specific is compiled in
+
+Sightline is intended to be reusable and open source. Every deployment-specific value is
+configuration, entered and tested in the UI with an environment-variable fallback: Canvas base URL,
+Canvas API token, Ollama endpoint, optional OpenAI-compatible endpoint. Rubric packs ship as data
+files, not code. Each connection setting gets a **Test connection** action reporting which host
+answered, what it returned, and what to change if it didn't.
+
+---
+
+## §05 Detector inventory
+
+`D` detectors are deterministic parsers; `E` detectors are model-backed extractors returning quotes
+with locations. Criteria are given by category code and within-category index.
+
+### Canvas structure — API (item 07)
+
+| ID | Detector | Criteria | Tier |
+|---|---|---|---|
+| D01 | Syllabus present and non-empty | GSOV 7–10 | A |
+| D02 | Syllabus printable; PDF tagged and sectioned | GSOV 12 | A |
+| D03 | Module overview present per module | GSOV 4 · OREP 3 | A |
+| D04 | Course schedule with dated activities | GSOV 5 | A |
+| D05 | Welcome announcement posted | GSOV 6 | A |
+| D06 | Navigation menu pruned of unused tools | OREP 11 | A |
+| D07 | Gradebook structure; group weights total 100 | ASFE 7 | A |
+| D08 | Graded assignment has an attached rubric | ASFE 2 | A |
+| D09 | Assignment has description, due date, submission types | ACD 11 | A |
+| D10 | Due-date coverage across graded items | GSOV 5 · ACD 11 | A |
+| D11 | Outcomes defined at course and module level | COAL 1–2 · GSOV 9 | A |
+| D12 | External tool and LTI inventory | GSOV 1 · ACD 1 | A |
+| D13 | Campus policy links resolve | GSOV 2 | A |
+| D14 | Student support resource links present | GSOV 11 | A |
+| D15 | Timed assessments flagged to learners | ACD 10 | B |
+| D16 | Ungraded / low-stakes formative opportunities exist | ASFE 4 | A |
+| D17 | Discussion inventory, graded and ungraded | ENIN 3 | A |
+| D18 | Instructor presence artifacts — bio, intro media | ENIN 1 | B |
+| D19 | Scaffolded long-duration assessments | ASFE 5 | B |
+| D20 | Course feedback mechanism present | ENIN 11 | A |
+
+### Content accessibility — HTML and documents (item 06)
+
+| ID | Detector | Criteria | Tier |
+|---|---|---|---|
+| D21 | Image alt text: missing, empty on meaningful, filename-as-alt, over-long, decorative marking | ACD 8 | A |
+| D22 | Heading structure: presence, order, skipped levels, bold-as-heading | ACD 3 · OREP 5 | A |
+| D23 | Link text: "click here", bare URLs, duplicate labels | ACD 5 | A |
+| D24 | Table semantics: headers, scope, caption, summary, layout misuse | ACD 6 · MOB 2 | A |
+| D25 | Contrast ratio from inline and sheet styles | ACD 2 | A |
+| D26 | Colour as sole carrier of meaning | ACD 7 | B |
+| D27 | Caption track present on media and embeds | ACD 9 | A |
+| D28 | Font family sans-serif, size ≥ 12pt in documents | ACD 2 | A |
+| D29 | Text rendered as image (density heuristic, no vision model) | ACD 3 | B |
+| D30 | Document accessibility: PDF tagging and OCR, DOCX styles, PPTX layouts, unique slide titles, non-automatic transitions | ACD 3–4 | A |
+| D31 | Attribution or licence text near materials | OREP 6 | B |
+| D32 | OER signals: known repositories and licences | **OREP 8** | B |
+| D33 | Material-type variety per module | OREP 9 | A |
+| D34 | HTML as primary delivery vs attached files | OREP 7 | A |
+| D35 | Content chunking: page length and section breaks | OREP 5 · MOB 9 | A |
+| D36 | Documents printable and downloadable | ACD 4 | A |
+| D37 | Page titles present, descriptive, unique | OREP 4 | A |
+| D38 | Accessibility statement for each external tool | ACD 1 | B |
+| D46 | Extraneous / prior-semester content present | OREP 1 | B |
+| D47 | Module naming and structural consistency | OREP 2 | A |
+
+### Mobile (item 08)
+
+Section renders only when the rubric pack enables it. Of the nine, four carry real independent
+value; D40 duplicates ACD 6, MOB 9 duplicates OREP 5 via D35, D43 targets Flash, and MOB 5–6 are
+largely undetectable.
+
+| ID | Detector | Criteria | Tier |
+|---|---|---|---|
+| D39 | Embedded content accompanied by a hyperlink | MOB 1 | A |
+| D40 | Layout tables and nested indent levels | MOB 2 | A |
+| D41 | Text floated beside images | MOB 3 | A |
+| D42 | Fixed pixel widths instead of percentages | MOB 4 | A |
+| D43 | Legacy or non-mobile embeds | MOB 7 | A |
+| D44 | Attachment format census | MOB 8 | A |
+| D45 | Required app platform availability | MOB 6 | C |
+| — | Tested on multiple mobile devices | MOB 5 | D |
+
+### Model-backed extraction (item 10)
+
+Each returns JSON conforming to a fixed schema: a list of findings, each with `quote` and
+`location`, and nothing else. No ratings, no prose, no summarization. **An empty list is a valid and
+expected answer.**
+
+| ID | Extractor | Criteria | Tier |
+|---|---|---|---|
+| E01 | Objectives and their task verbs | COAL 1–3 · ENIN 5 | B |
+| E02 | Alignment references between content, activity, assessment and objective | COAL 4–6 | B |
+| E03 | Interaction expectations and response-time commitments | ENIN 2 · ENIN 4 | B |
+| E04 | Community-building activities | ENIN 3 | B |
+| E05 | Real-world / authentic task framing | ENIN 6 | C |
+| E06 | Complexity progression across modules | ENIN 9 | C |
+| E07 | Source and author diversity in materials | OREP 10 | C |
+| E08 | Evaluation criteria and exemplars | ASFE 2 | B |
+| E09 | Grading and late-submission policy | GSOV 10 | B |
+| E10 | Technical-skill scaffolding and guided practice | ENIN 12 | B |
+| E11 | Objectives stated within assessment information | ASFE 1 | B |
+| E12 | Varied engagement options and interaction modes | ENIN 7 · ENIN 8 | C |
+| E13 | Learner contribution of outside resources | ENIN 10 | C |
+| E14 | Multiple means of demonstrating achievement | ASFE 3 | C |
+
+### Human-only, no detector
+
+| Criterion | Text | Tier |
+|---|---|---|
+| COAL 7 | Technology tools clearly support learner achievement and elevate learner engagement | C |
+| MOB 5 | The course is tested on multiple mobile devices | D |
+
+---
+
+## §06 The model layer
+
+Target host is an AGX Orin 64GB running Ollama 0.20.6. **The endpoint is configuration, never
+hardcoded.** Concurrency defaults to 1. Every call logs latency, token counts and the serving model
+from the first commit — the failure mode that killed an earlier local-AI pipeline on this network
+was silent, not loud.
+
+### Model selection is by capability, not by exclusion
+
+Filtering out vision models is wrong and would remove the best available model. `/api/show` reports
+`gemma4:e4b` as `['completion','vision','audio','tools','thinking']` — it is multimodal. Select on
+what the work needs instead:
+
+> **Require `completion` and `tools`; exclude `embedding`.**
+
+That admits gemma4, rejects `llava:13b` (no `tools`) as a side effect, and leaves
+`nomic-embed-text` available for background embedding exactly as intended.
+
+### Discovery and recommendation
+
+- **Installed models:** `/api/tags`, then `/api/show` per model for `capabilities`. Live and
+  authoritative.
+- **Not-yet-installed:** Ollama exposes no library-search endpoint, so recommendations ship as a
+  curated manifest in the repo — 8–12 candidates sized for this host, not a 170-model browser.
+- **Installing:** `/api/pull` with progress in the UI. `/api/delete` exists and is deliberately not
+  wired up.
+- **Third-party catalogues are unreliable.** The community mirror at `ollama-models.zwz.workers.dev`
+  serves 170 models and does not contain `gemma4` — the model currently running on the target host.
+  Usable as a seed for the manifest, never as a runtime source. The freshness test is exactly that:
+  probe it for models known to exist.
+- `thinking` is pinned explicitly per call site rather than left to model defaults, since it changes
+  output determinism.
+
+### Escalation
+
+An OpenAI-compatible adapter lets a higher-capability model re-run *only the disagreement set* from
+the 3× router — typically a handful of criteria per course. Configured through the same UI. **Held
+as blocked** pending confirmation of ChatGPT Edu API access; the app functions fully without it.
+
+---
+
+## §07 Effort model and ratings
+
+| Rating | Band | Assigned when |
+|---|---|---|
+| Sufficiently Present | — | No qualifying defects found |
+| Minor Revision | ≤ 0.5 h | Rolled-up cost within the first band |
+| Moderate Revision | 0.5–2 h | Rolled-up cost within the second band |
+| Major Revision | 2 h + | Rolled-up cost above the second band |
+| Not Applicable | — | Tier D, or the feature is absent by design |
+| No Response | — | **Every Tier C criterion.** Never pre-selected |
+
+Action-plan ordering is two-axis: the `Essential`/`Important` flag crossed with the computed band.
+Essential + Major sorts to the top. MOB criteria have no priority flag, so ordering must tolerate a
+null.
+
+> **Needs measurement.** The per-defect cost table is a guess until calibrated against reviews
+> already completed by hand — roadmap item 12. `CONFIG`'s `timeToFix` holds an effort table worth
+> checking first, cross-referenced against the `Instructional Designer` sheet. Until calibrated,
+> bands display as estimates and are trivially overridable.
+
+---
+
+## §08 Outputs and voice
+
+### Two artifacts
+
+- **XLSX workbook** — every criterion on the selected rubric, with proposed rating, evidence column
+  filled with quotes and counts, action-plan column filled with remediation steps, and a Canvas link
+  per finding. Macro-free, UTF-8, single header row per sheet, no merged cells. Must survive a
+  round-trip through CSV without loss, which the current instrument does not.
+- **PDF course report** — summary, prioritized action plan, accessibility and interaction sections
+  in full, and the closing narrative.
+
+### Canvas links
+
+Every finding links to the page or item in the Canvas UI, built from the configured base URL.
+Item-level, not the editor.
+
+### The voice contract
+
+Hedging is proportional to determinacy, not applied globally. Constant hedging reads as evasive and
+gets tiresome; hedging nothing reads as a machine grading a colleague. Register is a function of
+tier, and it is testable.
+
+| Tier | Register | Example |
+|---|---|---|
+| A | Declarative. States the count and location. No hedge. | "38 images across 12 pages have no alt text. Module 3 accounts for 21 of them." |
+| B | Attributed to evidence. Quotes the source, names what was searched. | "The syllabus states a 48-hour response commitment for email. No equivalent commitment appears for discussion replies." |
+| C | Poses the question. Presents the distribution, asks for the call. | "Of 17 graded activities, 12 use recall-level verbs and none reach evaluate or create. Whether that suits a 1000-level survey is your call." |
+| D | States the limit plainly. | "Device testing can't be checked from course materials." |
+
+Phrasing variety comes from a per-tier phrase bank with rotation, not from letting the model
+freestyle — freestyle produces inconsistent register, which is the thing the contract exists to
+prevent. The closing narrative is honest and short: what is strong, what needs work, what to do
+first, and what Sightline could not determine.
+
+---
+
+## §09 Interface decisions
+
+Server-rendered HTML with light progressive enhancement. No SPA framework — four screens and a small
+deployment footprint is a priority. All colour comes from `docs/tokens.css`.
+
+| Screen | Purpose |
+|---|---|
+| Settings | Canvas URL and token, Ollama endpoint, model picker, escalation endpoint. Every field has **Test connection**. |
+| New run | Paste course URLs or IDs, upload a CSV, pick a rubric. Batch capped at 16. |
+| Run progress | Per-course, per-stage. Live log. Failures visible, never silent. |
+| Review | Criterion by criterion. Evidence, Canvas links, proposed rating, override, notes. |
+
+### Decisions taken
+
+- **Tier is visible in the review UI** with a consistent visual token, so a designer always knows
+  whether they are confirming arithmetic or making a judgment.
+- **Tier C criteria open at `No Response`** with evidence shown and no rating pre-selected. There is
+  no bulk-accept for them.
+- **Overrides are first-class and persisted**, with the original machine proposal retained. That
+  record is the calibration data for the effort model.
+- **Rubric selection is per run**, defaulting to OSCQR 3.1.3. RSI ships as a selectable alternative.
+- **Nothing exports until a human has opened the review.** No unattended report generation.
+
+### Open for discussion
+
+- Whether uploaded rubrics get a guided mapping screen or a simpler unmapped mode where rows fall
+  through to extraction-only.
+- Whether the review screen groups by rubric category or by severity.
+- Whether multi-course runs get a comparison view, or stay strictly one report per course.
+
+---
+
+## §10 Roadmap
+
+See `docs/ROADMAP.md`. It is canonical for item status; this document is canonical for design.
+
+---
+
+## §11 Risks
+
+### Adoption, not accuracy, is the real risk
+
+The tool can be technically correct and still fail if faculty read it as automated grading. Three
+guards, all product decisions rather than engineering ones: the vocabulary throughout is *review*
+and *refresh*, never *evaluation* or *score*; there is no aggregate course score anywhere in the
+output; and nothing exports until a designer has opened the review.
+
+### Silent under-detection
+
+The dangerous failure is a detector that finds nothing because it broke, reported as a course with
+nothing wrong. Every detector reports **what it examined** alongside what it found, and a detector
+that examined zero artifacts is an error, not a pass. Enforced in the framework (item 06) and proven
+by a guard that is deliberately fired (item 21). Same class of bug as a test suite that collects
+nothing and exits green.
+
+### Quote fabrication
+
+An extractor that invents a plausible quote is the failure that would destroy trust fastest, because
+a fabricated quote looks exactly like the evidence the design depends on. Mitigation is mechanical:
+every returned quote is string-matched against the source document before acceptance, and a
+non-matching quote is discarded and logged, never rendered. Part of item 10's definition of done.
+
+### Scope creep toward AccessLens
+
+Sightline evaluates against rubric criteria only. It checks that alt text exists, is not a filename,
+and is not empty on a meaningful image. It does not judge whether the alt text is *good*, and it
+feeds no images to a vision model. That boundary keeps the workload feasible on this host and the
+output within what the rubric asks.
+
+### Working data never enters the repository
+
+The repository is **public on Gitea, with no GitHub remote**. Three rules follow.
+
+The **Canvas base URL is treated as a secret** alongside the token, because it identifies the
+institution. Docs, tests, fixtures and `.env.example` all use `canvas.example.edu`.
+
+**Course exports never enter the repository.** A Canvas content export carries no student
+submissions or grades, but it does carry instructor-authored content, page text naming real people,
+and unpublished drafts. Everything downloaded or generated lives under `SIGHTLINE_DATA_DIR`
+(default `./data`), which is gitignored in full. What ships instead is `examples/` — a synthetic
+sample course carrying deliberate defects, and a sample report generated from it, so a new user sees
+the shape of both without a Canvas token.
+
+**The rubric workbooks are committed on purpose.** They sit at `rubrics/source/` and are a blank
+review template with no personal data. Publishing them and the packs derived from them is settled;
+the packs may later be revised toward stock OSCQR 3.1 and 4.0, and the versioned-pack design in
+*Rubric drift* below is what makes that a data change rather than a code change.
+
+### Rubric drift
+
+The reference instrument is maintained by another department and will change. Rubric packs are versioned
+data files retaining the source workbook's own identifiers, so a re-import diffs cleanly rather than
+silently renumbering criteria.
