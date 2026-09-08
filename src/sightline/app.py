@@ -1,8 +1,9 @@
 """The FastAPI application.
 
 One process, one container. Server-rendered HTML with light progressive enhancement — no SPA
-framework (SPEC §09). This module builds the app, wires the run store and the background runner
-into its lifespan, and serves the status page that later items grow into the four screens.
+framework (SPEC §09). This module builds the app, wires the run store, the credential store and
+the background runner into its lifespan, and serves the status page. The settings and course
+screens live in :mod:`sightline.views`; the remaining screens arrive with later roadmap items.
 
 The vocabulary constraint from SPEC §11 applies to everything rendered here: Sightline *reviews*
 and *refreshes*. It does not evaluate, score or grade.
@@ -23,9 +24,11 @@ from fastapi.templating import Jinja2Templates
 from . import __version__
 from .assets import TokensNotFoundError, resolve_tokens_css
 from .config import Settings, get_settings
+from .credentials import CredentialStore
 from .logging import configure_logging, get_logger
 from .runner import BackgroundRunner
 from .store import RunStore
+from .views import build_router
 
 PACKAGE_ROOT = Path(__file__).resolve().parent
 TEMPLATE_DIR = PACKAGE_ROOT / "templates"
@@ -73,10 +76,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         paths = resolved.paths.ensure()
         store = RunStore.open(paths)
         runner = BackgroundRunner(store)
+        credentials = CredentialStore(
+            store,
+            paths,
+            env_base_url=resolved.canvas_base_url,
+            env_token=(
+                resolved.canvas_api_token.get_secret_value() if resolved.canvas_api_token else None
+            ),
+            key=(resolved.secret_key.get_secret_value() if resolved.secret_key else None),
+        )
         application.state.settings = resolved
         application.state.paths = paths
         application.state.store = store
         application.state.runner = runner
+        application.state.credentials = credentials
         interrupted = runner.recover()
         log.info(
             "startup",
@@ -104,6 +117,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     templates = Jinja2Templates(directory=str(TEMPLATE_DIR))
     templates.env.globals["app_version"] = __version__
+    application.include_router(build_router(templates))
 
     # The tokens live outside the package on purpose (see sightline.assets). Serving them from a
     # dedicated route rather than the static mount keeps the "one source of colour" literal.
@@ -161,6 +175,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             request=request,
             name="index.html",
             context={
+                "nav": "status",
                 "settings_rows": resolved.status_rows(),
                 "tiers": TIERS,
                 "runs": runs,

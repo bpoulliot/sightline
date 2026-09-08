@@ -1,0 +1,15 @@
+{
+  "name": "login-portal",
+  "description": "Something answered with 200 and an HTML login page. The usual cause is a base URL pointing at a page inside Canvas rather than its root, or an SSO portal intercepting API requests.",
+  "interactions": [
+    {
+      "method": "GET",
+      "path": "/api/v1/users/self",
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "text/html; charset=utf-8" },
+        "text": "<!doctype html><html lang=\"en\"><head><title>Sign in</title></head><body><form method=\"post\" action=\"/login\"><input name=\"username\"><input name=\"password\" type=\"password\"></form></body></html>"
+      }
+    }
+  ]
+}

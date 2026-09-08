@@ -1,0 +1,33 @@
+{
+  "name": "not-permitted",
+  "description": "HTTP 401 with NO WWW-Authenticate header — Canvas's answer to a valid token making a call its user is not authorised to make. Same status as an invalid token, opposite remedy.",
+  "interactions": [
+    {
+      "method": "GET",
+      "path": "/api/v1/users/self",
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "json": {
+          "id": 4021,
+          "name": "Reviewer A",
+          "short_name": "Reviewer A",
+          "sortable_name": "A, Reviewer"
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/courses",
+      "query": { "per_page": 100 },
+      "response": {
+        "status": 401,
+        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "json": {
+          "status": "unauthorized",
+          "errors": [ { "message": "user not authorized to perform that action" } ]
+        }
+      }
+    }
+  ]
+}

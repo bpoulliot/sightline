@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% block title %}Sightline — settings{% endblock %}
+
+{% block content %}
+<section class="panel" aria-labelledby="h-canvas">
+  <h1 id="h-canvas">Canvas connection</h1>
+  <p class="lede">
+    The base URL and token are entered here and held encrypted in the run store. Neither is
+    written to a log, an error message or a saved run event. Both fall back to
+    <code>CANVAS_BASE_URL</code> and <code>CANVAS_API_TOKEN</code> in the environment when nothing
+    has been entered.
+  </p>
+
+  {% if saved_message %}
+  <p class="banner banner-ok" role="status">{{ saved_message }}</p>
+  {% endif %}
+  {% if credential_error %}
+  <div class="banner banner-bad" role="alert">
+    <p class="banner-head">{{ credential_error.summary }}</p>
+    <p class="banner-remedy">{{ credential_error.remedy }}</p>
+  </div>
+  {% endif %}
+
+  <form method="post" action="/settings" class="form">
+    <div class="field">
+      <label for="canvas_base_url">Canvas base URL</label>
+      <input type="url" id="canvas_base_url" name="canvas_base_url" inputmode="url"
+             autocomplete="off" spellcheck="false" placeholder="https://canvas.example.edu"
+             value="{{ credentials.base_url or '' }}">
+      <p class="hint">
+        The root of the instance. A URL with a course or a page in it is trimmed back to the root
+        when it is saved, and you are told that it was.
+      </p>
+    </div>
+
+    <div class="field">
+      <label for="canvas_token">Canvas API token</label>
+      <input type="password" id="canvas_token" name="canvas_token" autocomplete="off"
+             spellcheck="false" placeholder="{% if credentials and credentials.token %}a token is stored — type to replace it{% else %}paste a token{% endif %}">
+      <p class="hint">
+        Never displayed once stored, not even in part. Leave this blank to keep the token you
+        already have.
+      </p>
+    </div>
+
+    <div class="actions">
+      <button type="submit" class="button button-primary">Save</button>
+    </div>
+  </form>
+
+  <div class="scroll-x">
+    <table>
+      <caption class="visually-hidden">Whether each Canvas credential is present and where it came from</caption>
+      <thead>
+        <tr><th scope="col">Credential</th><th scope="col">State</th><th scope="col">Source</th></tr>
+      </thead>
+      <tbody>
+        {% for row in presence %}
+        <tr>
+          <th scope="row">{{ row.name }}</th>
+          <td data-label="State">
+            <span class="state {% if row.state in ('set', 'stored') %}state-on{% else %}state-off{% endif %}">{{ row.state }}</span>
+          </td>
+          <td data-label="Source" class="muted">{{ row.source }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <form method="post" action="/settings/forget" class="form form-inline">
+    <button type="submit" class="button">Forget the stored credential</button>
+    <span class="hint">Deletes what is stored here. Anything set in the environment still applies.</span>
+  </form>
+</section>
+
+<section class="panel" aria-labelledby="h-test">
+  <h2 id="h-test">Test connection</h2>
+  <p class="note">
+    Reports which host answered, who the token belongs to and how many courses it can see. On a
+    failure it names what to change, not that something went wrong.
+  </p>
+
+  <form method="post" action="/settings/test" class="form">
+    <div class="field">
+      <label for="course_reference">Course to check (optional)</label>
+      <input type="text" id="course_reference" name="course_reference" autocomplete="off"
+             spellcheck="false" placeholder="4410 or https://canvas.example.edu/courses/4410">
+      <p class="hint">
+        Adds two checks: that the course resolves, and that its content can actually be read — a
+        token can often see a course it may not read.
+      </p>
+    </div>
+    <div class="actions">
+      <button type="submit" class="button button-primary">Test connection</button>
+    </div>
+  </form>
+
+  {% if report %}
+  <div class="report" role="status">
+    <p class="report-head {% if report.ok %}report-ok{% else %}report-bad{% endif %}">
+      {{ report.summary() }}
+    </p>
+    <ul class="checks">
+      {% for check in report.checks %}
+      <li>
+        <span class="state {% if check.status == 'ok' %}state-on{% elif check.status == 'failed' %}state-bad{% else %}state-off{% endif %}">{{ check.status }}</span>
+        <span class="check-name">{{ check.name }}</span>
+        <span class="check-detail">{{ check.detail }}</span>
+        {% if check.remedy %}<span class="check-remedy">{{ check.remedy }}</span>{% endif %}
+        <span class="check-meta muted">
+          {% if check.scope %}<code>{{ check.scope }}</code>{% endif %}
+          {% if check.elapsed_ms is not none %}{{ '%.0f'|format(check.elapsed_ms) }} ms{% endif %}
+        </span>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+</section>
+
+<section class="panel" aria-labelledby="h-scopes">
+  <h2 id="h-scopes">Canvas token scopes</h2>
+  <p class="note">
+    Every request Sightline makes today, so an institution can issue a least-privilege token
+    instead of an administrative one. A <em>personal</em> access token carries the full permissions
+    of the user who created it and cannot be scoped; a token issued through a developer key can be,
+    and these are the scope strings to grant.
+  </p>
+  <div class="scroll-x">
+    <table>
+      <caption class="visually-hidden">The Canvas scopes Sightline requires and why</caption>
+      <thead>
+        <tr><th scope="col">Scope</th><th scope="col">Request</th><th scope="col">Why</th></tr>
+      </thead>
+      <tbody>
+        {% for scope in scopes %}
+        <tr>
+          <th scope="row"><code>{{ scope.scope }}</code></th>
+          <td data-label="Request"><code>{{ scope.request }}</code></td>
+          <td data-label="Why" class="muted">{{ scope.reason }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="note">
+    A scope grants access to a route; it does not grant the underlying permission. The token's user
+    also needs these Canvas permissions in each course under review:
+    {% for permission in permissions %}<code>{{ permission }}</code>{% if not loop.last %} {% endif %}{% endfor %}
+  </p>
+</section>
+{% endblock %}

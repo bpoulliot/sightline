@@ -1,0 +1,31 @@
+{
+  "name": "pages-absent",
+  "description": "The course resolves and its pages endpoint answers 404. Canvas returns that both when Pages is switched off for the course and when the token may not read them, so the state is 'unknown' rather than a guess.",
+  "interactions": [
+    {
+      "method": "GET",
+      "path": "/api/v1/courses/4438",
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "json": {
+          "id": 4438,
+          "name": "Sample Course 4438",
+          "course_code": "SAMPLE-4438",
+          "account_id": 4007,
+          "enrollment_term_id": 4014,
+          "workflow_state": "available"
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/courses/4438/pages",
+      "response": {
+        "status": 404,
+        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "json": { "errors": [ { "message": "The specified resource does not exist." } ] }
+      }
+    }
+  ]
+}

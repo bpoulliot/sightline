@@ -14,6 +14,8 @@ dependencies = [
     "pydantic-settings>=2.6",
     "structlog>=24.4",
     "httpx>=0.27",
+    "cryptography>=43.0",
+    "python-multipart>=0.0.12",
 ]
 
 [project.optional-dependencies]
@@ -38,6 +40,12 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM"]
+
+[tool.ruff.lint.isort]
+# tests/canvas_recordings.py is the suite's own fixture harness, imported by test modules the way
+# the package is. Without this, isort files it under third-party and the grouping flips depending
+# on which other imports a test happens to have.
+known-first-party = ["sightline", "canvas_recordings"]
 
 [tool.black]
 line-length = 100

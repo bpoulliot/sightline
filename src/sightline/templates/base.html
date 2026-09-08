@@ -14,6 +14,11 @@
     <div class="wrap masthead-inner">
       <p class="wordmark">Sightline</p>
       <p class="tagline">A first pass over an online course against a review rubric.</p>
+      <nav class="nav" aria-label="Sections">
+        <a href="/"{% if nav == 'status' %} aria-current="page"{% endif %}>Status</a>
+        <a href="/settings"{% if nav == 'settings' %} aria-current="page"{% endif %}>Settings</a>
+        <a href="/courses"{% if nav == 'courses' %} aria-current="page"{% endif %}>Courses</a>
+      </nav>
     </div>
   </header>
 

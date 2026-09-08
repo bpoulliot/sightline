@@ -9,9 +9,13 @@ Constructing :class:`Settings` registers its secret values with :mod:`sightline.
 they are scrubbed from logs and error surfaces without any call site opting in. That includes the
 Canvas **base URL**, which is treated as a secret because it identifies the institution.
 
-Note for item 02: because the base URL is registered, a connection test that wants to report
-*which host answered* must render it deliberately from the setting rather than letting it travel
-through a log line.
+Because the base URL is registered, a connection test that wants to report *which host answered*
+renders it deliberately from the credential rather than letting it travel through a log line —
+see :meth:`sightline.canvas.client.CanvasClient.test_connection`.
+
+These values are the **environment fallback**. From item 02 the base URL and token are normally
+entered on the settings screen and held encrypted by :mod:`sightline.credentials`, which is what
+:class:`sightline.credentials.CredentialStore` merges with what is here.
 """
 
 from __future__ import annotations
@@ -58,6 +62,12 @@ class Settings(BaseSettings):
         default=None, validation_alias="SIGHTLINE_ESCALATION_API_KEY"
     )
 
+    # -- Credential encryption ---------------------------------------------------------------
+    #: Key for the credentials entered on the settings screen. Unset means Sightline manages a
+    #: key file under the data root; setting it keeps the key out of the data volume entirely.
+    #: See :mod:`sightline.credentials` for what that does and does not protect against.
+    secret_key: SecretStr | None = Field(default=None, validation_alias="SIGHTLINE_SECRET_KEY")
+
     #: Absolute path to ``docs/tokens.css``. Empty means "find it" — see :mod:`sightline.assets`.
     tokens_css_path: Path | None = Field(default=None, validation_alias="SIGHTLINE_TOKENS_CSS")
 
@@ -91,6 +101,8 @@ class Settings(BaseSettings):
             register_secret(self.canvas_api_token.get_secret_value())
         if self.escalation_api_key is not None:
             register_secret(self.escalation_api_key.get_secret_value())
+        if self.secret_key is not None:
+            register_secret(self.secret_key.get_secret_value())
 
     # -- derived -----------------------------------------------------------------------------
 

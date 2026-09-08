@@ -13,14 +13,23 @@ symlinks that point out of the root, and it does so after resolving the real pat
 from __future__ import annotations
 
 import os
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
 #: Fixed subdirectories of the data root. Named here so that no call site spells them as literals.
-SUBDIRECTORIES: tuple[str, ...] = ("exports", "cache", "runs", "reports")
+SUBDIRECTORIES: tuple[str, ...] = ("exports", "cache", "runs", "reports", "secrets")
 
 #: Filename of the run store, inside ``runs/``.
 DB_FILENAME = "sightline.sqlite"
+
+#: Filename of the credential encryption key, inside ``secrets/``.
+KEY_FILENAME = "credentials.key"
+
+#: Permissions for ``secrets/`` and for anything in it. The key is the only thing standing between
+#: a copied run store and a plaintext Canvas token, so it is owner-only.
+SECRET_DIR_MODE = 0o700
+SECRET_FILE_MODE = 0o600
 
 
 class DataPathError(ValueError):
@@ -53,6 +62,7 @@ class DataPaths:
         self.root.mkdir(parents=True, exist_ok=True)
         for name in SUBDIRECTORIES:
             (self.root / name).mkdir(parents=True, exist_ok=True)
+        (self.root / "secrets").chmod(SECRET_DIR_MODE)
         return self
 
     # -- the gate ----------------------------------------------------------------------------
@@ -132,3 +142,41 @@ class DataPaths:
     def run_dir(self, run_id: str) -> Path:
         """Per-run working directory. ``run_id`` is untrusted and goes through the gate."""
         return self.resolve_dir("runs", run_id)
+
+    @property
+    def secrets_dir(self) -> Path:
+        return self.resolve("secrets")
+
+    @property
+    def credentials_key_file(self) -> Path:
+        return self.resolve("secrets", KEY_FILENAME)
+
+    # -- the one writable-file helper --------------------------------------------------------
+
+    def read_or_create_key(self, generate: Callable[[], bytes]) -> bytes:
+        """Return the credential key, creating it with owner-only permissions if absent.
+
+        This module is the only one allowed to create a file (see ``tests/test_paths.py``), so the
+        *placement and permissions* of the key live here while the *meaning* of the bytes lives in
+        :mod:`sightline.credentials`. ``generate`` is called only when there is no key yet.
+
+        The write is not atomic across processes and does not need to be: Sightline is one process
+        in one container (SPEC §04). What it does guarantee is that the file never exists with
+        wider permissions than :data:`SECRET_FILE_MODE`, because the descriptor is opened with
+        that mode rather than chmod-ed afterwards.
+        """
+        target = self.credentials_key_file
+        if target.is_file():
+            return target.read_bytes()
+
+        parent = self.resolve_dir("secrets")
+        parent.chmod(SECRET_DIR_MODE)
+        material = generate()
+        if not material:
+            raise DataPathError("the key generator produced no material")
+        descriptor = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, SECRET_FILE_MODE)
+        try:
+            os.write(descriptor, material)
+        finally:
+            os.close(descriptor)
+        return material

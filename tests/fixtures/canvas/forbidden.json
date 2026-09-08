@@ -1,0 +1,27 @@
+{
+  "name": "forbidden",
+  "description": "HTTP 403 on a course. The token is valid and its user is known; the account or the course refuses this particular read.",
+  "interactions": [
+    {
+      "method": "GET",
+      "path": "/api/v1/users/self",
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "json": { "id": 4021, "name": "Reviewer A", "short_name": "Reviewer A" }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/courses/4410",
+      "response": {
+        "status": 403,
+        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "json": {
+          "status": "unauthorized",
+          "errors": [ { "message": "user not authorized to perform that action" } ]
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,131 @@
+{
+  "name": "happy",
+  "description": "A token that works: an identifiable user, two pages of courses, one course that resolves and whose content is readable. Every value is synthetic; see tests/canvas_recordings.py.",
+  "interactions": [
+    {
+      "method": "GET",
+      "path": "/api/v1/users/self",
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "json": {
+          "id": 4021,
+          "name": "Reviewer A",
+          "short_name": "Reviewer A",
+          "sortable_name": "A, Reviewer",
+          "login_id": "reviewer.a",
+          "primary_email": "reviewer.a@example.edu",
+          "locale": null,
+          "effective_locale": "en"
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/courses",
+      "query": { "per_page": 100 },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8",
+          "Link": "<https://canvas.example.edu/api/v1/courses?page=2&per_page=100>; rel=\"next\", <https://canvas.example.edu/api/v1/courses?page=1&per_page=100>; rel=\"first\", <https://canvas.example.edu/api/v1/courses?page=2&per_page=100>; rel=\"last\""
+        },
+        "json": [
+          {
+            "id": 4410,
+            "name": "Sample Course 4410",
+            "course_code": "SAMPLE-4410",
+            "account_id": 4007,
+            "enrollment_term_id": 4014,
+            "workflow_state": "available",
+            "is_public": false
+          },
+          {
+            "id": 4417,
+            "name": "Sample Course 4417",
+            "course_code": "SAMPLE-4417",
+            "account_id": 4007,
+            "enrollment_term_id": 4014,
+            "workflow_state": "available",
+            "is_public": false
+          }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/courses",
+      "query": { "per_page": 100, "page": 2 },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8",
+          "Link": "<https://canvas.example.edu/api/v1/courses?page=1&per_page=100>; rel=\"prev\", <https://canvas.example.edu/api/v1/courses?page=1&per_page=100>; rel=\"first\", <https://canvas.example.edu/api/v1/courses?page=2&per_page=100>; rel=\"last\""
+        },
+        "json": [
+          {
+            "id": 4424,
+            "name": "Sample Course 4424",
+            "course_code": "SAMPLE-4424",
+            "account_id": 4007,
+            "enrollment_term_id": 4014,
+            "workflow_state": "unpublished",
+            "is_public": false
+          }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/courses/4410",
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "json": {
+          "id": 4410,
+          "name": "Sample Course 4410",
+          "course_code": "SAMPLE-4410",
+          "account_id": 4007,
+          "enrollment_term_id": 4014,
+          "workflow_state": "available",
+          "is_public": false,
+          "start_at": "2026-01-12T00:00:00Z"
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/courses/sis_course_id:SAMPLE-4410",
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "json": {
+          "id": 4410,
+          "name": "Sample Course 4410",
+          "course_code": "SAMPLE-4410",
+          "account_id": 4007,
+          "enrollment_term_id": 4014,
+          "workflow_state": "available",
+          "is_public": false
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/courses/4410/pages",
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "json": [
+          {
+            "page_id": 4031,
+            "url": "start-here",
+            "title": "Synthetic title for a sample course. No real course text is committed here.",
+            "published": true,
+            "front_page": true
+          }
+        ]
+      }
+    }
+  ]
+}
