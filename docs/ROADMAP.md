@@ -5,7 +5,7 @@ Canonical for item status. `docs/SPEC.md` is canonical for design.
 Labels: **READY** · **NEEDS DISCUSSION** · **NEEDS MEASUREMENT** · **BLOCKED**.
 Nothing unready enters the queue. One item per conversation, one PR per item.
 
-Queue lives at `~/docker/overnight-sightline/`. Next free item number: **22**.
+Queue lives at `~/docker/overnight-sightline/`. Next free item number: **23**.
 
 ---
 
@@ -16,8 +16,8 @@ Queue lives at `~/docker/overnight-sightline/`. Next free item number: **22**.
 | 01 | Repo skeleton, config, run store, **container** | 0 | READY | **DONE** — PR #1 |
 | 02 | Canvas connector and connection test | 0 | READY | **DONE** — PR #2 |
 | 03 | Acquisition and normalization | 0 | READY | **DONE** — PR #3 |
-| 04 | Rubric pack format | 0 | **NEEDS DISCUSSION** | — |
-| 05 | Ship the two rubric packs | 0 | blocked by 04 | — |
+| 04 | Rubric pack format + capability tags | 0 | READY | staged 05a |
+| 05 | Ship the two rubric packs | 0 | blocked by 04 **in code only** | — |
 | 06 | Detector framework + accessibility cluster | 0 | READY | queued 04 |
 | 07 | Canvas structure detectors D01–D20 | 1 | READY | queued 06 |
 | 08 | Mobile detectors + optional-section flag | 1 | READY | queued 07 |
@@ -25,15 +25,16 @@ Queue lives at `~/docker/overnight-sightline/`. Next free item number: **22**.
 | 10 | Extraction layer with verified quotes | 1 | READY | queued 09 |
 | 11 | Three-run disagreement router | 1 | READY | queued 10 |
 | 12 | Effort model calibration | 1 | **NEEDS MEASUREMENT** | — |
-| 13 | XLSX writer | 2 | blocked by 04 | — |
-| 14 | PDF course report | 2 | **NEEDS DISCUSSION** | — |
-| 15 | Narrative generator and voice contract | 2 | **NEEDS DISCUSSION** | — |
-| 16 | Review UI | 2 | **NEEDS DISCUSSION** | — |
+| 13 | XLSX writer | 2 | blocked by 04 **in code only** | — |
+| 14 | PDF course report | 2 | READY | staged 14 |
+| 15 | Narrative generator and voice contract | 2 | READY | staged 12 |
+| 16 | Review UI | 2 | READY | staged 15 |
 | 17 | Batch runner | 2 | READY | queued 11 |
 | 18 | Escalation adapter | 3 | **BLOCKED** — ChatGPT Edu API access | — |
-| 19 | Uploaded-rubric mapping screen | 3 | **NEEDS DISCUSSION** | — |
+| 19 | Uploaded-rubric mapping screen | 3 | **SUPERSEDED by 22** | — |
 | 20 | Multi-course comparison view | 3 | **NEEDS DISCUSSION** | — |
 | 21 | Detector integrity guard | 0 | READY | queued 05 |
+| 22 | Model-proposed bindings, human-confirmed | 3 | READY | blocked by 09/10 in code |
 
 ---
 
@@ -56,6 +57,7 @@ unsupervised sessions building on a bad session 1 compounds.
 ```
 04-sightline-item06-detector-framework.md
 05-sightline-item21-detector-integrity-guard.md
+05a-sightline-item04-rubric-pack-format.md       # clears item 08's stop; unblocks 05 and 13
 06-sightline-item07-canvas-structure-detectors.md
 07-sightline-item08-mobile-detectors.md          # pack flag needs item 04
 08-sightline-item09-ollama-client.md
@@ -69,38 +71,121 @@ detector interface, and 21 proves it holds by firing it deliberately. A guard th
 is indistinguishable from a guard that cannot fail.
 
 Item 08's mobile detectors are independent of item 04, but its **optional-section pack flag is
-not** — its prompt tells the session to stop rather than invent a pack format. Settling 04 before
-batch 2 removes that stop and lets 05 and 13 join the batch.
+not** — its prompt tells the session to stop rather than invent a pack format. Item 04 is queued at
+**05a**, which sorts after the detector framework that defines the typed finding shape it projects,
+and before the structure and mobile detectors. That ordering clears item 08's stop. Item 04 also
+adds a test asserting every registered detector declares a capability tag, which is what forces
+items 07 and 08 to comply without their prompts needing to know about tags.
+
+**Batch 3 — output and UI. Composed in `staged/`, decided 2026-09-08.**
+
+```
+12-sightline-item15-voice-contract.md    # FIRST — 13, 14 and 16 all render text
+13-  ...  RESERVED for item 13, the XLSX writer
+14-sightline-item14-pdf-report.md
+15-sightline-item16-review-ui.md
+```
+
+Item 15 leads the batch because the workbook, the PDF and the review screen all render sentences,
+and a voice contract written after two of them have shipped is a rewrite rather than a contract.
+**`13-` is deliberately left free** so the XLSX writer sorts between the voice contract it depends
+on and the PDF that defers to it; item 05 should likewise take an `05b-` name so the packs land
+immediately after the format. Item 16 is last: it consumes the voice layer and satisfies the export
+gate item 14 builds.
 
 ---
 
 ## Not queued, and why
 
-**04 — rubric pack format · NEEDS DISCUSSION.** The schema binding criteria to detectors, and the
-XLSX/CSV importer. The open question is how much of the uploaded-rubric mapping is automatic (via
-the crosswalk columns already present in the workbook) versus a guided screen. This decision shapes
-items 05, 13 and 19.
+**05 — ship the two rubric packs · blocked by 04 in code only.** The format is decided; this needs
+the schema and importer to exist before it can run. Queue it once 05a lands.
 
-**05 — ship the two rubric packs · blocked by 04.** Cannot be built before the pack format exists.
-Previously mislabelled READY; corrected.
+**13 — XLSX writer · blocked by 04 in code only.** Same: the decision no longer blocks it, the code
+does.
 
 **12 — effort model calibration · NEEDS MEASUREMENT.** Per-defect remediation costs and band
 thresholds, calibrated against completed reviews. `CONFIG`'s `timeToFix` holds an effort table worth
 checking first, cross-referenced against the `Instructional Designer` sheet. Measurement questions
 are answered from data, never asked of the user.
 
-**13 — XLSX writer · blocked by 04.** Writes rubric rows, so it needs the pack format. Previously
-mislabelled READY; corrected.
+**14 / 15 / 16 — output and UI · READY, decided 2026-09-08 as one cluster.** They were decided
+together because they are three answers to one question — how much evidence to show, and in what
+register — and deciding them apart reliably produces three inconsistent answers.
 
-**14 / 15 / 16 — output and UI · NEEDS DISCUSSION.** PDF layout and how much evidence belongs in the
-PDF versus the workbook; the voice contract's actual wording (the register table in SPEC §08 is a
-starting point, not final); and whether the review screen groups by rubric category or by severity.
+**15 — the narrative is assembled from computed facts; the model does not write prose.** No shipped
+artifact contains a sentence a language model composed freely. §01 requires every machine-authored
+line to be a computed count, a verbatim quote with a location, or an explicit statement that no
+evidence was found, and a written paragraph is none of those — while the closing narrative is the
+most quotable part of the report, the part that gets pasted into an email. §08 had already settled
+phrase-bank rotation for everything else, so exempting the narrative would have given the document
+two voices. This does **not** mean dropping quotes: extraction returns verbatim, string-matched
+passages, which are model-*located*, never model-*written*. The item's real deliverable is the
+**register lint** — hedge tokens rejected in Tier A, verdict tokens rejected in Tier C, grading
+vocabulary and aggregate-score phrasing rejected everywhere — and it must be **proven to fire** on
+planted bad phrases, the discipline item 21 applies to the detector guard.
+
+**14 — the PDF is addressed to the designer and written so it can be forwarded to faculty
+unchanged.** One document, one register; no separate faculty edition. That constraint is what
+actually enforces the no-grading vocabulary in §11 — a document written for an internal audience
+drifts toward evaluative shorthand, and then somebody forwards it anyway. Structure is
+**action-plan led with evidence tiered**: summary, prioritized action plan, ACD and ENIN in full
+with quotes, then one compact line per remaining criterion, then the narrative. The workbook stays
+the exhaustive artifact and the PDF says so. §02's presentation constraint is explicit for the PDF:
+Tier A and Tier C never share a visual channel. The first page carries a short *what this document
+is* block — a review pass, ratings denominated in remediation effort rather than quality, Tier C
+items are questions, no aggregate score anywhere — the cheapest guard available against the
+adoption risk.
+
+**16 — the review screen groups by rubric category, in the instrument's own order, with severity
+as a sort and filter within it.** The screen's job is confirming a rubric and its output is
+category-ordered, so the designer walks the instrument they already know; triage already has a home
+in the action plan. Grouping by band and grouping by tier were both considered and rejected — the
+tier option is the tempting one, since §02 does demand Tier A and Tier C be visually separate, but
+that is satisfied by distinct treatment *within* a category rather than by tearing the rubric apart.
+
+**One thread runs through all three, and it is the same failure §11 names.** Item 04 kept
+`NOT_YET_IMPLEMENTED`, `NO_DETERMINISTIC_COVERAGE` and `SUFFICIENTLY_PRESENT` apart in the data
+model. Each of these three items is a fresh chance to collapse them at the last moment before a
+human reads the result — in a sentence, in a table cell, in a table row. All three prompts carry
+that trap explicitly and all three acceptance lists test for it.
 
 **18 — escalation adapter · BLOCKED.** Pending confirmation of ChatGPT Edu API access. The app
 functions fully without it.
 
-**19 / 20 · NEEDS DISCUSSION.** Uploaded-rubric mapping shape depends on 04; whether a batch
-produces anything beyond n independent reports is unresolved.
+**19 · SUPERSEDED by 22.** Its premise — that an uploaded rubric needs a mapping screen before it
+is usable — is dead. Under item 04 an unbound rubric runs immediately, extraction-only. What remains
+worth building is item 22.
+
+**22 — model-proposed bindings, human-confirmed · READY, blocked by 09/10 in code.** Give the model
+the detector catalogue and the uploaded criterion text; it proposes tag bindings a human confirms
+**once per rubric, never per course**. An accelerator, not a prerequisite. Needs the model layer
+(09) and extraction (10) to exist before it can be queued.
+
+**No confidence signal on a proposal — decided 2026-09-08, do not reintroduce.** Proposals are
+shown as proposals and every one is freely changeable. A confidence number would have become a
+de facto bulk-accept threshold, and §01 holds that verbalized self-confidence is worse than
+useless. Without a confidence ranking there is nothing to rubber-stamp selectively: the proposal
+set is accepted as a legible unit or edited.
+
+**Bulk acceptance IS provided: checkboxes, check-all, accept-checked.** §09's no-bulk-accept rule
+covers **Tier C ratings** and does not transfer here — the stakes differ by an order of magnitude.
+A wrong rating is a claim about someone's work; a wrong binding only means a row gets evidence-only
+treatment instead of deterministic, once per pack, visible in the coverage report and reversible.
+Fifty individual confirmations buys no safety and is bad UX. **What matters is that nothing happens
+by inertia**: boxes default to UNCHECKED so acceptance is an affirmative act, not that the act be
+tedious. **The assurance belongs in the artifact, not the click** — after accepting, show the
+coverage delta ("18 rows moved from evidence-only to deterministic, 25 remain evidence-only"),
+which is a checkable artifact that is still true when someone revisits the pack later.
+
+**The screen owes the user three things, and this is the acceptance bar:** *what* they are
+selecting (the criterion text beside the tag and the plain-language description of what that
+detector finds), *why* it was proposed, and *how it changes the review* — binding a row moves it
+from evidence-only Tier B to deterministic Tier A arithmetic, and unbinding moves it back. Showing
+the consequence of a control rather than just its label is the established pattern in this
+codebase's sibling projects. Confirmation lives on the rubric import/selection path, shown once
+per pack, never in the per-run flow.
+
+**20 · NEEDS DISCUSSION.** Whether a batch produces anything beyond n independent reports.
 
 **Should Sightline ask Canvas to build a content export? · NEEDS DISCUSSION, unnumbered.** Raised
 by item 03 and deliberately left open rather than settled by it. Creating a content export is a
@@ -233,3 +318,63 @@ from the `Instructional Designer` sheet found:
   = 61 detectors, 66 criteria covered, 2 human-only.
 - **MOB criteria carry no Essential/Important flag.** Action-plan ordering must tolerate a null
   priority.
+
+**2026-09-08 — item 04 resolved, then re-scoped after a challenge to its premise.** The item was
+NEEDS DISCUSSION over how much uploaded-rubric mapping could be automatic. Reading both workbooks
+reframed it, and a second round corrected the reframing.
+
+Findings from the files:
+
+- **Importing rows and binding detectors are different problems.** Criterion rows are mechanical to
+  import. **Neither workbook has a column naming a detector**, so no import can produce bindings.
+- **The 3.1.3 crosswalk is a UCCS↔OPEN SUNY mapping between OSCQR variants**, not a binding source.
+  **The RSI workbook has no crosswalk columns at all** — seven columns, index and text.
+- **The projection is many-to-many in both directions.** D01 fans out to GSOV 7–10 while GSOV 5
+  receives from both D04 and D10.
+
+The first-round answer — import to a skeleton, hand-author every binding — **was rejected as
+encoding a single use case.** It made "upload Quality Matters" mean "write forty YAML bindings
+first", which is a roadblock an open-source tool cannot justify, and the reasoning that rejected an
+extraction fallback was wrong: Tier B already exists precisely to keep model-sourced evidence
+distinct from Tier A arithmetic, so an extraction-only row breaks no rule in §01. The licensing
+reality sharpens it — Sightline can never *ship* a QM pack, so third-party rubric support is the
+only way those users exist.
+
+**Decisions as settled.** **(1)** Bindings live in the pack and bind to **capability tags**, not
+detector IDs — a detector declares a tag plus a description and never names a criterion, so a pack
+is an artifact about course-quality concepts, portable across detector refactors and free of
+Sightline's numbering. **(2)** **An unbound row is normal, not an error**: binding is an
+optimization, and a rubric with zero bindings must load, run, and produce a usable review with its
+rows routed to extraction. **(3)** A criterion fed by several detectors sums their effort and bands
+the total — one global rule, so item 12 calibrates one model rather than 68. Band thresholds are
+pack data; per-defect costs are global config.
+
+**Sightline reviews the course; the rubric is only the lens.** No design step may require a rubric
+to be an OSCQR derivative or be crosswalked to 3.1.3.
+
+**Three states, and conflating them is the failure item 04 exists to prevent:**
+`NOT_YET_IMPLEMENTED` (tag exists, no detector yet — transient, a development-phase artifact),
+`NO_DETERMINISTIC_COVERAGE` (no binding — permanent, normal, routes to extraction; a fresh QM
+import is entirely this and that is a success case), and `SUFFICIENTLY_PRESENT` (a detector ran and
+found nothing — **the only one meaning clean**). Packs also report their own coverage, so a gap is
+visible information rather than silent degradation.
+
+**2026-09-08 — items 14, 15 and 16 resolved as one cluster.** Taken together rather than
+separately: all three answer the same question — how much evidence to show and in what register —
+and three separate sessions would have produced three inconsistent answers to it.
+
+The decisions are recorded in *Not queued, and why* above. Two are worth restating as corrections
+to how the spec reads on its own:
+
+- **§08's "the closing narrative is honest and short" is not licence for generated prose.** The
+  narrative is assembled from computed facts through the same phrase bank as every other sentence.
+  §08 already prescribed a phrase bank with rotation for finding-level text; the narrative was never
+  meant to be the exception, and reading it as one would have put the least checkable paragraph in
+  the most quoted position.
+- **§09's open question "category or severity" had a false symmetry.** The two groupings serve
+  different tasks, and the product already has a home for the severity task — the prioritized
+  action plan. The review screen only ever had one defensible answer.
+
+**Ordering consequence for the queue.** Item 15 must precede items 13, 14 and 16, because all three
+render text and a voice contract written after them is a rewrite. Batch 3 is numbered to leave
+`13-` free for the XLSX writer.
