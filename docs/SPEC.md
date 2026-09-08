@@ -372,10 +372,19 @@ Action-plan ordering is two-axis: the `Essential`/`Important` flag crossed with 
 Essential + Major sorts to the top. MOB criteria have no priority flag, so ordering must tolerate a
 null.
 
-> **Needs measurement.** The per-defect cost table is a guess until calibrated against reviews
-> already completed by hand — roadmap item 12. `CONFIG`'s `timeToFix` holds an effort table worth
-> checking first, cross-referenced against the `Instructional Designer` sheet. Until calibrated,
-> bands display as estimates and are trivially overridable.
+> **The bands above are the instrument's own and need no calibration.** They are printed on the
+> `Instructional Designer` sheet as column headers: row 3 carries the rating names, row 4 the
+> ranges directly beneath them — `T4` "1/2 hour or less", `U4` "1/2-2 hours", `V4` "2+ hours". The
+> RSI instrument prints the same three on its rows 6–7. Sufficiently Present has no band, because
+> it is "no qualifying defects found" rather than zero hours.
+>
+> **The per-defect cost table is a different matter and remains uncalibrated.** Nothing in either
+> workbook prices a defect. `CONFIG`'s `timeToFix` (`CONFIG!$H$15:$K$19`) is **not** the effort
+> table an earlier revision of this spec claimed it was: it maps **rating → hours**, the inverse of
+> what Sightline computes, and its `VALUE` column (Major 1, Moderate 2, Minor 3, SP 4) is an
+> inverted scale that exists to be averaged — precisely the aggregate score §11 forbids. Do not
+> seed costs from it. Costs ship as a labelled placeholder (roadmap item 12a); bands display as
+> estimates and are trivially overridable until item 12b fits them.
 
 ---
 
