@@ -5,7 +5,7 @@ Canonical for item status. `docs/SPEC.md` is canonical for design.
 Labels: **READY** · **NEEDS DISCUSSION** · **NEEDS MEASUREMENT** · **BLOCKED**.
 Nothing unready enters the queue. One item per conversation, one PR per item.
 
-Queue lives at `~/docker/overnight-sightline/`. Next free item number: **24**.
+Queue lives at `~/docker/overnight-sightline/`. Next free item number: **26**.
 
 ---
 
@@ -16,32 +16,35 @@ Queue lives at `~/docker/overnight-sightline/`. Next free item number: **24**.
 | 01 | Repo skeleton, config, run store, **container** | 0 | READY | **DONE** — PR #1 |
 | 02 | Canvas connector and connection test | 0 | READY | **DONE** — PR #2 |
 | 03 | Acquisition and normalization | 0 | READY | **DONE** — PR #3 |
-| 04 | Rubric pack format + capability tags | 0 | READY | staged 05a |
-| 05 | Ship the two rubric packs | 0 | blocked by 04 **in code only** | — |
+| 04 | Rubric pack format + capability tags | 0 | READY | queued 05a |
+| 05 | Ship the two rubric packs | 0 | READY | queued 05b |
 | 06 | Detector framework + accessibility cluster | 0 | READY | queued 04 |
 | 07 | Canvas structure detectors D01–D20 | 1 | READY | queued 06 |
 | 08 | Mobile detectors + optional-section flag | 1 | READY | queued 07 |
 | 09 | Ollama client, capability filter, model picker | 1 | READY | queued 08 |
 | 10 | Extraction layer with verified quotes | 1 | READY | queued 09 |
 | 11 | Three-run disagreement router | 1 | READY | queued 10 |
-| 12 | Effort model calibration | 1 | **NEEDS MEASUREMENT** | — |
-| 13 | XLSX writer | 2 | blocked by 04 **in code only** | — |
+| 12a | Effort model — ship it | 1 | READY | queued 11a |
+| 12b | Effort model — fit the costs | 1 | **BLOCKED** — items 06/07/08 | — |
+| 13 | XLSX writer | 2 | READY | staged 13 |
 | 14 | PDF course report | 2 | READY | staged 14 |
 | 15 | Narrative generator and voice contract | 2 | READY | staged 12 |
 | 16 | Review UI | 2 | READY | staged 15 |
 | 17 | Batch runner | 2 | READY | queued 11 |
 | 18 | Escalation adapter | 3 | **BLOCKED** — ChatGPT Edu API access | — |
 | 19 | Uploaded-rubric mapping screen | 3 | **SUPERSEDED by 22** | — |
-| 20 | Multi-course comparison view | 3 | **NEEDS DISCUSSION** | — |
+| 20 | Multi-course comparison view | 3 | **DECIDED — not building it** | see 25 |
 | 21 | Detector integrity guard | 0 | READY | queued 05 |
 | 22 | Model-proposed bindings, human-confirmed | 3 | READY | blocked by 09/10 in code |
-| 23 | Canvas-requested content export | 1 | READY | staged 03a |
+| 23 | Canvas-requested content export | 1 | READY | queued 03a |
+| 24 | Agreement and near-boundary transparency | 2 | READY | staged 16 |
+| 25 | Returned-review ingestion | 3 | **BLOCKED** — needs reviews delivered and returned | — |
 
 ---
 
 ## Queued order
 
-**Batch 1 — foundation. In `queue/` and ready to run.**
+**Batch 1 — foundation. DONE, reviewed, and merged.**
 
 ```
 01-sightline-item01-skeleton.md            # DONE — PR #1
@@ -50,22 +53,27 @@ Queue lives at `~/docker/overnight-sightline/`. Next free item number: **24**.
 ```
 
 These three establish every convention the rest inherit — config, data-root containment, the
-container, the document model, CI. They are reviewed by a human before batch 2 runs, because eight
-unsupervised sessions building on a bad session 1 compounds.
+container, the document model, CI. They were reviewed by a human before batch 2 ran, because eight
+unsupervised sessions building on a bad session 1 compounds. **The review passed on 2026-09-08:**
+data-root containment holds (39 tests, behavioural *and* AST-structural), the secrets CI job was
+fired deliberately on a drill branch and was the only job that went red, and every documented
+command runs verbatim (490 tests, clean lint and format, container healthy).
 
-**Batch 2 — held in `staged/`, pending that review and the item 04 decision.**
+**Batch 2 — in `queue/`, released 2026-09-08.**
 
 ```
 03a-sightline-item23-content-export-request.md  # before 06 — D30/D36 need document bytes
 04-sightline-item06-detector-framework.md
 05-sightline-item21-detector-integrity-guard.md
 05a-sightline-item04-rubric-pack-format.md       # clears item 08's stop; unblocks 05 and 13
+05b-sightline-item05-rubric-packs.md             # the two packs, straight after the format
 06-sightline-item07-canvas-structure-detectors.md
 07-sightline-item08-mobile-detectors.md          # pack flag needs item 04
 08-sightline-item09-ollama-client.md
 09-sightline-item10-extraction-layer.md
 10-sightline-item11-disagreement-router.md
 11-sightline-item17-batch-runner.md
+11a-sightline-item12a-effort-model.md            # LAST in batch 2, before anything renders a band
 ```
 
 Item 21 runs immediately after 06 by design: 06 builds the under-detection invariant into the
@@ -83,32 +91,60 @@ items 07 and 08 to comply without their prompts needing to know about tags.
 
 ```
 12-sightline-item15-voice-contract.md    # FIRST — 13, 14 and 16 all render text
-13-  ...  RESERVED for item 13, the XLSX writer
+13-sightline-item13-xlsx-writer.md       # the exhaustive artifact the PDF defers to
 14-sightline-item14-pdf-report.md
 15-sightline-item16-review-ui.md
+16-sightline-item24-agreement-and-uncertainty.md   # LAST — it annotates the other three
 ```
 
 Item 15 leads the batch because the workbook, the PDF and the review screen all render sentences,
 and a voice contract written after two of them have shipped is a rewrite rather than a contract.
-**`13-` is deliberately left free** so the XLSX writer sorts between the voice contract it depends
-on and the PDF that defers to it; item 05 should likewise take an `05b-` name so the packs land
-immediately after the format. Item 16 is last: it consumes the voice layer and satisfies the export
-gate item 14 builds.
+The XLSX writer sits at `13-`, between the voice contract it depends on and the PDF that defers to
+it. Item 16 consumes the voice layer and satisfies the export gate item 14 builds. **Item 24 is
+last on purpose**: it annotates the PDF and the review screen that items 14 and 16 build, and it
+surfaces the near-boundary marker item 12a computes but deliberately leaves without a UI.
+
+**Item 12a closes batch 2 rather than opening batch 3**, because every artifact in batch 3 renders
+a band: the workbook, the PDF and the review screen all read the effort model, and shipping any of
+them against a model that does not exist yet would mean three sessions each inventing one.
 
 ---
 
 ## Not queued, and why
 
-**05 — ship the two rubric packs · blocked by 04 in code only.** The format is decided; this needs
-the schema and importer to exist before it can run. Queue it once 05a lands.
+**05 and 13 are now queued** — see *Queued order* above. Both were held as "blocked by 04 in code
+only", which was never a reason to leave them uncomposed: the queue's own ordering satisfies a
+code dependency. `05b-` follows the format it consumes; `13-` follows the voice contract it renders
+through.
 
-**13 — XLSX writer · blocked by 04 in code only.** Same: the decision no longer blocks it, the code
-does.
+**12 · MEASURED 2026-09-08, AND SPLIT.** The item asked for per-defect costs and band thresholds
+"calibrated against reviews already completed by hand". Reading the source workbooks answered half
+of it and disproved the premise of the other half.
 
-**12 — effort model calibration · NEEDS MEASUREMENT.** Per-defect remediation costs and band
-thresholds, calibrated against completed reviews. `CONFIG`'s `timeToFix` holds an effort table worth
-checking first, cross-referenced against the `Instructional Designer` sheet. Measurement questions
-are answered from data, never asked of the user.
+**The bands were never a guess and need no calibration.** They are printed on the instrument as
+column headers — `Instructional Designer` row 3 carries the rating names and row 4 the ranges
+directly beneath them: `T4` "1/2 hour or less", `U4` "1/2-2 hours", `V4` "2+ hours", under Minor,
+Moderate and Major. Sufficiently Present has no band at all, because it is "no qualifying defects
+found" rather than zero hours. The RSI instrument prints the same three ranges on its rows 6–7, a
+second independent corroboration, and `timeToFix`'s point estimates fall inside them exactly. §07's
+table is the instrument's own published scale.
+
+**The spec is wrong about `timeToFix` and the correction is in the log below.** It is
+`CONFIG!$H$15:$K$19` and it holds RATING → HOURS, the inverse of what Sightline computes. Nothing
+in either workbook prices a defect.
+
+- **12a — ship the effort model · READY, queued `11a-`.** Bands from the instrument, per-defect
+  costs as an explicit, labelled, trivially-overridable placeholder exactly as §07 anticipates,
+  one global sum-then-band roll-up rule, and the override capture that makes 12b possible. It also
+  computes a **near-boundary marker** — with a wider margin at the Sufficiently Present / Minor
+  boundary, because that is where humans actually disagree — and deliberately ships no UI for it.
+  Item 24 surfaces it.
+- **12b — fit the costs · BLOCKED on items 06/07/08.** A calibration corpus of real completed
+  reviews exists outside the repository. It records outcomes, not inputs: no file states how many
+  defects a rating was based on, and none records time actually spent. So the costs cannot be read
+  off it. What it supplies is a *target* — fit the table so computed bands reproduce the human
+  ratings on the same courses — which needs the detectors to exist and those courses to still be
+  acquirable. It is not blocked on months of usage, and it is not a measurement question.
 
 **14 / 15 / 16 — output and UI · READY, decided 2026-09-08 as one cluster.** They were decided
 together because they are three answers to one question — how much evidence to show, and in what
@@ -187,7 +223,51 @@ the consequence of a control rather than just its label is the established patte
 codebase's sibling projects. Confirmation lives on the rubric import/selection path, shown once
 per pack, never in the per-run flow.
 
-**20 · NEEDS DISCUSSION.** Whether a batch produces anything beyond n independent reports.
+**20 — multi-course comparison view · DECIDED 2026-09-08. NOT BEING BUILT.** The question was
+whether a batch produces anything beyond *n* independent reports. Asked plainly — what would a
+designer *do* with the comparison — it has no answer: a cross-course view offers no verification
+and builds no knowledge the individual reports do not already carry, and a feature with no use is
+not made useful by being cheap to add. Ranking courses against each other is also the closest this
+product can get to the aggregate quality score §11 forbids, which is a second reason to decline it.
+
+The condition under which it comes back is specific and worth recording: **if the app can learn
+something from comparing courses.** That is a calibration argument, not a UI one, and it is item
+12b's territory rather than a screen's. Do not re-open this as a view.
+
+**The real missing signal is what happens to a review AFTER it is handed over** — which is item 25.
+
+**24 — agreement and near-boundary transparency · NEW, READY, staged `16-`.** Ship, in the product,
+the measured fact that qualified human reviewers rating the same course independently agree between
+72% and 91% of the time, that every disagreement observed was exactly one band, and that 29 of 34
+were Sufficiently Present versus Minor Revision. Stated with its sample size and its limits, in the
+PDF's *what this document is* block, on the review screen, and in the docs — not in the workbook,
+which has no honest place for prose.
+
+**The framing is the whole item.** These numbers describe **humans agreeing with each other**, and
+therefore the difficulty of the task. They say nothing about how often Sightline is right, and any
+sentence implying otherwise is a fabrication rather than a wording problem. §01 holds that
+verbalized self-confidence is worse than useless; a measured statement about the task is the
+opposite of that, and it is the most disarming true thing the product can say. The item's guard is
+a test that plants the forbidden constructions — "Sightline agrees with reviewers 91% of the time",
+"accuracy", "confidence", "reliability score" — and proves the check fires on them.
+
+Its second half gives item 12a's near-boundary marker a home in the PDF and the review screen. It
+is a computed distance from a threshold, never a percentage, a star, a colour ramp or the word
+"unsure".
+
+**25 — returned-review ingestion · NEW, BLOCKED on reviews being delivered and coming back.**
+Item 16 captures the overrides a designer makes *inside* Sightline, and §09 already calls that
+record the calibration data. It is not the whole signal. **What a human changes after the report
+leaves the app** — the edits made to a workbook or an action plan on its way to faculty — is the
+correction Sightline never sees, and it is a better calibration target than an in-app override
+because it reflects what the reviewer was willing to put their name to.
+
+Blocked on nothing technical: it needs real reviews to have been produced and returned. When that
+starts, the returned files land outside the repository under `private/` and this item builds the
+diff — original machine proposal against the delivered artifact against what came back — with the
+same discipline the calibration corpus already carries: **aggregate figures only ever leave that
+directory**, and no course, person or institution is ever named in anything committed. It feeds
+12b and it does not block anything queued.
 
 **23 — Canvas-requested content export · READY, decided 2026-09-08.** Item 03 raised this and
 deliberately declined to settle it, which was right: it is a product call, not an item's.
@@ -369,7 +449,7 @@ is an artifact about course-quality concepts, portable across detector refactors
 Sightline's numbering. **(2)** **An unbound row is normal, not an error**: binding is an
 optimization, and a rubric with zero bindings must load, run, and produce a usable review with its
 rows routed to extraction. **(3)** A criterion fed by several detectors sums their effort and bands
-the total — one global rule, so item 12 calibrates one model rather than 68. Band thresholds are
+the total — one global rule, so item 12b calibrates one model rather than 68. Band thresholds are
 pack data; per-defect costs are global config.
 
 **Sightline reviews the course; the rubric is only the lens.** No design step may require a rubric
@@ -415,3 +495,75 @@ be the content-export `POST`.
 The claim itself is narrowed rather than dropped. "Nothing in Sightline writes to Canvas" becomes
 "Sightline does not modify course content; it asks Canvas to package a copy of the course it is
 reviewing." Nothing a learner or instructor sees changes; an artifact appears in the export list.
+
+---
+
+**2026-09-08 — the spec is wrong about `timeToFix`, and item 12 splits.** §07 said `CONFIG`'s
+`timeToFix` "holds an effort table worth checking first", meaning per-defect remediation costs. It
+was checked. `timeToFix` is `CONFIG!$H$15:$K$19` and it holds **rating → hours** — Major 2.0/3.0,
+Moderate 1.25/2.0, Minor 0.25/0.5, Sufficiently Present and N/A 0.0 — which is the **inverse** of
+what Sightline computes. Nothing in either workbook prices a defect. Same class of error as the
+Rev A → Rev B correction: the spec asserted something about the files that reading the files
+disproves.
+
+**The band thresholds, by contrast, were never a guess.** They are printed on the instrument.
+`Instructional Designer` row 3 holds the rating names and row 4 the ranges beneath them — `T4`
+"1/2 hour or less", `U4` "1/2-2 hours", `V4` "2+ hours" — and the RSI instrument prints the same
+three on its rows 6–7. §07's table stands as published.
+
+**A trap inside the same range.** `timeToFix`'s `VALUE` column encodes Major 1, Moderate 2, Minor 3,
+Sufficiently Present 4 — an inverted numeric scale that exists to be averaged, which is precisely
+the aggregate quality score §11 forbids. It is not an effort figure and must not be imported as one.
+
+**2026-09-08 — importer findings, measured against the source workbooks.** These belong to items 04,
+05 and 13, and every one has a plausible wrong answer:
+
+- **Criterion text is column R and there are exactly 68 rows of it**, at rows 7–85. `max_row` is
+  531; the ~460 rows below are template filler carrying a counter in column Q and nothing in R. An
+  importer keying on "column Q has a value" imports 468 rows.
+- **The composite code is assembled from two columns** — P is the category, Q the within-category
+  index — and **column Q mixes float and int inside the same sheet** (62 float, 6 int on
+  `Instructional Designer` alone), so `COAL 1.0` and `COAL 1` both occur. **Column F is the stable
+  join key** (`1a`, `2b`, … `M-A`). Column G is the OPEN SUNY number and holds a different scheme
+  again.
+- **Category counts sum to 68**: COAL 7, GSOV 12, OREP 11, ACD 11, ENIN 12, ASFE 6, MOB 9.
+- **The MOB block is numbered differently and carries no priority flag.** Rows 77–85 run `M-A`
+  through `M-I` with `M` as the Number and `INT` rather than `UCCS` as the origin flag in column O,
+  and column H is empty for all nine. §07's "ordering must tolerate a null" is about exactly these
+  rows; an importer requiring a priority drops the whole mobile section.
+- **Columns AB/AC default every row to `NR` / `No Response`** — abstention is native to the
+  instrument, not something Sightline imposes.
+
+**2026-09-08 — the RSI workbook does not open the obvious way.**
+`openpyxl.load_workbook("rubrics/source/UCCS OSCQR RSI Review.xlsm", data_only=True)` raises
+`TypeError: expected <class 'int'>` from `openpyxl/worksheet/merge.py`. The file is not corrupt: it
+carries 19 merged-cell records, five of them **whole-row references with no column letters** —
+`ref="8:8"`, `"13:13"`, `"18:18"`, `"22:22"`, `"31:31"`. Excel accepts those; openpyxl's `CellRange`
+demands integer columns. **`read_only=True` loads it cleanly**, because read-only mode never binds
+merged cells. It is also a concrete illustration of §08's requirement that Sightline's own workbook
+survive a CSV round-trip "which the current instrument does not".
+
+The RSI file is structurally unlike the 3.1.3 file, which is why item 05 ships both: one sheet
+(`Course Review`), 18 criteria numbered 1–18 on rows 10–42 with the text in column B, **categories
+as section rows rather than a column**, interleaved instruction rows that are long text but not
+criteria, no composite code, no priority flag, no origin flag — and `max_row` reporting 1048561.
+§03's claim that its criterion 8 is ACD 5 verbatim is confirmed.
+
+**2026-09-08 — item 20 declined, item 25 filed in its place.** A multi-course comparison view was
+labelled NEEDS DISCUSSION. It is not being built: it offers a designer no verification and no
+knowledge the individual reports do not already carry, and ranking courses against one another is
+the nearest thing to the aggregate quality score §11 forbids. The condition for revisiting it is
+that the *app* learn something from the comparison, which is item 12b's territory rather than a
+screen's. Recorded so it is not rediscovered as a feature idea.
+
+What the discussion did surface is a signal the roadmap had no item for: **the changes made to a
+review after it is handed to the user**. In-app overrides (item 16, §09) capture only what a
+designer changes before the artifact leaves. Item 25 covers what comes back.
+
+**2026-09-08 — item 24 filed.** The calibration corpus produced a number worth shipping rather than
+filing: independent human passes over the same course agree 72–91% of the time, every disagreement
+observed was exactly one band, and 29 of 34 were Sufficiently Present versus Minor Revision. That
+is a fact about the difficulty of the task, and stating it supports §01 more directly than any
+amount of hedging. It also sets the design constraint item 12a carries: **be least assertive at the
+Sufficiently Present / Minor boundary** — the boundary with the smallest computed effort, where a
+naive implementation is most confident and where humans are least consistent.
