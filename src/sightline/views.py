@@ -239,8 +239,24 @@ async def _look_up(credentials: CanvasCredentials, refs: list[CourseRef]) -> lis
             for ref in refs
         ]
 
+    try:
+        client = CanvasClient(credentials.base_url, credentials.token)
+    except CanvasError as exc:
+        # A stored base URL is normalized on the way in, but the environment fallback is not: a
+        # container started with a malformed CANVAS_BASE_URL reaches here. Reporting it per row
+        # keeps the screen's shape; letting it escape would be a 500 with the remedy in a log.
+        return [
+            {
+                "ref": ref,
+                "state": "not attempted",
+                "detail": " ".join(filter(None, (exc.summary, exc.detail))),
+                "remedy": exc.remedy,
+            }
+            for ref in refs
+        ]
+
     results: list[dict[str, Any]] = []
-    async with CanvasClient(credentials.base_url, credentials.token) as client:
+    async with client:
         for position, ref in enumerate(refs):
             if position >= MAX_LOOKUPS:
                 results.append(

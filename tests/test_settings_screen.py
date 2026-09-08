@@ -251,6 +251,18 @@ def test_a_lookup_failure_is_a_row_not_a_missing_row(
     assert "cannot see" in body
 
 
+def test_a_malformed_environment_base_url_is_a_row_not_a_500(
+    settings: Settings, canvas: dict[str, Recording]
+) -> None:
+    """A stored base URL is normalized on the way in; the environment fallback is not."""
+    broken = settings.model_copy(update={"canvas_base_url": "ftp://canvas.example.edu"})
+    with TestClient(create_app(broken)) as broken_client:
+        broken_client.post("/settings", data={"canvas_base_url": "", "canvas_token": FAKE_TOKEN})
+        body = broken_client.post("/courses", data={"references": "4410"}).text
+    assert "not attempted" in body
+    assert "not a URL scheme Sightline can use" in body
+
+
 def test_an_oversized_upload_is_refused_by_its_size(client: TestClient) -> None:
     oversized = b"course_id\n" + b"4410\n" * 500_000
     body = client.post(
