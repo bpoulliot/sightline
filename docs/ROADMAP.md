@@ -13,7 +13,7 @@ Queue lives at `~/docker/overnight-sightline/`. Next free item number: **22**.
 
 | # | Item | Tier | Label | Status |
 |---|---|---|---|---|
-| 01 | Repo skeleton, config, run store, **container** | 0 | READY | queued 01 |
+| 01 | Repo skeleton, config, run store, **container** | 0 | READY | **DONE** — PR #1 |
 | 02 | Canvas connector and connection test | 0 | READY | queued 02 |
 | 03 | Acquisition and normalization | 0 | READY | queued 03 |
 | 04 | Rubric pack format | 0 | **NEEDS DISCUSSION** | — |
@@ -42,7 +42,7 @@ Queue lives at `~/docker/overnight-sightline/`. Next free item number: **22**.
 **Batch 1 — foundation. In `queue/` and ready to run.**
 
 ```
-01-sightline-item01-skeleton.md            # + Dockerfile, compose, image CI job
+01-sightline-item01-skeleton.md            # DONE — PR #1
 02-sightline-item02-canvas-connector.md
 03-sightline-item03-acquisition.md
 ```
@@ -114,6 +114,14 @@ image on every PR; a Dockerfile that is never built in CI rots within a month.
 
 There is no production deployment and no cutover — `docker compose up` on a developer machine is the
 entire story until that changes.
+
+**The compose network subnet is pinned**, and later items should not unpin it. Sightline has to
+reach a model host on the LAN, and host firewalls commonly allow container egress by source range —
+typically the whole of `172.16.0.0/12`. Docker's default pool hands out `172.17`–`172.31` as /16s
+and then falls back to `192.168.0.0/16`; a container that lands in the fallback is dropped by such
+a firewall, and the only symptom is a connection **timeout at the first model call**. This was
+observed and fixed during item 01, not theorised. Override with `SIGHTLINE_SUBNET` where the
+default `/24` collides.
 
 ## Repository and disclosure
 

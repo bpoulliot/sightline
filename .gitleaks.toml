@@ -1,0 +1,24 @@
+# gitleaks configuration for a PUBLIC repository.
+#
+# The default rule set is kept in full and extended, never replaced. If this configuration ever
+# flags something real, the fix is to remove the secret and rotate it — not to add an allowlist.
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "canvas-api-token"
+description = "Canvas LMS personal access token"
+# A short numeric prefix, a tilde, then a long alphanumeric body.
+regex = '''\b[0-9]{3,6}~[A-Za-z0-9]{20,}\b'''
+keywords = ["canvas", "token", "~"]
+
+[rules.allowlist]
+description = "The obviously fake placeholder shipped in .env.example"
+regexes = ['''0000~replace_me_with_a_real_token''']
+
+[[rules]]
+id = "canvas-authorization-header"
+description = "Canvas Authorization header with a literal token"
+regex = '''(?i)authorization:\s*bearer\s+[A-Za-z0-9\-._~+/]{16,}'''
+keywords = ["authorization", "bearer"]

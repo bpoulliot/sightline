@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}Sightline — status{% endblock %}
+
+{% block content %}
+<section class="panel" aria-labelledby="h-what">
+  <h1 id="h-what">Status</h1>
+  <p class="lede">
+    Nothing has been reviewed yet. This build establishes configuration, the working-data root and
+    the run store; the Canvas connector, the detectors and the review screens arrive with later
+    roadmap items.
+  </p>
+</section>
+
+<section class="panel" aria-labelledby="h-config">
+  <h2 id="h-config">Configuration</h2>
+  <p class="note">
+    Presence only. Values are never displayed: the Canvas base URL identifies the institution and
+    is treated as a secret alongside the token.
+  </p>
+  <div class="scroll-x">
+    <table>
+      <caption class="visually-hidden">Configuration settings and whether each one is present</caption>
+      <thead>
+        <tr><th scope="col">Setting</th><th scope="col">Environment variable</th><th scope="col">State</th><th scope="col">Note</th></tr>
+      </thead>
+      <tbody>
+        {% for row in settings_rows %}
+        <tr>
+          <th scope="row">{{ row.name }}</th>
+          <td data-label="Environment variable"><code>{{ row.env }}</code></td>
+          <td data-label="State">
+            <span class="state {% if row.state == 'configured' %}state-on{% else %}state-off{% endif %}">{{ row.state }}</span>
+          </td>
+          <td data-label="Note" class="muted">{{ row.note }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel" aria-labelledby="h-data">
+  <h2 id="h-data">Working data</h2>
+  <p class="note">
+    Everything Sightline downloads or generates lives beneath this root, which is gitignored in
+    full. Course exports never enter the repository.
+  </p>
+  <dl class="pairs">
+    <div><dt>Data root</dt><dd><code>{{ data_root }}</code></dd></div>
+    <div><dt>Run store</dt><dd><code>{{ database }}</code></dd></div>
+    <div><dt>Subdirectories</dt><dd><code>exports/</code> <code>cache/</code> <code>runs/</code> <code>reports/</code></dd></div>
+  </dl>
+</section>
+
+<section class="panel" aria-labelledby="h-runs">
+  <h2 id="h-runs">Recent runs</h2>
+  {% if runs %}
+  <div class="scroll-x">
+    <table>
+      <caption class="visually-hidden">The ten most recent runs</caption>
+      <thead>
+        <tr><th scope="col">Run</th><th scope="col">Rubric</th><th scope="col">Courses</th><th scope="col">Status</th><th scope="col">Started</th></tr>
+      </thead>
+      <tbody>
+        {% for run in runs %}
+        <tr>
+          <th scope="row"><code>{{ run.id[:8] }}</code></th>
+          <td data-label="Rubric">{{ run.rubric_pack }}</td>
+          <td data-label="Courses" class="num">{{ run.courses | length }}</td>
+          <td data-label="Status"><span class="state">{{ run.status_label }}</span></td>
+          <td data-label="Started" class="muted">{{ run.created_at.strftime('%Y-%m-%d %H:%M UTC') }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty">No runs yet.</p>
+  {% endif %}
+</section>
+
+<section class="panel" aria-labelledby="h-tiers">
+  <h2 id="h-tiers">Determinacy tiers</h2>
+  <p class="note">
+    Every criterion carries a tier. It governs how the finding is computed, how confidently it is
+    worded, and whether Sightline may propose a rating at all. Ink density encodes the tier
+    everywhere in the application, so a reviewer always knows whether they are confirming
+    arithmetic or making a judgment.
+  </p>
+  <ul class="tiers">
+    {% for tier in tiers %}
+    <li>
+      <span class="tier {{ tier.css }}" aria-hidden="true">{{ tier.letter }}</span>
+      <span class="tier-name">{{ tier.name }}</span>
+      <span class="tier-handling muted">{{ tier.handling }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endblock %}
