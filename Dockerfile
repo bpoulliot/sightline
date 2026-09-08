@@ -45,6 +45,14 @@ FROM deps AS dev
 RUN uv sync --frozen --extra dev
 COPY tests ./tests
 COPY docs/tokens.css ./docs/tokens.css
+# The suite reads the detector inventory out of SPEC §05 — tests/test_sample_course.py checks that
+# every planted defect names a detector the spec actually lists — so the dev stage needs the spec.
+# The runtime image does not, and does not get it.
+COPY docs/SPEC.md ./docs/SPEC.md
+# The synthetic sample course is a test fixture as well as a shipped example, so the suite cannot
+# run without it. It is also what `python -m sightline.acquire --bundle` reads, which is why the
+# runtime stage below carries it too.
+COPY examples ./examples
 
 ENV PATH="/app/.venv/bin:$PATH" \
     SIGHTLINE_DATA_DIR=/tmp/sightline-test-data \
@@ -68,6 +76,8 @@ WORKDIR /app
 COPY --from=deps --chown=root:root /app/.venv /app/.venv
 COPY --chown=root:root src ./src
 COPY --chown=root:root rubrics ./rubrics
+# The synthetic sample course: what a new user runs before they have a Canvas token.
+COPY --chown=root:root examples ./examples
 # The single source of colour. Served verbatim; never copied into the package.
 COPY --chown=root:root docs/tokens.css ./docs/tokens.css
 

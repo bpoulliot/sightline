@@ -45,8 +45,15 @@ does not wipe a half-finished batch.
 | `/settings` | Canvas base URL and token, **Test connection**, and the token-scope table below. |
 | `/courses` | Resolve a course from a pasted URL, a bare id, or an uploaded CSV. |
 
-Everything works with JavaScript switched off — each action is a form post that re-renders the
-page with its result. `/settings` also exposes the connection test as JSON at
+There is also a command-line entry point, and its first form needs no Canvas token at all:
+
+```sh
+python -m sightline.acquire --bundle examples/sample-course   # the shipped synthetic course
+python -m sightline.acquire 4410                              # a course on your instance
+```
+
+Everything on the web screens works with JavaScript switched off — each action is a form post that
+re-renders the page with its result. `/settings` also exposes the connection test as JSON at
 `POST /api/canvas/test`, which is the same code path, not a second implementation.
 
 ### Test connection
@@ -80,6 +87,80 @@ one, the column that parsed the most rows is used and the screen says which and 
 could not be read are listed with a reason — a CSV importer that skips what it did not understand
 is silent under-detection (SPEC §11) in miniature.
 
+## Acquisition and the document model
+
+Stages 1 and 2 of the pipeline in SPEC §04. A course goes in; one `CourseDocument` comes out, and
+every detector reads that and never a Canvas payload.
+
+**Two sources, each used for what it is good at.** The Canvas API knows the *structure* of a
+course — modules, assignments, quizzes, discussions, announcements, attached rubrics, assignment
+groups, navigation settings — and it knows it accurately and now. A content export knows the
+*bytes* of its documents. Page bodies come from the API, which is authoritative; the export fills
+in a body the API would not hand over and supplies the files.
+
+**Everything normalizes to eight kinds** — pages, files, assignments, quizzes, discussions,
+announcements, modules and embeds, plus the syllabus and module items — each with a stable id, a
+human title and a **deep link into the Canvas UI**. The link is item-level and never an editor
+(SPEC §08): a reviewer following a finding should land on what a learner sees. It is stored as a
+*path* and joined to the base URL on the way out, which is what lets a cached document — and the
+shipped sample course — carry no institution hostname at all. Where only a search link is possible,
+because a file exists in the export and not in the API's file list, the artifact says
+`link_exact: false` rather than presenting a weaker link as the same thing.
+
+**Every collection reports what it examined.** A course with the Quizzes tab switched off is a
+normal course, so a refused collection is not an error; it is an `Examination` record naming the
+endpoint, what came back, and what to change. `empty`, `refused` and `absent` are three different
+answers, because a course with no quizzes and a course whose quizzes could not be read look
+identical downstream unless acquisition says which (SPEC §11).
+
+**The cache is keyed on the course, not on the clock.** The cheap index phase always runs — a
+dozen listing requests — and its result is reduced to a signature. The expensive phase, one request
+per page body plus a download, is skipped when that signature matches something already cached. A
+key built on the course's own `updated_at` would look right and be wrong: Canvas does not bump a
+course's timestamp when a page inside it is edited, and the symptom would be a review of
+yesterday's course reported as today's. Values that rotate per request are excluded from the
+digest, and so are reply counts — Sightline reviews the design of a course, not the activity in it.
+
+**Sightline reads a content export; it never asks Canvas to make one.** Creating an export is a
+`POST`, and every request this package makes is a `GET`. So acquisition looks for a finished export
+the course already has, uses it, and when there is none says exactly that with the steps to create
+one. Whether Sightline should ever make that one write is a product decision and is recorded as an
+open question in `docs/ROADMAP.md`, not settled by whichever item found it convenient.
+
+### Reuse from AccessLens
+
+The fetch and unzip layer is AccessLens's, ported rather than rewritten — a validated download
+host, a capped download, a capped extraction, and the IMS manifest parse that recovers module names
+from an export. Its analysis half is deliberately left behind; Sightline's analysis is
+rubric-scoped and much narrower (SPEC §11, *Scope creep toward AccessLens*).
+
+One thing changed on the way across. AccessLens guards against Zip Slip by comparing a member's
+realpath against a prefix; here every member name goes through `sightline.paths`, the same write
+gate the whole application uses and the one `tests/test_paths.py` proves structurally. A second
+implementation of a security check is a second thing to get wrong.
+
+### The course bundle, and running without a token
+
+A cached document is one large JSON file — right for a machine, useless to a reviewer. A **bundle**
+is the same document with the HTML pulled out into real files:
+
+```
+course.json     structure, with body_file references instead of inline bodies
+bodies/*.html   the HTML, kept as HTML because course HTML is only legible as HTML
+```
+
+`examples/sample-course/` is one, hand-written and synthetic, with a deliberate defect for each
+detector in SPEC §05 and a registry of them in `defects.json` that the test suite checks is still
+true. It is the fixture the rest of the pipeline is built against and it is what a new user runs
+first:
+
+```sh
+python -m sightline.acquire --bundle examples/sample-course
+```
+
+See `examples/sample-course/README.md` for what is planted in it, and for the four detectors it
+cannot exercise yet and why.
+
 ## Canvas token scopes
 
 So an institution can issue a least-privilege token rather than an administrative one, here is
@@ -92,8 +173,22 @@ every request Sightline makes today. `sightline.canvas.scopes` is the source of 
 | `url:GET\|/api/v1/courses` | `GET /api/v1/courses` | Counts the courses the token can see, so an empty result is visible up front. |
 | `url:GET\|/api/v1/courses/:id` | `GET /api/v1/courses/{id}` | Resolves a pasted URL, id or CSV row to a named course. |
 | `url:GET\|/api/v1/courses/:course_id/pages` | `GET /api/v1/courses/{id}/pages` | Confirms course content is readable, not merely that the course is listed. |
+| `url:GET\|/api/v1/courses/:course_id/pages/:url` | `GET /api/v1/courses/{id}/pages/{page_url}` | Reads a page's body. The listing endpoint returns titles only, never the HTML. |
+| `url:GET\|/api/v1/courses/:course_id/modules` | `GET /api/v1/courses/{id}/modules` | Reads the module structure every artifact's place in the course is derived from. |
+| `url:GET\|/api/v1/courses/:course_id/modules/:module_id/items` | `GET /api/v1/courses/{id}/modules/{module_id}/items` | Re-reads a long module's items. Canvas caps the items it includes with a module listing and gives no signal that it did. |
+| `url:GET\|/api/v1/courses/:course_id/assignments` | `GET /api/v1/courses/{id}/assignments` | Reads assignments, their due dates, submission types and attached rubrics. |
+| `url:GET\|/api/v1/courses/:course_id/quizzes` | `GET /api/v1/courses/{id}/quizzes` | Reads quizzes, including whether each is timed and how it is weighted. |
+| `url:GET\|/api/v1/courses/:course_id/discussion_topics` | `GET /api/v1/courses/{id}/discussion_topics` | Reads discussions and announcements. Canvas models both as topics and separates them with a query parameter, not a second endpoint. |
+| `url:GET\|/api/v1/courses/:course_id/assignment_groups` | `GET /api/v1/courses/{id}/assignment_groups` | Reads the assignment groups and their weights, which one criterion expects to total 100. |
+| `url:GET\|/api/v1/courses/:course_id/rubrics` | `GET /api/v1/courses/{id}/rubrics` | Reads the rubrics defined in the course, so an unattached one is still visible. |
+| `url:GET\|/api/v1/courses/:course_id/tabs` | `GET /api/v1/courses/{id}/tabs` | Reads the course navigation menu, including which entries are hidden from learners. |
+| `url:GET\|/api/v1/courses/:course_id/files` | `GET /api/v1/courses/{id}/files` | Lists the course's files, so a document with no bytes in the export is still named. |
+| `url:GET\|/api/v1/courses/:course_id/content_exports` | `GET /api/v1/courses/{id}/content_exports` | Finds a content export the course already has. Sightline reads one; it never asks Canvas to create one, because creating one is a write. |
 
-All four are read-only, and nothing in Sightline writes to Canvas.
+**Every one is a `GET`, and nothing in Sightline writes to Canvas.** That is a decision rather
+than a coincidence. Asking Canvas to build a content export is a `POST`, so acquisition *reads* an
+export the course already has and tells you what to do when there is none, rather than creating
+one. `tests/test_canvas_scopes.py` fails the build if a non-`GET` scope ever appears in the list.
 
 Two kinds of Canvas token exist and they behave differently:
 
@@ -264,6 +359,8 @@ rubrics/source/  the blank rubric workbooks
 scripts/         dev.sh (container-backed test/lint/format), scan-secrets.sh
 src/sightline/   the application
   canvas/        the Canvas connector: client, connection test, reference resolution, sanitizer
+  acquire/       acquisition and normalization: the API reader, the fetch/unzip layer, the cache
+  model.py       the normalized document model every detector reads
 tests/           the suite
   fixtures/      synthetic recorded Canvas responses — never anything real
 ```

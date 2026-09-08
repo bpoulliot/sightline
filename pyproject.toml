@@ -14,6 +14,10 @@ dependencies = [
     "pydantic-settings>=2.6",
     "structlog>=24.4",
     "httpx>=0.27",
+    # Course exports are instructor-authored XML from outside this process. defusedxml is what
+    # the reused AccessLens acquisition layer parses manifests with, and the reason is the same
+    # here: entity expansion in an untrusted document should not be a denial of service.
+    "defusedxml>=0.7",
     "cryptography>=43.0",
     "python-multipart>=0.0.12",
 ]

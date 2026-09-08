@@ -31,6 +31,14 @@ def test_there_are_scopes_to_check() -> None:
     assert len(REQUIRED_SCOPES) >= 4
 
 
+def test_no_scope_is_declared_twice() -> None:
+    """Two rows granting the same scope means the README table has a duplicate in it too."""
+    strings = scope_strings()
+    assert len(set(strings)) == len(strings), sorted(
+        scope for scope in strings if strings.count(scope) > 1
+    )
+
+
 def test_the_readme_lists_exactly_the_scopes_the_code_requires(readme: str) -> None:
     documented = set(SCOPE_PATTERN.findall(readme))
     declared = set(scope_strings())
@@ -54,16 +62,30 @@ def test_the_readme_says_a_personal_token_cannot_be_scoped(readme: str) -> None:
     assert "cannot be scoped" in lowered
 
 
-def test_every_declared_scope_is_a_request_the_client_makes(repo_root: Path) -> None:
-    """A scope list that asks for more than the client uses is not least privilege."""
-    client_source = (repo_root / "src" / "sightline" / "canvas" / "client.py").read_text(
-        encoding="utf-8"
-    )
+#: Modules that make Canvas requests. Item 02's requests are all in the client; item 03's
+#: acquisition endpoints are declared in ``sightline.acquire`` and issued through the client's
+#: ``get_json``/``get_list``, so the scan reads both. Narrowing it back to ``client.py`` would make
+#: the check pass by looking in the wrong place.
+def _request_sources(repo_root: Path) -> str:
+    package = repo_root / "src" / "sightline"
+    sources = [package / "canvas" / "client.py", *sorted((package / "acquire").glob("*.py"))]
+    assert len(sources) > 1, "the scope check examined only one module"
+    return "\n".join(source.read_text(encoding="utf-8") for source in sources)
+
+
+def test_every_declared_scope_is_a_request_the_package_makes(repo_root: Path) -> None:
+    """A scope list that asks for more than the code uses is not least privilege."""
+    client_source = _request_sources(repo_root)
     for scope in REQUIRED_SCOPES:
-        # ``GET /api/v1/courses/{id}`` -> the ``/courses/`` fragment that must appear in a call.
-        route = scope.request.split(" ", 1)[1].replace("/api/v1", "").replace("{id}", "")
-        fragment = route.rstrip("/").rsplit("/", 1)[-1] or "courses"
-        assert fragment in client_source, f"{scope.scope} names a route the client never calls"
+        # The last *literal* segment of the route — the placeholders are spelled differently in
+        # the source (``{slug}`` where the scope says ``{page_url}``), so matching on one of those
+        # would check spelling rather than whether the call exists.
+        route = scope.request.split(" ", 1)[1].removeprefix("/api/v1")
+        segments = [
+            segment for segment in route.split("/") if segment and not segment.startswith("{")
+        ]
+        fragment = segments[-1] if segments else "courses"
+        assert fragment in client_source, f"{scope.scope} names a route the package never calls"
 
 
 def test_every_scope_says_why_it_is_needed() -> None:
@@ -74,6 +96,11 @@ def test_every_scope_says_why_it_is_needed() -> None:
 
 def test_the_scopes_are_all_read_only() -> None:
     """Sightline never writes to Canvas. A scope list with a POST in it would be a bug worth
-    catching here rather than in a security review."""
+    catching here rather than in a security review.
+
+    Item 03 kept this true deliberately. Asking Canvas to build a content export is a ``POST``, so
+    acquisition reads an export the course already has instead, and says what to do when there is
+    none. Making that one write is a product decision, and it belongs to a person rather than to
+    whichever item next finds it convenient."""
     assert all(scope.scope.startswith("url:GET|") for scope in REQUIRED_SCOPES)
     assert all(scope.request.startswith("GET ") for scope in REQUIRED_SCOPES)

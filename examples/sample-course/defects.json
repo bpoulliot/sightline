@@ -1,0 +1,448 @@
+{
+  "about": [
+    "Every defect planted in this course on purpose, and every case planted to be clean.",
+    "It is a checkable artifact, not documentation: tests/test_sample_course.py fails the build",
+    "if a row names a detector the spec does not list, an artifact this course does not contain,",
+    "or a marker that is no longer in the body it claims to be in.",
+    "",
+    "expectation: 'defect' means the detector should find something here. 'clean' means it should",
+    "find nothing, which is the case a detector that fires on everything gets wrong. 'not_covered'",
+    "means the sample cannot exercise the detector yet, and says why."
+  ],
+  "planted": [
+    {
+      "detector": "D01",
+      "expectation": "clean",
+      "artifact": "syllabus:4410",
+      "marker": "Course policies",
+      "note": "A syllabus exists and is not empty."
+    },
+    {
+      "detector": "D02",
+      "expectation": "not_covered",
+      "artifact": "file:5001",
+      "note": "A syllabus PDF is attached, but the sample ships no bytes, so tagging cannot be read."
+    },
+    {
+      "detector": "D03",
+      "expectation": "clean",
+      "artifact": "module:3001",
+      "note": "Module 1's first item is an overview page."
+    },
+    {
+      "detector": "D03",
+      "expectation": "defect",
+      "artifact": "module:3003",
+      "note": "Module 3 opens with a file; there is no overview."
+    },
+    {
+      "detector": "D04",
+      "expectation": "defect",
+      "artifact": "page:course-schedule",
+      "marker": "Dates are announced in class",
+      "note": "A schedule exists with no dates on it."
+    },
+    {
+      "detector": "D05",
+      "expectation": "defect",
+      "artifact": "announcement:6001",
+      "marker": "closes on Friday",
+      "note": "The only current announcement is a reminder; no welcome was posted."
+    },
+    {
+      "detector": "D06",
+      "expectation": "defect",
+      "collection": "navigation",
+      "note": "Collaborations, Chat and Attendance are visible and unused."
+    },
+    {
+      "detector": "D07",
+      "expectation": "defect",
+      "collection": "assignment_groups",
+      "note": "Group weights are 30 + 40 + 20 = 90, not 100."
+    },
+    {
+      "detector": "D08",
+      "expectation": "defect",
+      "artifact": "assignment:9002",
+      "note": "A graded assignment with no rubric attached."
+    },
+    {
+      "detector": "D08",
+      "expectation": "clean",
+      "artifact": "assignment:9001",
+      "note": "Graded, with the Reflection Rubric attached."
+    },
+    {
+      "detector": "D09",
+      "expectation": "defect",
+      "artifact": "assignment:9002",
+      "note": "Empty description and submission type 'none'."
+    },
+    {
+      "detector": "D10",
+      "expectation": "defect",
+      "artifact": "assignment:9002",
+      "note": "A graded item with no due date."
+    },
+    {
+      "detector": "D11",
+      "expectation": "not_covered",
+      "collection": "course",
+      "note": "Outcomes are not acquired yet; item 03 normalizes no outcome endpoint."
+    },
+    {
+      "detector": "D12",
+      "expectation": "defect",
+      "artifact": "module_item:33003",
+      "marker": "courseware.example.edu",
+      "note": "An external tool with nothing said about it."
+    },
+    {
+      "detector": "D13",
+      "expectation": "clean",
+      "artifact": "syllabus:4410",
+      "marker": "policies.example.edu",
+      "note": "One campus policy link is present."
+    },
+    {
+      "detector": "D14",
+      "expectation": "defect",
+      "artifact": "syllabus:4410",
+      "note": "No student support resources are linked anywhere in the syllabus."
+    },
+    {
+      "detector": "D15",
+      "expectation": "defect",
+      "artifact": "quiz:8001",
+      "marker": "Ten questions",
+      "note": "A 45-minute limit is set and the description never mentions it."
+    },
+    {
+      "detector": "D16",
+      "expectation": "defect",
+      "collection": "quizzes",
+      "note": "Every assessment is graded; there is no low-stakes practice."
+    },
+    {
+      "detector": "D17",
+      "expectation": "clean",
+      "artifact": "discussion:7001",
+      "note": "Two discussions, one graded and one not."
+    },
+    {
+      "detector": "D18",
+      "expectation": "defect",
+      "collection": "pages",
+      "note": "No instructor bio or introduction anywhere in the course."
+    },
+    {
+      "detector": "D19",
+      "expectation": "defect",
+      "artifact": "assignment:9002",
+      "note": "A 100-point final project with no milestones."
+    },
+    {
+      "detector": "D20",
+      "expectation": "defect",
+      "collection": "pages",
+      "note": "No course feedback mechanism."
+    },
+    {
+      "detector": "D21",
+      "expectation": "defect",
+      "artifact": "page:start-here",
+      "marker": "files/5005/preview\" width=\"640\"",
+      "note": "Meaningful image with no alt attribute at all."
+    },
+    {
+      "detector": "D21",
+      "expectation": "defect",
+      "artifact": "page:week-2-materials",
+      "marker": "alt=\"IMG_2043.jpg\"",
+      "note": "Filename used as alt text."
+    },
+    {
+      "detector": "D21",
+      "expectation": "defect",
+      "artifact": "page:week-3-reading",
+      "marker": "A photograph of a whiteboard",
+      "note": "Alt text far over any reasonable length."
+    },
+    {
+      "detector": "D21",
+      "expectation": "clean",
+      "artifact": "page:untitled-page",
+      "marker": "role=\"presentation\"",
+      "note": "A decorative image marked correctly."
+    },
+    {
+      "detector": "D22",
+      "expectation": "defect",
+      "artifact": "page:start-here",
+      "marker": "<h5>What to do first</h5>",
+      "note": "Starts at h3 and then skips to h5."
+    },
+    {
+      "detector": "D22",
+      "expectation": "defect",
+      "artifact": "page:untitled-page",
+      "marker": "<strong>Supplementary material</strong>",
+      "note": "Bold text used as a heading."
+    },
+    {
+      "detector": "D22",
+      "expectation": "clean",
+      "artifact": "page:week-1-overview",
+      "marker": "<h2>Module 1 Overview</h2>",
+      "note": "h2 then h3, in order."
+    },
+    {
+      "detector": "D23",
+      "expectation": "defect",
+      "artifact": "page:start-here",
+      "marker": "click here",
+      "note": "Two links labelled 'click here'."
+    },
+    {
+      "detector": "D23",
+      "expectation": "defect",
+      "artifact": "page:start-here",
+      "marker": "https://help.example.edu/students",
+      "note": "A bare URL as link text."
+    },
+    {
+      "detector": "D23",
+      "expectation": "defect",
+      "artifact": "page:week-3-reading",
+      "marker": ">Slides</a>",
+      "note": "Two links labelled 'Slides' pointing at different files."
+    },
+    {
+      "detector": "D24",
+      "expectation": "defect",
+      "artifact": "page:course-schedule",
+      "marker": "<table width=\"900\"",
+      "note": "Data table with no th, no scope and no caption."
+    },
+    {
+      "detector": "D24",
+      "expectation": "defect",
+      "artifact": "page:untitled-page",
+      "marker": "Layout only",
+      "note": "A table used for layout."
+    },
+    {
+      "detector": "D25",
+      "expectation": "defect",
+      "artifact": "page:start-here",
+      "marker": "color: #bbbbbb",
+      "note": "Grey on white, well under 4.5:1."
+    },
+    {
+      "detector": "D26",
+      "expectation": "defect",
+      "artifact": "page:start-here",
+      "marker": "in red",
+      "note": "Colour is the only thing marking required work."
+    },
+    {
+      "detector": "D27",
+      "expectation": "defect",
+      "artifact": "page:untitled-page",
+      "marker": "media.example.edu/embed/synthetic0001",
+      "note": "Embedded video with no caption track."
+    },
+    {
+      "detector": "D27",
+      "expectation": "clean",
+      "artifact": "page:week-1-overview",
+      "marker": "kind=\"captions\"",
+      "note": "A captioned video."
+    },
+    {
+      "detector": "D28",
+      "expectation": "defect",
+      "artifact": "page:week-2-materials",
+      "marker": "Papyrus",
+      "note": "Decorative face at 9pt."
+    },
+    {
+      "detector": "D29",
+      "expectation": "defect",
+      "artifact": "file:5005",
+      "note": "The course schedule is delivered as a PNG of a table."
+    },
+    {
+      "detector": "D30",
+      "expectation": "not_covered",
+      "artifact": "file:5003",
+      "note": "Document accessibility needs bytes; the sample ships metadata only."
+    },
+    {
+      "detector": "D31",
+      "expectation": "clean",
+      "artifact": "page:week-1-overview",
+      "marker": "licensed CC BY 4.0",
+      "note": "Attribution sits beside the figure it belongs to."
+    },
+    {
+      "detector": "D31",
+      "expectation": "defect",
+      "artifact": "page:week-3-reading",
+      "note": "Two images, no attribution or licence anywhere on the page."
+    },
+    {
+      "detector": "D32",
+      "expectation": "clean",
+      "artifact": "page:week-1-overview",
+      "marker": "licensed CC BY 4.0",
+      "note": "A licence signal and a repository link. The known-repository half of D32 is exercised by the detector's own tests: this course names no real host."
+    },
+    {
+      "detector": "D33",
+      "expectation": "defect",
+      "artifact": "module:3003",
+      "note": "Module 3 is two files and a tool launch; one material type."
+    },
+    {
+      "detector": "D34",
+      "expectation": "defect",
+      "artifact": "page:week-2-materials",
+      "marker": "week2-reading.docx",
+      "note": "The page is a stub; the content is in an attached document."
+    },
+    {
+      "detector": "D35",
+      "expectation": "defect",
+      "artifact": "page:week-3-reading",
+      "marker": "Analysis is the part of the course",
+      "note": "One 500-word paragraph with no section breaks."
+    },
+    {
+      "detector": "D36",
+      "expectation": "not_covered",
+      "artifact": "file:5001",
+      "note": "Printability needs the file's own bytes and Canvas's lock settings."
+    },
+    {
+      "detector": "D37",
+      "expectation": "defect",
+      "artifact": "page:overview",
+      "note": "Two pages are both titled 'Overview'."
+    },
+    {
+      "detector": "D37",
+      "expectation": "defect",
+      "artifact": "page:untitled-page",
+      "note": "A page titled 'Untitled Page'."
+    },
+    {
+      "detector": "D38",
+      "expectation": "defect",
+      "artifact": "module_item:33003",
+      "note": "External tool with no accessibility statement near it."
+    },
+    {
+      "detector": "D39",
+      "expectation": "defect",
+      "artifact": "page:untitled-page",
+      "marker": "media.example.edu/embed/synthetic0001",
+      "note": "Embed with no accompanying hyperlink."
+    },
+    {
+      "detector": "D39",
+      "expectation": "clean",
+      "artifact": "page:week-1-overview",
+      "marker": "download the orientation video",
+      "note": "Embed with a link to the same file beside it."
+    },
+    {
+      "detector": "D40",
+      "expectation": "defect",
+      "artifact": "module_item:32002",
+      "note": "Module items indented three levels."
+    },
+    {
+      "detector": "D41",
+      "expectation": "defect",
+      "artifact": "page:week-2-materials",
+      "marker": "float: left",
+      "note": "Text floated beside an image."
+    },
+    {
+      "detector": "D42",
+      "expectation": "defect",
+      "artifact": "page:untitled-page",
+      "marker": "width: 780px",
+      "note": "Fixed pixel width on a container."
+    },
+    {
+      "detector": "D42",
+      "expectation": "defect",
+      "artifact": "page:course-schedule",
+      "marker": "width=\"900\"",
+      "note": "Fixed pixel width on a table."
+    },
+    {
+      "detector": "D43",
+      "expectation": "defect",
+      "artifact": "page:untitled-page",
+      "marker": "application/x-shockwave-flash",
+      "note": "A Flash object embedded in the page, with no modern replacement beside it."
+    },
+    {
+      "detector": "D44",
+      "expectation": "defect",
+      "artifact": "file:5004",
+      "note": "A legacy .doc attachment among otherwise current formats."
+    },
+    {
+      "detector": "D45",
+      "expectation": "not_covered",
+      "artifact": "module_item:33003",
+      "note": "App availability is a tier C judgement; the sample supplies the tool, not the answer."
+    },
+    {
+      "detector": "D46",
+      "expectation": "defect",
+      "artifact": "page:overview",
+      "marker": "Spring 2024",
+      "note": "A page from a prior offering, unrevised."
+    },
+    {
+      "detector": "D46",
+      "expectation": "defect",
+      "artifact": "announcement:6002",
+      "marker": "Spring 2024",
+      "note": "A prior-term announcement still posted."
+    },
+    {
+      "detector": "D47",
+      "expectation": "defect",
+      "collection": "modules",
+      "note": "Module names run 'Module 1: …', 'Week 2 – …', '3. …', 'Wrap up'."
+    },
+    {
+      "detector": "E03",
+      "expectation": "defect",
+      "artifact": "syllabus:4410",
+      "marker": "as soon as I can",
+      "note": "An interaction commitment with no response time in it."
+    },
+    {
+      "detector": "E08",
+      "expectation": "clean",
+      "artifact": "assignment:9001",
+      "marker": "rubric attached to this assignment",
+      "note": "Evaluation criteria described in the assignment text."
+    },
+    {
+      "detector": "E09",
+      "expectation": "defect",
+      "artifact": "syllabus:4410",
+      "marker": "instructor's discretion",
+      "note": "A late policy that states no rule."
+    }
+  ]
+}

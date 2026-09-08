@@ -1,0 +1,322 @@
+{
+  "name": "course-acquisition",
+  "description": "One whole course as the acquisition layer reads it: the course with its syllabus, navigation tabs, gradebook groups, rubrics, modules (including one whose items Canvas truncated), pages and two page bodies, assignments, quizzes, discussions, announcements, files, and an empty content-export list. Every value is synthetic; see tests/canvas_recordings.py.",
+  "interactions": [
+    {
+      "method": "GET",
+      "path": "/api/v1/courses/4411",
+      "query": { "include[]": "syllabus_body" },
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "json": {
+          "id": 4411,
+          "name": "Sample Course 4411",
+          "course_code": "SAMPLE-4411",
+          "account_id": 4007,
+          "enrollment_term_id": 4014,
+          "workflow_state": "available",
+          "is_public": false,
+          "default_view": "modules",
+          "time_zone": "Etc/UTC",
+          "start_at": "2026-01-12T00:00:00Z",
+          "end_at": "2026-05-08T00:00:00Z",
+          "syllabus_body": "<h2>Synthetic syllabus</h2><p>Policies are published on the <a href=\"/courses/4411/pages/synthetic-policies\">policy page</a>.</p>"
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/courses/4411/tabs",
+      "query": { "per_page": 100 },
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "json": [
+          { "id": "home", "html_url": "/courses/4411", "label": "Home", "type": "internal", "position": 1 },
+          { "id": "modules", "html_url": "/courses/4411/modules", "label": "Modules", "type": "internal", "position": 2 },
+          { "id": "chat", "html_url": "/courses/4411/chat", "label": "Chat", "type": "internal", "position": 3 },
+          { "id": "pages", "html_url": "/courses/4411/wiki", "label": "Pages", "type": "internal", "position": 4, "hidden": true, "visibility": "admins" }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/courses/4411/assignment_groups",
+      "query": { "per_page": 100 },
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "json": [
+          { "id": 4101, "name": "Synthetic assignments group", "position": 1, "group_weight": 60.0 },
+          { "id": 4102, "name": "Synthetic quizzes group", "position": 2, "group_weight": 30.0 }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/courses/4411/rubrics",
+      "query": { "per_page": 100 },
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "json": [
+          {
+            "id": 2101,
+            "title": "Synthetic reflection rubric",
+            "points_possible": 30.0,
+            "free_form_criterion_comments": false,
+            "data": [{ "id": "c1" }, { "id": "c2" }, { "id": "c3" }]
+          }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/courses/4411/modules",
+      "query": { "per_page": 100, "include[]": "items" },
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "json": [
+          {
+            "id": 3101,
+            "name": "Synthetic module one",
+            "position": 1,
+            "published": true,
+            "items_count": 3,
+            "items": [
+              { "id": 31101, "title": "Synthetic overview", "position": 1, "indent": 0, "type": "Page", "page_url": "synthetic-overview", "published": true },
+              { "id": 31102, "title": "Synthetic reflection", "position": 2, "indent": 0, "type": "Assignment", "content_id": 9101, "published": true }
+            ]
+          },
+          {
+            "id": 3102,
+            "name": "Synthetic module two",
+            "position": 2,
+            "published": false,
+            "items_count": 2,
+            "items": [
+              { "id": 31201, "title": "Synthetic section", "position": 1, "indent": 0, "type": "SubHeader" },
+              { "id": 31202, "title": "Synthetic quiz", "position": 2, "indent": 1, "type": "Quiz", "content_id": 8101, "published": false, "completion_requirement": { "type": "must_submit" } }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/courses/4411/modules/3101/items",
+      "query": { "per_page": 100 },
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "json": [
+          { "id": 31101, "title": "Synthetic overview", "position": 1, "indent": 0, "type": "Page", "page_url": "synthetic-overview", "published": true },
+          { "id": 31102, "title": "Synthetic reflection", "position": 2, "indent": 0, "type": "Assignment", "content_id": 9101, "published": true },
+          { "id": 31103, "title": "Synthetic tool", "position": 3, "indent": 0, "type": "ExternalTool", "external_url": "https://canvas.example.edu/courses/4411/external_tools/retrieve?url=synthetic", "published": true }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/courses/4411/pages",
+      "query": { "per_page": 100 },
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "json": [
+          { "page_id": 4031, "url": "synthetic-overview", "title": "Synthetic overview", "published": true, "front_page": true, "updated_at": "2026-01-11T09:00:00Z" },
+          { "page_id": 4032, "url": "synthetic-reading", "title": "Synthetic reading", "published": true, "front_page": false, "updated_at": "2026-01-18T09:00:00Z" }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/courses/4411/pages/synthetic-overview",
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "json": {
+          "page_id": 4031,
+          "url": "synthetic-overview",
+          "title": "Synthetic overview",
+          "published": true,
+          "front_page": true,
+          "updated_at": "2026-01-11T09:00:00Z",
+          "body": "<h2>Synthetic overview</h2><p>Watch the recording.</p><iframe src=\"https://canvas.example.edu/media_objects_iframe/synthetic0001\" width=\"560\" height=\"315\" title=\"Synthetic recording\"></iframe>"
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/courses/4411/pages/synthetic-reading",
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "json": {
+          "page_id": 4032,
+          "url": "synthetic-reading",
+          "title": "Synthetic reading",
+          "published": true,
+          "front_page": false,
+          "updated_at": "2026-01-18T09:00:00Z",
+          "body": "<p>Synthetic body text with no headings and <img src=\"/courses/4411/files/5101/preview\"> one image.</p>"
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/courses/4411/assignments",
+      "query": { "per_page": 100 },
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "json": [
+          {
+            "id": 9101,
+            "name": "Synthetic reflection",
+            "description": "<p>Synthetic assignment text.</p>",
+            "published": true,
+            "due_at": "2026-01-23T23:59:00Z",
+            "unlock_at": null,
+            "lock_at": null,
+            "points_possible": 30.0,
+            "grading_type": "points",
+            "submission_types": ["online_text_entry"],
+            "assignment_group_id": 4101,
+            "omit_from_final_grade": false,
+            "updated_at": "2026-01-11T10:00:00Z",
+            "rubric": [{ "id": "c1" }],
+            "rubric_settings": { "id": 2101, "title": "Synthetic reflection rubric" }
+          },
+          {
+            "id": 9102,
+            "name": "Synthetic project",
+            "description": "",
+            "published": true,
+            "due_at": null,
+            "points_possible": 100.0,
+            "grading_type": "points",
+            "submission_types": ["none"],
+            "assignment_group_id": 4101,
+            "omit_from_final_grade": false,
+            "updated_at": "2026-02-01T10:00:00Z"
+          }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/courses/4411/quizzes",
+      "query": { "per_page": 100 },
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "json": [
+          {
+            "id": 8101,
+            "title": "Synthetic quiz",
+            "description": "<p>Ten synthetic questions.</p>",
+            "published": false,
+            "quiz_type": "assignment",
+            "time_limit": 45,
+            "due_at": "2026-01-30T23:59:00Z",
+            "points_possible": 20.0,
+            "allowed_attempts": 1,
+            "question_count": 10,
+            "updated_at": "2026-01-18T11:00:00Z"
+          }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/courses/4411/discussion_topics",
+      "query": { "per_page": 100, "only_announcements": "false" },
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "json": [
+          {
+            "id": 7101,
+            "title": "Synthetic introductions",
+            "message": "<p>Synthetic discussion prompt.</p>",
+            "published": true,
+            "is_announcement": false,
+            "posted_at": "2026-01-12T08:00:00Z",
+            "discussion_type": "threaded",
+            "require_initial_post": false,
+            "discussion_subentry_count": 12,
+            "updated_at": "2026-01-11T08:00:00Z"
+          },
+          {
+            "id": 7102,
+            "title": "Synthetic debate",
+            "message": "<p>Synthetic graded prompt.</p>",
+            "published": true,
+            "is_announcement": false,
+            "assignment_id": 9103,
+            "posted_at": "2026-01-26T08:00:00Z",
+            "discussion_type": "threaded",
+            "require_initial_post": true,
+            "discussion_subentry_count": 4,
+            "updated_at": "2026-01-25T08:00:00Z"
+          }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/courses/4411/discussion_topics",
+      "query": { "per_page": 100, "only_announcements": "true" },
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "json": [
+          {
+            "id": 6101,
+            "title": "Synthetic reminder",
+            "message": "<p>Synthetic announcement text.</p>",
+            "published": true,
+            "is_announcement": true,
+            "posted_at": "2026-01-27T08:00:00Z",
+            "updated_at": "2026-01-27T08:00:00Z"
+          }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/courses/4411/files",
+      "query": { "per_page": 100 },
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "json": [
+          {
+            "id": 5101,
+            "display_name": "Synthetic handout.pdf",
+            "filename": "synthetic-handout.pdf",
+            "content-type": "application/pdf",
+            "size": 184320,
+            "folder_id": 61,
+            "url": "https://canvas.example.edu/files/5101/download?download_frd=1&verifier=synthetic",
+            "updated_at": "2026-01-11T10:00:00Z",
+            "hidden": false
+          }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/courses/4411/content_exports",
+      "query": { "per_page": 100 },
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "json": []
+      }
+    }
+  ]
+}

@@ -45,3 +45,7 @@ examples/sample-report/
 # and is served verbatim rather than copied into the package, so the image must carry this one
 # file out of docs/.
 !docs/tokens.css
+
+# ...and the spec is needed by the test suite, which reads the detector inventory out of §05 and
+# checks the sample course against it. Only the dev stage copies it; the runtime image does not.
+!docs/SPEC.md

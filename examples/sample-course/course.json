@@ -1,0 +1,541 @@
+{
+  "schema_version": 1,
+  "base_url": "https://canvas.example.edu",
+
+  "course": {
+    "id": "4410",
+    "name": "Introduction to Synthetic Studies",
+    "course_code": "SYN-1010",
+    "workflow_state": "available",
+    "start_at": "2026-01-12T00:00:00Z",
+    "end_at": "2026-05-08T00:00:00Z",
+    "default_view": "modules",
+    "is_public": false,
+    "time_zone": "Etc/UTC"
+  },
+
+  "syllabus": {
+    "kind": "syllabus",
+    "id": "syllabus:4410",
+    "title": "Syllabus",
+    "canvas_path": "/courses/4410/assignments/syllabus",
+    "body_file": "bodies/syllabus.html"
+  },
+
+  "navigation": [
+    { "id": "home", "label": "Home", "position": 1 },
+    { "id": "syllabus", "label": "Syllabus", "position": 2 },
+    { "id": "modules", "label": "Modules", "position": 3 },
+    { "id": "assignments", "label": "Assignments", "position": 4 },
+    { "id": "quizzes", "label": "Quizzes", "position": 5 },
+    { "id": "discussions", "label": "Discussions", "position": 6 },
+    { "id": "grades", "label": "Grades", "position": 7 },
+    { "id": "people", "label": "People", "position": 8 },
+    { "id": "pages", "label": "Pages", "position": 9, "hidden": true, "visibility": "admins" },
+    { "id": "files", "label": "Files", "position": 10 },
+    { "id": "outcomes", "label": "Outcomes", "position": 11, "hidden": true, "visibility": "admins" },
+    { "id": "collaborations", "label": "Collaborations", "position": 12 },
+    { "id": "chat", "label": "Chat", "position": 13 },
+    { "id": "attendance", "label": "Attendance", "position": 14 },
+    { "id": "context_external_tool_7700", "label": "Synthetic Courseware", "position": 15, "type": "external" }
+  ],
+
+  "assignment_groups": [
+    { "id": "4001", "name": "Assignments", "position": 1, "group_weight": 30.0 },
+    { "id": "4002", "name": "Quizzes", "position": 2, "group_weight": 40.0 },
+    { "id": "4003", "name": "Discussions", "position": 3, "group_weight": 20.0 }
+  ],
+
+  "rubrics": [
+    { "id": "2001", "title": "Reflection Rubric", "criteria_count": 3, "points_possible": 30.0 },
+    { "id": "2002", "title": "Lab Report Rubric", "criteria_count": 4, "points_possible": 40.0 }
+  ],
+
+  "modules": [
+    {
+      "kind": "module",
+      "id": "module:3001",
+      "canvas_id": "3001",
+      "title": "Module 1: Foundations",
+      "canvas_path": "/courses/4410/modules#module_3001",
+      "position": 1,
+      "published": true,
+      "items": [
+        {
+          "kind": "module_item",
+          "id": "module_item:31001",
+          "canvas_id": "31001",
+          "module_id": "module:3001",
+          "title": "Module 1 Overview",
+          "canvas_path": "/courses/4410/modules/items/31001",
+          "position": 1,
+          "indent": 0,
+          "item_type": "Page",
+          "target_id": "page:week-1-overview",
+          "published": true
+        },
+        {
+          "kind": "module_item",
+          "id": "module_item:31002",
+          "canvas_id": "31002",
+          "module_id": "module:3001",
+          "title": "Introduce yourself",
+          "canvas_path": "/courses/4410/modules/items/31002",
+          "position": 2,
+          "indent": 0,
+          "item_type": "Discussion",
+          "target_id": "discussion:7001",
+          "published": true
+        },
+        {
+          "kind": "module_item",
+          "id": "module_item:31003",
+          "canvas_id": "31003",
+          "module_id": "module:3001",
+          "title": "Reflection 1",
+          "canvas_path": "/courses/4410/modules/items/31003",
+          "position": 3,
+          "indent": 0,
+          "item_type": "Assignment",
+          "target_id": "assignment:9001",
+          "published": true
+        }
+      ]
+    },
+    {
+      "kind": "module",
+      "id": "module:3002",
+      "canvas_id": "3002",
+      "title": "Week 2 – Methods",
+      "canvas_path": "/courses/4410/modules#module_3002",
+      "position": 2,
+      "published": true,
+      "items": [
+        {
+          "kind": "module_item",
+          "id": "module_item:32001",
+          "canvas_id": "32001",
+          "module_id": "module:3002",
+          "title": "Week 2 Materials",
+          "canvas_path": "/courses/4410/modules/items/32001",
+          "position": 1,
+          "indent": 0,
+          "item_type": "Page",
+          "target_id": "page:week-2-materials",
+          "published": true
+        },
+        {
+          "kind": "module_item",
+          "id": "module_item:32002",
+          "canvas_id": "32002",
+          "module_id": "module:3002",
+          "title": "week2-reading.docx",
+          "canvas_path": "/courses/4410/modules/items/32002",
+          "position": 2,
+          "indent": 3,
+          "item_type": "File",
+          "target_id": "file:5002",
+          "published": true
+        },
+        {
+          "kind": "module_item",
+          "id": "module_item:32003",
+          "canvas_id": "32003",
+          "module_id": "module:3002",
+          "title": "Module 2 Quiz",
+          "canvas_path": "/courses/4410/modules/items/32003",
+          "position": 3,
+          "indent": 3,
+          "item_type": "Quiz",
+          "target_id": "quiz:8001",
+          "published": true
+        }
+      ]
+    },
+    {
+      "kind": "module",
+      "id": "module:3003",
+      "canvas_id": "3003",
+      "title": "3. Analysis",
+      "canvas_path": "/courses/4410/modules#module_3003",
+      "position": 3,
+      "published": true,
+      "items": [
+        {
+          "kind": "module_item",
+          "id": "module_item:33001",
+          "canvas_id": "33001",
+          "module_id": "module:3003",
+          "title": "week2-slides.pptx",
+          "canvas_path": "/courses/4410/modules/items/33001",
+          "position": 1,
+          "indent": 0,
+          "item_type": "File",
+          "target_id": "file:5003",
+          "published": true
+        },
+        {
+          "kind": "module_item",
+          "id": "module_item:33002",
+          "canvas_id": "33002",
+          "module_id": "module:3003",
+          "title": "legacy-handout.doc",
+          "canvas_path": "/courses/4410/modules/items/33002",
+          "position": 2,
+          "indent": 0,
+          "item_type": "File",
+          "target_id": "file:5004",
+          "published": true
+        },
+        {
+          "kind": "module_item",
+          "id": "module_item:33003",
+          "canvas_id": "33003",
+          "module_id": "module:3003",
+          "title": "Synthetic Courseware",
+          "canvas_path": "/courses/4410/modules/items/33003",
+          "position": 3,
+          "indent": 0,
+          "item_type": "ExternalTool",
+          "external_url": "https://courseware.example.edu/lti/launch",
+          "published": true
+        },
+        {
+          "kind": "module_item",
+          "id": "module_item:33004",
+          "canvas_id": "33004",
+          "module_id": "module:3003",
+          "title": "Week 3 Debate",
+          "canvas_path": "/courses/4410/modules/items/33004",
+          "position": 4,
+          "indent": 0,
+          "item_type": "Discussion",
+          "target_id": "discussion:7002",
+          "published": true
+        }
+      ]
+    },
+    {
+      "kind": "module",
+      "id": "module:3004",
+      "canvas_id": "3004",
+      "title": "Wrap up",
+      "canvas_path": "/courses/4410/modules#module_3004",
+      "position": 4,
+      "published": true,
+      "items": [
+        {
+          "kind": "module_item",
+          "id": "module_item:34001",
+          "canvas_id": "34001",
+          "module_id": "module:3004",
+          "title": "Supplementary material",
+          "canvas_path": "/courses/4410/modules/items/34001",
+          "position": 1,
+          "indent": 0,
+          "item_type": "Page",
+          "target_id": "page:untitled-page",
+          "published": true
+        },
+        {
+          "kind": "module_item",
+          "id": "module_item:34002",
+          "canvas_id": "34002",
+          "module_id": "module:3004",
+          "title": "Final Project",
+          "canvas_path": "/courses/4410/modules/items/34002",
+          "position": 2,
+          "indent": 0,
+          "item_type": "Assignment",
+          "target_id": "assignment:9002",
+          "published": true
+        }
+      ]
+    }
+  ],
+
+  "pages": [
+    {
+      "kind": "page",
+      "id": "page:start-here",
+      "slug": "start-here",
+      "title": "Start Here",
+      "canvas_path": "/courses/4410/pages/start-here",
+      "front_page": true,
+      "published": true,
+      "updated_at": "2026-01-10T12:00:00Z",
+      "body_file": "bodies/start-here.html"
+    },
+    {
+      "kind": "page",
+      "id": "page:course-schedule",
+      "slug": "course-schedule",
+      "title": "Course Schedule",
+      "canvas_path": "/courses/4410/pages/course-schedule",
+      "published": true,
+      "updated_at": "2026-01-10T12:05:00Z",
+      "body_file": "bodies/course-schedule.html"
+    },
+    {
+      "kind": "page",
+      "id": "page:week-1-overview",
+      "slug": "week-1-overview",
+      "title": "Module 1 Overview",
+      "canvas_path": "/courses/4410/pages/week-1-overview",
+      "published": true,
+      "updated_at": "2026-01-11T09:00:00Z",
+      "body_file": "bodies/week-1-overview.html"
+    },
+    {
+      "kind": "page",
+      "id": "page:week-2-materials",
+      "slug": "week-2-materials",
+      "title": "Week 2 Materials",
+      "canvas_path": "/courses/4410/pages/week-2-materials",
+      "published": true,
+      "updated_at": "2026-01-18T09:00:00Z",
+      "body_file": "bodies/week-2-materials.html"
+    },
+    {
+      "kind": "page",
+      "id": "page:week-3-reading",
+      "slug": "week-3-reading",
+      "title": "Overview",
+      "canvas_path": "/courses/4410/pages/week-3-reading",
+      "published": true,
+      "updated_at": "2026-01-25T09:00:00Z",
+      "body_file": "bodies/week-3-reading.html"
+    },
+    {
+      "kind": "page",
+      "id": "page:overview",
+      "slug": "overview",
+      "title": "Overview",
+      "canvas_path": "/courses/4410/pages/overview",
+      "published": true,
+      "updated_at": "2024-03-02T09:00:00Z",
+      "body_file": "bodies/overview.html"
+    },
+    {
+      "kind": "page",
+      "id": "page:untitled-page",
+      "slug": "untitled-page",
+      "title": "Untitled Page",
+      "canvas_path": "/courses/4410/pages/untitled-page",
+      "published": true,
+      "updated_at": "2026-02-01T09:00:00Z",
+      "body_file": "bodies/untitled-page.html"
+    }
+  ],
+
+  "assignments": [
+    {
+      "kind": "assignment",
+      "id": "assignment:9001",
+      "canvas_id": "9001",
+      "title": "Reflection 1",
+      "canvas_path": "/courses/4410/assignments/9001",
+      "published": true,
+      "updated_at": "2026-01-11T10:00:00Z",
+      "due_at": "2026-01-23T23:59:00Z",
+      "points_possible": 30.0,
+      "grading_type": "points",
+      "submission_types": ["online_text_entry"],
+      "assignment_group_id": "4001",
+      "has_rubric": true,
+      "rubric_title": "Reflection Rubric",
+      "body_file": "bodies/assignment-9001.html"
+    },
+    {
+      "kind": "assignment",
+      "id": "assignment:9002",
+      "canvas_id": "9002",
+      "title": "Final Project",
+      "canvas_path": "/courses/4410/assignments/9002",
+      "published": true,
+      "updated_at": "2026-02-01T10:00:00Z",
+      "points_possible": 100.0,
+      "grading_type": "points",
+      "submission_types": ["none"],
+      "assignment_group_id": "4001",
+      "has_rubric": false,
+      "body_html": ""
+    },
+    {
+      "kind": "assignment",
+      "id": "assignment:9003",
+      "canvas_id": "9003",
+      "title": "Lab Report",
+      "canvas_path": "/courses/4410/assignments/9003",
+      "published": true,
+      "updated_at": "2026-01-18T10:00:00Z",
+      "due_at": "2026-02-06T23:59:00Z",
+      "points_possible": 40.0,
+      "grading_type": "points",
+      "submission_types": ["online_upload"],
+      "assignment_group_id": "4001",
+      "has_rubric": true,
+      "rubric_title": "Lab Report Rubric",
+      "body_file": "bodies/assignment-9003.html"
+    }
+  ],
+
+  "quizzes": [
+    {
+      "kind": "quiz",
+      "id": "quiz:8001",
+      "canvas_id": "8001",
+      "title": "Module 2 Quiz",
+      "canvas_path": "/courses/4410/quizzes/8001",
+      "published": true,
+      "updated_at": "2026-01-18T11:00:00Z",
+      "quiz_type": "assignment",
+      "time_limit": 45,
+      "due_at": "2026-01-30T23:59:00Z",
+      "points_possible": 20.0,
+      "allowed_attempts": 1,
+      "question_count": 10,
+      "body_file": "bodies/quiz-8001.html"
+    }
+  ],
+
+  "discussions": [
+    {
+      "kind": "discussion",
+      "id": "discussion:7001",
+      "canvas_id": "7001",
+      "title": "Introduce yourself",
+      "canvas_path": "/courses/4410/discussion_topics/7001",
+      "published": true,
+      "updated_at": "2026-01-11T08:00:00Z",
+      "graded": false,
+      "posted_at": "2026-01-12T08:00:00Z",
+      "discussion_type": "threaded",
+      "body_file": "bodies/discussion-7001.html"
+    },
+    {
+      "kind": "discussion",
+      "id": "discussion:7002",
+      "canvas_id": "7002",
+      "title": "Week 3 Debate",
+      "canvas_path": "/courses/4410/discussion_topics/7002",
+      "published": true,
+      "updated_at": "2026-01-25T08:00:00Z",
+      "graded": true,
+      "posted_at": "2026-01-26T08:00:00Z",
+      "require_initial_post": true,
+      "discussion_type": "threaded",
+      "body_file": "bodies/discussion-7002.html"
+    }
+  ],
+
+  "announcements": [
+    {
+      "kind": "announcement",
+      "id": "announcement:6001",
+      "canvas_id": "6001",
+      "title": "Reminder: quiz Friday",
+      "canvas_path": "/courses/4410/discussion_topics/6001",
+      "published": true,
+      "updated_at": "2026-01-27T08:00:00Z",
+      "posted_at": "2026-01-27T08:00:00Z",
+      "body_file": "bodies/announcement-6001.html"
+    },
+    {
+      "kind": "announcement",
+      "id": "announcement:6002",
+      "canvas_id": "6002",
+      "title": "Spring 2024 syllabus posted",
+      "canvas_path": "/courses/4410/discussion_topics/6002",
+      "published": true,
+      "updated_at": "2024-01-08T08:00:00Z",
+      "posted_at": "2024-01-08T08:00:00Z",
+      "body_file": "bodies/announcement-6002.html"
+    }
+  ],
+
+  "files": [
+    {
+      "kind": "file",
+      "id": "file:5001",
+      "canvas_id": "5001",
+      "title": "syllabus.pdf",
+      "filename": "syllabus.pdf",
+      "canvas_path": "/courses/4410/files/5001",
+      "content_type": "application/pdf",
+      "size": 184320,
+      "folder_path": "course files",
+      "published": true
+    },
+    {
+      "kind": "file",
+      "id": "file:5002",
+      "canvas_id": "5002",
+      "title": "week2-reading.docx",
+      "filename": "week2-reading.docx",
+      "canvas_path": "/courses/4410/files/5002",
+      "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "size": 96256,
+      "folder_path": "course files/week 2",
+      "published": true
+    },
+    {
+      "kind": "file",
+      "id": "file:5003",
+      "canvas_id": "5003",
+      "title": "week2-slides.pptx",
+      "filename": "week2-slides.pptx",
+      "canvas_path": "/courses/4410/files/5003",
+      "content_type": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      "size": 2411724,
+      "folder_path": "course files/week 3",
+      "published": true
+    },
+    {
+      "kind": "file",
+      "id": "file:5004",
+      "canvas_id": "5004",
+      "title": "legacy-handout.doc",
+      "filename": "legacy-handout.doc",
+      "canvas_path": "/courses/4410/files/5004",
+      "content_type": "application/msword",
+      "size": 51200,
+      "folder_path": "course files/week 3",
+      "published": true
+    },
+    {
+      "kind": "file",
+      "id": "file:5005",
+      "canvas_id": "5005",
+      "title": "schedule-table.png",
+      "filename": "schedule-table.png",
+      "canvas_path": "/courses/4410/files/5005",
+      "content_type": "image/png",
+      "size": 74240,
+      "folder_path": "course files",
+      "published": true
+    },
+    {
+      "kind": "file",
+      "id": "file:export:web_resources/orphaned-rubric.docx",
+      "title": "orphaned-rubric.docx",
+      "filename": "orphaned-rubric.docx",
+      "canvas_path": "/courses/4410/files?search_term=orphaned-rubric.docx",
+      "link_exact": false,
+      "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "folder_path": "web_resources"
+    }
+  ],
+
+  "examinations": [
+    {
+      "collection": "content_export",
+      "state": "absent",
+      "examined": 0,
+      "source": "export",
+      "endpoint": "GET /api/v1/courses/4410/content_exports",
+      "detail": "No finished content export exists for this course, so document bytes were not read.",
+      "remedy": "Create one in Canvas — Settings, then Export Course Content — and run the review again. Sightline never creates one itself: every request it makes to Canvas is a read."
+    }
+  ]
+}
