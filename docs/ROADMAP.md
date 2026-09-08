@@ -5,7 +5,7 @@ Canonical for item status. `docs/SPEC.md` is canonical for design.
 Labels: **READY** · **NEEDS DISCUSSION** · **NEEDS MEASUREMENT** · **BLOCKED**.
 Nothing unready enters the queue. One item per conversation, one PR per item.
 
-Queue lives at `~/docker/overnight-sightline/`. Next free item number: **23**.
+Queue lives at `~/docker/overnight-sightline/`. Next free item number: **24**.
 
 ---
 
@@ -35,6 +35,7 @@ Queue lives at `~/docker/overnight-sightline/`. Next free item number: **23**.
 | 20 | Multi-course comparison view | 3 | **NEEDS DISCUSSION** | — |
 | 21 | Detector integrity guard | 0 | READY | queued 05 |
 | 22 | Model-proposed bindings, human-confirmed | 3 | READY | blocked by 09/10 in code |
+| 23 | Canvas-requested content export | 1 | READY | staged 03a |
 
 ---
 
@@ -55,6 +56,7 @@ unsupervised sessions building on a bad session 1 compounds.
 **Batch 2 — held in `staged/`, pending that review and the item 04 decision.**
 
 ```
+03a-sightline-item23-content-export-request.md  # before 06 — D30/D36 need document bytes
 04-sightline-item06-detector-framework.md
 05-sightline-item21-detector-integrity-guard.md
 05a-sightline-item04-rubric-pack-format.md       # clears item 08's stop; unblocks 05 and 13
@@ -187,20 +189,41 @@ per pack, never in the per-run flow.
 
 **20 · NEEDS DISCUSSION.** Whether a batch produces anything beyond n independent reports.
 
-**Should Sightline ask Canvas to build a content export? · NEEDS DISCUSSION, unnumbered.** Raised
-by item 03 and deliberately left open rather than settled by it. Creating a content export is a
-`POST /api/v1/courses/:id/content_exports`, and it would be the only write Sightline makes to
-Canvas — the README states that it makes none and `tests/test_canvas_scopes.py` fails the build
-over a non-`GET` scope. Item 03 kept that true by *reading* an export the course already has and
-reporting, with steps, when there is none.
+**23 — Canvas-requested content export · READY, decided 2026-09-08.** Item 03 raised this and
+deliberately declined to settle it, which was right: it is a product call, not an item's.
 
-What it costs: a course with no existing export is reviewed from the API alone, so the detectors
-that need a document's own bytes (D02, D30, D36) have nothing to read until somebody exports the
-course by hand. What the write would cost: an artifact appears in the course's export list, which
-is visible to the teacher — small, but it is a change to someone's course made by a tool whose
-entire product framing is that it reviews rather than acts. That is a person's call, not an
-item's. Whoever takes it should also decide whether the scope list stays a single read-only tuple
-or grows a second, separately granted one.
+**Sightline requests the export.** It `POST`s to `/api/v1/courses/:id/content_exports`, polls until
+the export finishes, and downloads it. That is the normal acquisition path, not an optional extra —
+without it the detectors that need a document's own bytes (D02, D30, D36) are dead on arrival for
+any course whose teacher has not exported it by hand, and asking a designer to do that for every
+course they review is the kind of friction that decides whether a tool gets used.
+
+**Framing worth stating precisely, because the repo currently states something stronger.** This is
+not a change to course *content*. Nothing a learner or an instructor sees is altered; an export
+artifact appears in the course's export list. The README's "nothing in Sightline writes to Canvas"
+becomes "Sightline does not modify course content; it asks Canvas to package a copy of the course
+it is reviewing" — a narrower claim, and one that stays true.
+
+**A setting turns it off, and off is a supported configuration**, falling back to item 03's
+behaviour: read an export the course already has, and report the steps when there is none. An
+institution with a no-writes policy keeps a working tool.
+
+**The scope list stays ONE tuple.** `test_the_scopes_are_all_read_only` inverts rather than
+disappearing: it asserts there is **exactly one** non-`GET` scope and that it is the content-export
+`POST`. A blanket ban that gets deleted teaches nothing; a count that must stay at one keeps the
+next write honest.
+
+**Always request a fresh export; never reuse an existing one.** Item 03 established that Canvas
+does not bump a course's `updated_at` when a page inside it is edited, so there is no cheap way to
+tell whether an existing export is stale — and a review of yesterday's course reported as today's
+is exactly the silent wrongness this project is built to avoid.
+
+**Built on the existing `httpx` client, not `canvasapi`.** Item 02's client carries knowledge the
+package does not: `401` discriminated by `WWW-Authenticate`, `403`-as-rate-limit detected in the
+body, `404`'s ambiguity between missing and invisible. It is also what base-URL redaction is
+registered against and what the recorded-fixture transport intercepts. `canvasapi` uses `requests`,
+so adopting it would bypass both. Adding a `POST` and a poll here is small; re-earning those
+properties is not.
 
 **Outcomes are not acquired.** D11 (outcomes defined at course and module level) needs
 `/api/v1/courses/:id/outcome_group_links`, which item 03 did not normalize — the item's list of
@@ -378,3 +401,17 @@ to how the spec reads on its own:
 **Ordering consequence for the queue.** Item 15 must precede items 13, 14 and 16, because all three
 render text and a voice contract written after them is a rewrite. Batch 3 is numbered to leave
 `13-` free for the XLSX writer.
+
+**2026-09-08 — item 23, Canvas-requested content export.** Item 03 left this open as an explicit
+product question and it is now decided: Sightline requests the export. The decision is written up
+in *Not queued, and why* above.
+
+It **reverses a claim the code currently makes in three places** — `scopes.py`'s module docstring,
+the README's "every one is a `GET`" paragraph, and `test_the_scopes_are_all_read_only`. That those
+three had to be found and changed together is the guard working as designed rather than an
+oversight, and the test inverts rather than disappearing: exactly one non-`GET` scope, and it must
+be the content-export `POST`.
+
+The claim itself is narrowed rather than dropped. "Nothing in Sightline writes to Canvas" becomes
+"Sightline does not modify course content; it asks Canvas to package a copy of the course it is
+reviewing." Nothing a learner or instructor sees changes; an artifact appears in the export list.
