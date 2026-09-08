@@ -1,0 +1,24 @@
+{
+  "name": "not-found",
+  "description": "HTTP 404 on a course. Canvas returns this both for a course that does not exist and for one this token cannot see, and does not distinguish them.",
+  "interactions": [
+    {
+      "method": "GET",
+      "path": "/api/v1/users/self",
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "json": { "id": 4021, "name": "Reviewer A", "short_name": "Reviewer A" }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/courses/9999",
+      "response": {
+        "status": 404,
+        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "json": { "errors": [ { "message": "The specified resource does not exist." } ] }
+      }
+    }
+  ]
+}

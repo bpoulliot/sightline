@@ -1,0 +1,15 @@
+{
+  "name": "rate-limited",
+  "description": "Canvas throttles with 403, not 429, and says so only in the body. A client that maps every 403 to a permission problem sends the user to fix a permission that was never wrong.",
+  "interactions": [
+    {
+      "method": "GET",
+      "path": "/api/v1/users/self",
+      "response": {
+        "status": 403,
+        "headers": { "Content-Type": "text/plain; charset=utf-8" },
+        "text": "403 Forbidden (Rate Limit Exceeded)"
+      }
+    }
+  ]
+}

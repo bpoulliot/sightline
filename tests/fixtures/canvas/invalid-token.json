@@ -1,0 +1,18 @@
+{
+  "name": "invalid-token",
+  "description": "HTTP 401 with a WWW-Authenticate header — Canvas's answer to a token it does not recognise or that has expired. The remedy is to reissue the token.",
+  "interactions": [
+    {
+      "method": "GET",
+      "path": "/api/v1/users/self",
+      "response": {
+        "status": 401,
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8",
+          "WWW-Authenticate": "Bearer realm=\"canvas-lms\""
+        },
+        "json": { "errors": [ { "message": "Invalid access token." } ] }
+      }
+    }
+  ]
+}

@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}Sightline — courses{% endblock %}
+
+{% block content %}
+<section class="panel" aria-labelledby="h-resolve">
+  <h1 id="h-resolve">Resolve courses</h1>
+  <p class="lede">
+    Paste Canvas course URLs or bare course ids, or upload a CSV with a column of either. A URL
+    that points at a page, an assignment or a module still resolves to its course. Nothing is
+    started here — this screen only reports what each reference resolved to.
+  </p>
+
+  {% if upload_error %}
+  <div class="banner banner-bad" role="alert">
+    <p class="banner-head">{{ upload_error }}</p>
+  </div>
+  {% endif %}
+
+  {% if not canvas_ready %}
+  <p class="banner banner-warn" role="status">
+    No Canvas credential is configured, so references are parsed but not looked up. Set one on the
+    <a href="/settings">Settings</a> screen to see course names.
+  </p>
+  {% endif %}
+
+  <form method="post" action="/courses" enctype="multipart/form-data" class="form">
+    <div class="field">
+      <label for="references">Course URLs or ids</label>
+      <textarea id="references" name="references" rows="5" spellcheck="false"
+                placeholder="4410&#10;https://canvas.example.edu/courses/4417/pages/welcome"></textarea>
+      <p class="hint">One per line, or separated by commas.</p>
+    </div>
+    <div class="field">
+      <label for="upload">Or a CSV file</label>
+      <input type="file" id="upload" name="upload" accept=".csv,text/csv">
+      <p class="hint">
+        The column headed <code>course_url</code>, <code>course_id</code> or <code>id</code> is
+        used. Without one, the column that parsed the most rows is used and the page says which.
+      </p>
+    </div>
+    <div class="actions">
+      <button type="submit" class="button button-primary">Resolve</button>
+    </div>
+  </form>
+</section>
+
+{% for label, batch in batches %}
+<section class="panel" aria-labelledby="h-batch-{{ loop.index }}">
+  <h2 id="h-batch-{{ loop.index }}">{{ label }}</h2>
+  <p class="note">{{ batch.summary() }}</p>
+
+  {% if batch.accepted %}
+  <div class="scroll-x">
+    <table>
+      <caption class="visually-hidden">References that resolved to a course id</caption>
+      <thead>
+        <tr><th scope="col">Reference</th><th scope="col">Read as</th><th scope="col">Course id</th><th scope="col">Line</th></tr>
+      </thead>
+      <tbody>
+        {% for ref in batch.accepted %}
+        <tr>
+          <th scope="row"><code>{{ ref.raw }}</code></th>
+          <td data-label="Read as">{{ ref.form }}</td>
+          <td data-label="Course id" class="num">{{ ref.course_id }}</td>
+          <td data-label="Line" class="num muted">{{ ref.line if ref.line is not none else '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty">Nothing in this input resolved to a course id.</p>
+  {% endif %}
+
+  {% for group, heading in [(batch.rejected, 'Not understood'), (batch.duplicates, 'Repeated')] %}
+  {% if group %}
+  <h3 class="subhead">{{ heading }} — {{ group | length }}</h3>
+  <div class="scroll-x">
+    <table>
+      <caption class="visually-hidden">{{ heading }} references, with the reason and what to do</caption>
+      <thead>
+        <tr><th scope="col">Line</th><th scope="col">Value</th><th scope="col">Reason</th><th scope="col">What to change</th></tr>
+      </thead>
+      <tbody>
+        {% for item in group %}
+        <tr>
+          <th scope="row" class="num">{{ item.line if item.line is not none else '—' }}</th>
+          <td data-label="Value"><code>{{ item.raw or '(empty)' }}</code></td>
+          <td data-label="Reason">{{ item.reason }}</td>
+          <td data-label="What to change" class="muted">{{ item.remedy }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+  {% endfor %}
+</section>
+{% endfor %}
+
+{% if lookups %}
+<section class="panel" aria-labelledby="h-lookups">
+  <h2 id="h-lookups">In Canvas</h2>
+  <p class="note">
+    Each resolved id, looked up against the configured instance. Up to {{ max_lookups }} per
+    submission. A course can be visible to a token that may not read its content, so both are
+    reported.
+  </p>
+  <div class="scroll-x">
+    <table>
+      <caption class="visually-hidden">What each course id resolved to in Canvas</caption>
+      <thead>
+        <tr><th scope="col">Course id</th><th scope="col">State</th><th scope="col">Course</th><th scope="col">Detail</th></tr>
+      </thead>
+      <tbody>
+        {% for row in lookups %}
+        <tr>
+          <th scope="row" class="num">{{ row.ref.course_id }}</th>
+          <td data-label="State">
+            <span class="state {% if row.state == 'resolved' %}state-on{% elif row.state == 'failed' %}state-bad{% else %}state-off{% endif %}">{{ row.state }}</span>
+          </td>
+          <td data-label="Course">
+            {% if row.course %}
+            <a href="{{ row.course.html_url }}" rel="noreferrer">{{ row.course.label }}</a>
+            {% else %}<span class="muted">—</span>{% endif %}
+          </td>
+          <td data-label="Detail" class="muted">
+            {{ row.detail }}
+            {% if row.remedy %}<span class="check-remedy">{{ row.remedy }}</span>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+{% endblock %}

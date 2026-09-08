@@ -17,7 +17,9 @@ FORBIDDEN_IN_SOURCE = (
 )
 
 #: Placeholders that are allowed to look like the real thing, because they obviously are not.
-ALLOWED_PLACEHOLDERS = ("canvas.example.edu", "127.0.0.1")
+#: ``example.edu`` is reserved by RFC 2606 and can never be an institution; the fixture sanitizer
+#: names it as the domain it rewrites everything *to*, which is the opposite of compiling one in.
+ALLOWED_PLACEHOLDERS = ("canvas.example.edu", "example.edu", "127.0.0.1")
 
 # Assembled rather than written out, for the reason given in tests/test_redaction.py.
 FAKE_CANVAS_TOKEN = "12345" + "~" + ("fake" * 8)

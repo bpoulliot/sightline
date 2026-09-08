@@ -14,7 +14,7 @@ Queue lives at `~/docker/overnight-sightline/`. Next free item number: **22**.
 | # | Item | Tier | Label | Status |
 |---|---|---|---|---|
 | 01 | Repo skeleton, config, run store, **container** | 0 | READY | **DONE** — PR #1 |
-| 02 | Canvas connector and connection test | 0 | READY | queued 02 |
+| 02 | Canvas connector and connection test | 0 | READY | **DONE** — PR #2 |
 | 03 | Acquisition and normalization | 0 | READY | queued 03 |
 | 04 | Rubric pack format | 0 | **NEEDS DISCUSSION** | — |
 | 05 | Ship the two rubric packs | 0 | blocked by 04 | — |
@@ -43,7 +43,7 @@ Queue lives at `~/docker/overnight-sightline/`. Next free item number: **22**.
 
 ```
 01-sightline-item01-skeleton.md            # DONE — PR #1
-02-sightline-item02-canvas-connector.md
+02-sightline-item02-canvas-connector.md    # DONE — PR #2
 03-sightline-item03-acquisition.md
 ```
 
@@ -136,6 +136,29 @@ default `/24` collides.
 - **The rubric workbooks at `rubrics/source/` are committed on purpose** — a blank template with no
   personal data, confirmed by a scan across every sheet. Publishing them and the derived packs is
   settled; a later move toward stock OSCQR 3.1 / 4.0 is a pack change, not a code change.
+
+## Notes carried forward
+
+**Item 02 — what later items inherit.**
+
+- `sightline.canvas` is the connector: `client.py` (the API client and the connection test),
+  `refs.py` (URL / bare id / CSV resolution), `errors.py` (every failure carries a `remedy`),
+  `scopes.py` (the declared least-privilege scope set), `sanitize.py` (the fixture scrubber).
+- **The scope list is a single source.** `REQUIRED_SCOPES` is what the README table is checked
+  against by `tests/test_canvas_scopes.py`. Item 03 adds the acquisition endpoints to that tuple
+  and to the README table together, or the build fails — which is the point.
+- **Credentials are entered in the UI and encrypted at rest.** Ciphertext in the run store's
+  `app_secrets` table, key in `<data root>/secrets/credentials.key` (0600) or in
+  `SIGHTLINE_SECRET_KEY`. `sightline.paths.read_or_create_key` is the only writer, because
+  `tests/test_paths.py` still forbids every other module from creating a file.
+- **Fixtures, not a live instance.** `tests/fixtures/canvas/*.json` replay through
+  `tests/canvas_recordings.py`, which refuses an unrecorded request rather than answering it.
+  `tests/test_canvas_fixtures.py` is the mechanical proof the fixtures are synthetic.
+- **The one deliberate exception to "no `Bearer` in a fixture"** is the literal
+  `Bearer realm="canvas-lms"` in `invalid-token.json`. It is the `WWW-Authenticate` challenge
+  Canvas sends with a rejected token, it is what the client keys off to tell a bad token from a
+  missing permission, and it carries no credential. The check is narrowed to "Bearer followed by
+  something credential-shaped" rather than dropped.
 
 ## Corrections log
 

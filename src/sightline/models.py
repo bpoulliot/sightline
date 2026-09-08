@@ -13,6 +13,10 @@ Three tables, deliberately flat:
 ``run_events``
     Append-only log of what happened, so a failure is visible in the UI rather than only in the
     process log. Failures are never silent (SPEC §09).
+``app_secrets``
+    Credentials entered on the settings screen, stored as ciphertext. The key is never in this
+    table — see :mod:`sightline.credentials` for where it lives and what that does and does not
+    protect against.
 """
 
 from __future__ import annotations
@@ -21,7 +25,7 @@ import enum
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, DateTime, ForeignKey, Integer, LargeBinary, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -125,3 +129,21 @@ class RunEvent(Base):
     stage: Mapped[str | None] = mapped_column(String(32), default=None)
     event: Mapped[str] = mapped_column(String(128))
     data: Mapped[dict | None] = mapped_column(JSON, default=None)
+
+
+class AppSecret(Base):
+    """A credential the designer entered, encrypted.
+
+    The column is named ``ciphertext`` rather than ``value`` on purpose: a schema is read by
+    people, and a column called ``value`` invites the next person to put a plaintext token in it.
+    Nothing in this table is readable without the key from :mod:`sightline.credentials`, which
+    lives outside the database.
+    """
+
+    __tablename__ = "app_secrets"
+
+    name: Mapped[str] = mapped_column(String(64), primary_key=True)
+    ciphertext: Mapped[bytes] = mapped_column(LargeBinary)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )

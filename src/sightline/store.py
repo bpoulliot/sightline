@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy import Engine, create_engine, event, select
@@ -17,6 +18,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from .logging import get_logger
 from .models import (
+    AppSecret,
     Base,
     Run,
     RunCourse,
@@ -199,6 +201,40 @@ class RunStore:
             key = value.value if isinstance(value, RunStatus) else str(value)
             counts[key] = counts.get(key, 0) + 1
         return counts
+
+    # -- encrypted credentials ---------------------------------------------------------------
+    #
+    # Ciphertext in, ciphertext out. This class never sees a plaintext credential and never logs
+    # one, because it cannot: decryption lives in sightline.credentials, which holds the key.
+
+    def get_secret_blob(self, name: str) -> bytes | None:
+        with self.session() as session:
+            row = session.get(AppSecret, name)
+            return None if row is None else bytes(row.ciphertext)
+
+    def put_secret_blob(self, name: str, ciphertext: bytes) -> None:
+        with self.session() as session:
+            row = session.get(AppSecret, name)
+            if row is None:
+                session.add(AppSecret(name=name, ciphertext=ciphertext))
+            else:
+                row.ciphertext = ciphertext
+                row.updated_at = utcnow()
+
+    def delete_secret_blob(self, name: str) -> bool:
+        """Remove a stored credential. Returns whether there was one."""
+        with self.session() as session:
+            row = session.get(AppSecret, name)
+            if row is None:
+                return False
+            session.delete(row)
+            return True
+
+    def secret_updated_at(self, name: str) -> datetime | None:
+        """When a credential was last written. Shown on the settings screen; never the value."""
+        with self.session() as session:
+            row = session.get(AppSecret, name)
+            return None if row is None else row.updated_at
 
     # -- restart semantics -------------------------------------------------------------------
 

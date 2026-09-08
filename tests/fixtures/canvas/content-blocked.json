@@ -1,0 +1,62 @@
+{
+  "name": "content-blocked",
+  "description": "A course the token can SEE but not READ. The course object comes back; its pages are refused. This is what an observer enrolment looks like, and it is the case a connection test that only calls /courses/:id reports as a success.",
+  "interactions": [
+    {
+      "method": "GET",
+      "path": "/api/v1/users/self",
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "json": { "id": 4021, "name": "Reviewer A", "short_name": "Reviewer A" }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/courses",
+      "query": { "per_page": 100 },
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "json": [
+          {
+            "id": 4431,
+            "name": "Sample Course 4431",
+            "course_code": "SAMPLE-4431",
+            "account_id": 4007,
+            "enrollment_term_id": 4014,
+            "workflow_state": "available"
+          }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/courses/4431",
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "json": {
+          "id": 4431,
+          "name": "Sample Course 4431",
+          "course_code": "SAMPLE-4431",
+          "account_id": 4007,
+          "enrollment_term_id": 4014,
+          "workflow_state": "available"
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/courses/4431/pages",
+      "response": {
+        "status": 403,
+        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "json": {
+          "status": "unauthorized",
+          "errors": [ { "message": "user not authorized to perform that action" } ]
+        }
+      }
+    }
+  ]
+}
