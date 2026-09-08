@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import re
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from types import TracebackType
 from typing import Any, Literal, Self
@@ -58,6 +59,17 @@ API_ROOT = "/api/v1"
 #: floor ("at least N") rather than as a number that is quietly wrong.
 MAX_COUNT_PAGES = 5
 COUNT_PAGE_SIZE = 100
+
+#: Acquisition walks whole collections rather than counting them, so its cap is higher — and a
+#: walk that hits it is reported as truncated rather than returned short and silent (SPEC §11).
+MAX_LIST_PAGES = 40
+LIST_PAGE_SIZE = 100
+
+#: Ceiling on a single downloaded file. A course with a 4 GB lecture capture should fail as a
+#: stated limit, not as a full disk. Overridable per call.
+DEFAULT_MAX_DOWNLOAD_BYTES = 256 * 1024 * 1024
+
+DOWNLOAD_CHUNK_BYTES = 1024 * 1024
 
 DEFAULT_TIMEOUT = 20.0
 
@@ -143,6 +155,39 @@ class ResolvedCourse:
     ref: CourseRef
     course: CanvasCourse
     access: ContentAccess
+
+
+@dataclass(frozen=True)
+class Listing:
+    """A whole paginated collection, and whether the walk saw all of it.
+
+    ``truncated`` is the honest half. A detector told "12 assignments" over a course with 4000 is
+    wrong in a way nobody notices; one told "12 assignments, and the walk was cut short" is not.
+    """
+
+    items: tuple[Any, ...]
+    pages_read: int
+    truncated: bool
+    endpoint: str
+
+    def __len__(self) -> int:
+        return len(self.items)
+
+    def __iter__(self) -> Any:
+        return iter(self.items)
+
+
+@dataclass(frozen=True)
+class Download:
+    """The outcome of streaming a URL to disk."""
+
+    bytes_written: int
+    content_type: str | None
+    #: Host that ultimately served the bytes. Canvas hands out redirects to storage back ends, so
+    #: this is not always the Canvas host, and a download report that pretended otherwise would be
+    #: wrong on every real instance.
+    served_by: str | None
+    truncated: bool = False
 
 
 @dataclass(frozen=True)
@@ -534,6 +579,103 @@ class CanvasClient:
         )
         return ResolvedCourse(ref=ref, course=course, access=access)
 
+    # -- acquisition primitives --------------------------------------------------------------
+    #
+    # Item 03 reads whole collections rather than probing them, and it does so from
+    # :mod:`sightline.acquire`. These three are the entire surface it uses: one object, one
+    # collection, one download. Keeping them here means every Canvas request in the package still
+    # goes through the error mapping and the redaction above.
+
+    async def get_json(self, path: str, **params: Any) -> Any:
+        """One GET returning parsed JSON, with the typed errors and remedies of :meth:`_get`."""
+        endpoint = f"GET {path}"
+        return self._json(await self._get(path, **params), endpoint)
+
+    async def get_list(self, path: str, **params: Any) -> Listing:
+        """Walk a paginated collection to its end, or to :data:`MAX_LIST_PAGES`.
+
+        Pagination follows the ``Link`` header's path only, never its host, for the reason given
+        on :func:`_same_host_path`: a Canvas behind a misconfigured proxy emits absolute URLs
+        pointing elsewhere, and a client that follows them sends the token there.
+        """
+        endpoint = f"GET {path}"
+        items: list[Any] = []
+        pages = 0
+        next_path: str | None = path
+        next_params: dict[str, Any] | None = {"per_page": LIST_PAGE_SIZE, **params}
+
+        while next_path is not None and pages < MAX_LIST_PAGES:
+            response = await self._get(next_path, **(next_params or {}))
+            body = self._json(response, f"GET {next_path}")
+            if not isinstance(body, list):
+                raise CanvasResponseError(
+                    f"Canvas did not return a list from {path}.", endpoint=f"GET {next_path}"
+                )
+            items.extend(body)
+            pages += 1
+            next_url = parse_link_header(response.headers.get("link", "")).get("next")
+            next_path, next_params = (_same_host_path(next_url), None) if next_url else (None, None)
+
+        return Listing(
+            items=tuple(items),
+            pages_read=pages,
+            truncated=next_path is not None,
+            endpoint=endpoint,
+        )
+
+    async def download_to(
+        self,
+        url: str,
+        write: Callable[[bytes], Any],
+        *,
+        max_bytes: int = DEFAULT_MAX_DOWNLOAD_BYTES,
+    ) -> Download:
+        """Stream ``url`` into ``write``, stopping at ``max_bytes``.
+
+        The caller owns the sink, because the only module permitted to open a file for writing is
+        :mod:`sightline.paths` (see ``tests/test_paths.py``). The URL is *not* logged: a Canvas
+        file URL carries a ``verifier`` query parameter, which is a bearer credential in a query
+        string and is redacted rather than printed.
+        """
+        endpoint = f"GET {_host_or_path(url)}"
+        written = 0
+        truncated = False
+        try:
+            async with self._client.stream("GET", url) as response:
+                self._raise_for_status(response, endpoint)
+                async for chunk in response.aiter_bytes(DOWNLOAD_CHUNK_BYTES):
+                    if written + len(chunk) > max_bytes:
+                        write(chunk[: max_bytes - written])
+                        written = max_bytes
+                        truncated = True
+                        break
+                    write(chunk)
+                    written += len(chunk)
+                content_type = response.headers.get("content-type")
+                served_by = response.url.host or None
+        except httpx.TimeoutException as exc:
+            raise CanvasUnreachableError(
+                "The download did not complete in time.",
+                detail=f"{endpoint} timed out after {written} bytes.",
+                endpoint=endpoint,
+                remedy="Retry; if it recurs, the file may be larger than this link can serve.",
+            ) from exc
+        except httpx.TransportError as exc:
+            raise CanvasUnreachableError(
+                "The download connection failed.",
+                detail=f"{endpoint}: {type(exc).__name__} after {written} bytes.",
+                endpoint=endpoint,
+            ) from exc
+
+        if truncated:
+            log.warning("download_truncated", limit_bytes=max_bytes)
+        return Download(
+            bytes_written=written,
+            content_type=content_type,
+            served_by=served_by,
+            truncated=truncated,
+        )
+
     # -- the connection test -----------------------------------------------------------------
 
     async def test_connection(self, *, course_reference: str | None = None) -> ConnectionReport:
@@ -695,6 +837,12 @@ def parse_link_header(value: str) -> dict[str, str]:
     return {match["rel"]: match["url"] for match in _LINK.finditer(value or "")}
 
 
+def _host_or_path(url: str) -> str:
+    """A loggable stand-in for a URL that may carry a credential in its query string."""
+    parts = urlsplit(url)
+    return parts.hostname or parts.path or "(no host)"
+
+
 def _same_host_path(url: str) -> str:
     """Path and query of ``url``, discarding scheme and host.
 
@@ -740,6 +888,9 @@ def _ms(started: float) -> float:
 
 __all__ = [
     "API_ROOT",
+    "DEFAULT_MAX_DOWNLOAD_BYTES",
+    "LIST_PAGE_SIZE",
+    "MAX_LIST_PAGES",
     "CanvasClient",
     "CanvasCourse",
     "CanvasUser",
@@ -747,6 +898,8 @@ __all__ = [
     "ConnectionReport",
     "ContentAccess",
     "CourseCount",
+    "Download",
+    "Listing",
     "ResolvedCourse",
     "parse_link_header",
 ]

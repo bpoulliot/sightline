@@ -15,7 +15,7 @@ Queue lives at `~/docker/overnight-sightline/`. Next free item number: **22**.
 |---|---|---|---|---|
 | 01 | Repo skeleton, config, run store, **container** | 0 | READY | **DONE** — PR #1 |
 | 02 | Canvas connector and connection test | 0 | READY | **DONE** — PR #2 |
-| 03 | Acquisition and normalization | 0 | READY | queued 03 |
+| 03 | Acquisition and normalization | 0 | READY | **DONE** — PR #3 |
 | 04 | Rubric pack format | 0 | **NEEDS DISCUSSION** | — |
 | 05 | Ship the two rubric packs | 0 | blocked by 04 | — |
 | 06 | Detector framework + accessibility cluster | 0 | READY | queued 04 |
@@ -44,7 +44,7 @@ Queue lives at `~/docker/overnight-sightline/`. Next free item number: **22**.
 ```
 01-sightline-item01-skeleton.md            # DONE — PR #1
 02-sightline-item02-canvas-connector.md    # DONE — PR #2
-03-sightline-item03-acquisition.md
+03-sightline-item03-acquisition.md         # DONE — PR #3
 ```
 
 These three establish every convention the rest inherit — config, data-root containment, the
@@ -102,6 +102,28 @@ functions fully without it.
 **19 / 20 · NEEDS DISCUSSION.** Uploaded-rubric mapping shape depends on 04; whether a batch
 produces anything beyond n independent reports is unresolved.
 
+**Should Sightline ask Canvas to build a content export? · NEEDS DISCUSSION, unnumbered.** Raised
+by item 03 and deliberately left open rather than settled by it. Creating a content export is a
+`POST /api/v1/courses/:id/content_exports`, and it would be the only write Sightline makes to
+Canvas — the README states that it makes none and `tests/test_canvas_scopes.py` fails the build
+over a non-`GET` scope. Item 03 kept that true by *reading* an export the course already has and
+reporting, with steps, when there is none.
+
+What it costs: a course with no existing export is reviewed from the API alone, so the detectors
+that need a document's own bytes (D02, D30, D36) have nothing to read until somebody exports the
+course by hand. What the write would cost: an artifact appears in the course's export list, which
+is visible to the teacher — small, but it is a change to someone's course made by a tool whose
+entire product framing is that it reviews rather than acts. That is a person's call, not an
+item's. Whoever takes it should also decide whether the scope list stays a single read-only tuple
+or grows a second, separately granted one.
+
+**Outcomes are not acquired.** D11 (outcomes defined at course and module level) needs
+`/api/v1/courses/:id/outcome_group_links`, which item 03 did not normalize — the item's list of
+things to normalize does not include outcomes, and inventing an endpoint and a model type for a
+detector nobody has written yet would have been guesswork. Whichever item builds D11 adds the
+endpoint, the scope row and the model field together. `examples/sample-course/defects.json` records
+D11 as `not_covered` for exactly this reason, so it cannot be forgotten quietly.
+
 ---
 
 ## Deployment
@@ -138,6 +160,41 @@ default `/24` collides.
   settled; a later move toward stock OSCQR 3.1 / 4.0 is a pack change, not a code change.
 
 ## Notes carried forward
+
+**Item 03 — what later items inherit.**
+
+- **`sightline.model` is the contract.** `CourseDocument` holds pages, files, assignments, quizzes,
+  discussions, announcements, modules, module items, embeds and the syllabus. Detectors read that
+  and never a Canvas payload. `SCHEMA_VERSION` is part of the cache key, so bumping it invalidates
+  every cached document rather than deserializing an old one into a new class.
+- **A deep link is a path, not a URL.** `artifact.canvas_path` is `/courses/4410/pages/x`;
+  `document.deep_link(artifact)` joins it to the base URL. That is what keeps the institution
+  hostname out of a cached document and out of `examples/sample-course/`. Item-level, never an
+  editor. `link_exact=False` marks the weaker search link a file known only from an export gets.
+- **Every collection carries an `Examination`.** `ok` / `empty` / `refused` / `absent` / `skipped`,
+  with the endpoint, what came back and a remedy. A detector reporting "nothing found" over a
+  collection that was never readable is the silent under-detection item 21 exists to catch, and
+  this record is what makes that checkable rather than a matter of care.
+- **`sightline.paths` gained the write primitives**, and they are called `save_bytes` / `save_text`
+  / `staged_write` rather than `write_bytes` / `write_text`. The structural guard matches on the
+  called name, so a method here spelled like `pathlib`'s would have blunted it at every call site.
+  It caught exactly that during item 03; the rename is the fix and the guard stays unweakened.
+- **`examples/sample-course/` is the fixture for everything downstream.** Load it with
+  `sightline.acquire.load_bundle`, or run `python -m sightline.acquire --bundle
+  examples/sample-course`. `defects.json` names, per detector, what is planted and where — and
+  `tests/test_sample_course.py` fails the build when a body drifts away from a marker the registry
+  claims is in it. Adding a detector to SPEC §05 without adding a case to the sample also fails.
+- **Two recorded fixtures, and the second is the important one.** `course-acquisition.json` is a
+  whole course; `course-partial.json` is the same course read by a token that may not see all of
+  it. Reporting a refused collection as an empty one is the bug those exist to catch.
+- **A Canvas quirk worth not rediscovering:** requesting modules with `include[]=items` returns a
+  *capped* item list and gives no signal that it capped it. `CourseReader` compares against
+  `items_count` and re-reads the module's own endpoint. Trusting the include silently loses the
+  eleventh item of every long module, which is the module worth reviewing.
+- **A Python quirk worth not rediscovering:** `html.parser.HTMLParser` treats `iframe` as a CDATA
+  element, so an *unclosed* `<iframe>` swallows the rest of the page and every later embed on it
+  disappears with no error. `_EmbedParser` overrides `CDATA_CONTENT_ELEMENTS` to `script` and
+  `style` only.
 
 **Item 02 — what later items inherit.**
 

@@ -12,10 +12,13 @@ symlinks that point out of the root, and it does so after resolving the real pat
 
 from __future__ import annotations
 
+import contextlib
 import os
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
+from typing import BinaryIO
 
 #: Fixed subdirectories of the data root. Named here so that no call site spells them as literals.
 SUBDIRECTORIES: tuple[str, ...] = ("exports", "cache", "runs", "reports", "secrets")
@@ -25,6 +28,11 @@ DB_FILENAME = "sightline.sqlite"
 
 #: Filename of the credential encryption key, inside ``secrets/``.
 KEY_FILENAME = "credentials.key"
+
+#: Suffix a stream is written under before it is moved into place. A download that dies halfway
+#: leaves one of these rather than a truncated file wearing the real name, which is the difference
+#: between an obvious failure and a cache that quietly serves half a course export.
+PARTIAL_SUFFIX = ".partial"
 
 #: Permissions for ``secrets/`` and for anything in it. The key is the only thing standing between
 #: a copied run store and a plaintext Canvas token, so it is owner-only.
@@ -150,6 +158,74 @@ class DataPaths:
     @property
     def credentials_key_file(self) -> Path:
         return self.resolve("secrets", KEY_FILENAME)
+
+    # -- writing ---------------------------------------------------------------------------
+    #
+    # Everything Sightline writes goes through one of these. That is not style: ``tests/
+    # test_paths.py`` scans the package for ``mkdir``, ``open(..., "w")``, ``os.replace`` and the
+    # rest, and fails the build on any of them outside this module. So a later item that wants to
+    # write a file extends this section rather than reaching for ``open``, and the containment
+    # guarantee keeps covering call sites nobody has written yet.
+
+    @contextmanager
+    def staged_write(self, *parts: str | os.PathLike[str]) -> Iterator[BinaryIO]:
+        """Stream bytes to a path inside the root, made visible only once the writer succeeds.
+
+        The bytes go to a sibling ``.partial`` file and are moved into place on a clean exit, so
+        the destination never exists half-written. An exception removes the partial and
+        propagates: a failed download that leaves nothing behind is easier to reason about than
+        one that leaves something plausible.
+        """
+        target = self.resolve(*parts)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        partial = target.with_name(target.name + PARTIAL_SUFFIX)
+        # Not a `with`: this *is* the context manager, and the handle has to outlive the call so
+        # the caller can stream into it. Closing and moving into place happens below.
+        handle = open(partial, "wb")  # noqa: SIM115
+        try:
+            yield handle
+        except BaseException:
+            handle.close()
+            with contextlib.suppress(OSError):
+                os.unlink(partial)
+            raise
+        handle.close()
+        os.replace(partial, target)
+
+    def save_bytes(self, *parts: str | os.PathLike[str], data: bytes) -> Path:
+        """Write ``data`` to a path inside the root, atomically. Returns the path.
+
+        Named ``save_bytes`` rather than ``write_bytes`` on purpose. The structural guard in
+        ``tests/test_paths.py`` matches on the *called name*, so a method here called
+        ``write_bytes`` would be indistinguishable from ``pathlib.Path.write_bytes`` at every call
+        site and would blunt the guard everywhere. It caught exactly that during item 03.
+        """
+        with self.staged_write(*parts) as handle:
+            handle.write(data)
+        return self.resolve(*parts)
+
+    def save_text(self, *parts: str | os.PathLike[str], text: str) -> Path:
+        """UTF-8 counterpart of :meth:`save_bytes`."""
+        return self.save_bytes(*parts, data=text.encode("utf-8"))
+
+    def discard_partials(self, *parts: str | os.PathLike[str]) -> int:
+        """Remove leftover ``.partial`` files beneath a directory in the root.
+
+        Called at startup rather than during a run: a partial belonging to a live writer and a
+        partial abandoned by a dead process look identical, and one process in one container
+        (SPEC §04) means the only live writer is this one.
+        """
+        directory = self.resolve(*parts)
+        if not directory.is_dir():
+            return 0
+        removed = 0
+        for leftover in sorted(directory.rglob(f"*{PARTIAL_SUFFIX}")):
+            if not self.contains(leftover):  # pragma: no cover - rglob cannot leave the root
+                continue
+            with contextlib.suppress(OSError):
+                os.unlink(leftover)
+                removed += 1
+        return removed
 
     # -- the one writable-file helper --------------------------------------------------------
 

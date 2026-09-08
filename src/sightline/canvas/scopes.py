@@ -35,8 +35,15 @@ class Scope:
     reason: str
 
 
-#: Every scope item 02 requires. Acquisition (item 03) adds more; it extends this tuple rather
-#: than introducing a second list, so there is one place to look.
+#: Every scope Sightline requires, connection test and acquisition together. One tuple, extended
+#: by each item that calls a new endpoint, so there is one place to look — and ``tests/
+#: test_canvas_scopes.py`` fails the build when the README table and this tuple disagree.
+#:
+#: **Every entry is a GET.** Sightline reads Canvas and never writes to it. That is not an
+#: accident of the current feature set: requesting a content export is a ``POST``, and item 03
+#: chose to *use* an export a course already has rather than ask Canvas to build one, precisely so
+#: this list could stay read-only. ``test_the_scopes_are_all_read_only`` is what keeps it that way,
+#: and flipping it is a product decision recorded in ``docs/ROADMAP.md``.
 REQUIRED_SCOPES: tuple[Scope, ...] = (
     Scope(
         scope="url:GET|/api/v1/users/:id",
@@ -57,6 +64,78 @@ REQUIRED_SCOPES: tuple[Scope, ...] = (
         scope="url:GET|/api/v1/courses/:course_id/pages",
         request="GET /api/v1/courses/{id}/pages",
         reason="Confirms course content is readable, not merely that the course is listed.",
+    ),
+    # -- acquisition (item 03) ---------------------------------------------------------------
+    Scope(
+        scope="url:GET|/api/v1/courses/:course_id/pages/:url",
+        request="GET /api/v1/courses/{id}/pages/{page_url}",
+        reason="Reads a page's body. The listing endpoint returns titles only, never the HTML.",
+    ),
+    Scope(
+        scope="url:GET|/api/v1/courses/:course_id/modules",
+        request="GET /api/v1/courses/{id}/modules",
+        reason="Reads the module structure every artifact's place in the course is derived from.",
+    ),
+    Scope(
+        scope="url:GET|/api/v1/courses/:course_id/modules/:module_id/items",
+        request="GET /api/v1/courses/{id}/modules/{module_id}/items",
+        reason=(
+            "Re-reads a long module's items. Canvas caps the items it includes with a module "
+            "listing and gives no signal that it did."
+        ),
+    ),
+    Scope(
+        scope="url:GET|/api/v1/courses/:course_id/assignments",
+        request="GET /api/v1/courses/{id}/assignments",
+        reason="Reads assignments, their due dates, submission types and attached rubrics.",
+    ),
+    Scope(
+        scope="url:GET|/api/v1/courses/:course_id/quizzes",
+        request="GET /api/v1/courses/{id}/quizzes",
+        reason="Reads quizzes, including whether each is timed and how it is weighted.",
+    ),
+    Scope(
+        scope="url:GET|/api/v1/courses/:course_id/discussion_topics",
+        request="GET /api/v1/courses/{id}/discussion_topics",
+        reason=(
+            "Reads discussions and announcements. Canvas models both as topics and separates "
+            "them with a query parameter, not a second endpoint."
+        ),
+    ),
+    Scope(
+        scope="url:GET|/api/v1/courses/:course_id/assignment_groups",
+        request="GET /api/v1/courses/{id}/assignment_groups",
+        reason=(
+            "Reads the assignment groups and their weights, which one criterion expects to "
+            "total 100."
+        ),
+    ),
+    Scope(
+        scope="url:GET|/api/v1/courses/:course_id/rubrics",
+        request="GET /api/v1/courses/{id}/rubrics",
+        reason="Reads the rubrics defined in the course, so an unattached one is still visible.",
+    ),
+    Scope(
+        scope="url:GET|/api/v1/courses/:course_id/tabs",
+        request="GET /api/v1/courses/{id}/tabs",
+        reason=(
+            "Reads the course navigation menu, including which entries are hidden from learners."
+        ),
+    ),
+    Scope(
+        scope="url:GET|/api/v1/courses/:course_id/files",
+        request="GET /api/v1/courses/{id}/files",
+        reason=(
+            "Lists the course's files, so a document with no bytes in the export is still named."
+        ),
+    ),
+    Scope(
+        scope="url:GET|/api/v1/courses/:course_id/content_exports",
+        request="GET /api/v1/courses/{id}/content_exports",
+        reason=(
+            "Finds a content export the course already has. Sightline reads one; it never asks "
+            "Canvas to create one, because creating one is a write."
+        ),
     ),
 )
 
