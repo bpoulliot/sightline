@@ -1,0 +1,39 @@
+# One service. No broker, no worker, no second container — that is the whole design.
+services:
+  sightline:
+    build:
+      context: .
+      target: runtime
+    image: sightline:local
+    container_name: sightline
+    restart: unless-stopped
+    # Configuration arrives as environment, from a gitignored .env. Nothing is baked into a layer.
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      # The data root is the mount point below, not the repository-relative default.
+      SIGHTLINE_DATA_DIR: /data
+    ports:
+      - "${SIGHTLINE_PORT:-8099}:8000"
+    volumes:
+      # Named volume, so run state and downloads survive an image rebuild. A rebuild that wiped a
+      # half-finished batch would be a bug.
+      - sightline-data:/data
+
+networks:
+  default:
+    ipam:
+      config:
+        # Pinned rather than left to Docker's allocator, because Sightline has to reach a model
+        # host on the LAN and host firewalls routinely allow container egress by SOURCE RANGE —
+        # typically the whole of 172.16.0.0/12. Docker's default pool hands out 172.17–172.31 as
+        # /16s and then, once those are gone, falls back to 192.168.0.0/16. A container that
+        # happens to land in that fallback is dropped by such a firewall, and the symptom is a
+        # connection TIMEOUT at the first model call rather than anything that names the cause.
+        #
+        # Override on a host where this /24 collides:  SIGHTLINE_SUBNET=172.16.241.0/24
+        - subnet: ${SIGHTLINE_SUBNET:-172.16.240.0/24}
+
+volumes:
+  sightline-data:

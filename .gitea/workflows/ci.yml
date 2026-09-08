@@ -1,0 +1,131 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Five jobs, and they are deliberately five rather than one. `lint` and `format` are separate so
+# that black can fail on its own and be seen to fail: chaining `ruff && black` behind one step
+# means the exit code that survives is the last one, and a black failure has hidden behind that
+# before now.
+#
+# The ubuntu-latest label maps to node:20 (Debian bookworm, Python 3.11), which is older than this
+# package requires, so every Python job bootstraps CPython 3.12 through uv rather than apt.
+
+env:
+  UV_VERSION: "0.9.5"
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        run: |
+          curl -LsSf "https://astral.sh/uv/${UV_VERSION}/install.sh" | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: Install project
+        run: uv sync --frozen --extra dev --python 3.12
+      - name: ruff
+        run: uv run ruff check .
+
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        run: |
+          curl -LsSf "https://astral.sh/uv/${UV_VERSION}/install.sh" | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: Install project
+        run: uv sync --frozen --extra dev --python 3.12
+      - name: black
+        run: uv run black --check .
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        run: |
+          curl -LsSf "https://astral.sh/uv/${UV_VERSION}/install.sh" | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: Install project
+        run: uv sync --frozen --extra dev --python 3.12
+      - name: pytest
+        run: uv run pytest -q
+
+  # Not decoration on a public repository. A secret committed once is a secret burned, and git
+  # history keeps it after a later deletion — hence the full-depth fetch.
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install gitleaks
+        run: |
+          curl -LsSf -o /tmp/gitleaks.tar.gz \
+            https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
+          tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
+          install /tmp/gitleaks /usr/local/bin/gitleaks
+          gitleaks version
+      - name: Scan
+        # FORBIDDEN_HOST_RE is a repository secret: a regular expression matching hostnames that
+        # must never appear in the tree. The real Canvas hostname lives there and nowhere else.
+        # With it unset the script reports the hostname check as SKIPPED and still runs the other
+        # two, rather than passing quietly.
+        env:
+          FORBIDDEN_HOST_RE: ${{ secrets.FORBIDDEN_HOST_RE }}
+        run: |
+          git config --global --add safe.directory "$PWD"
+          ./scripts/scan-secrets.sh
+
+  # A Dockerfile that is never built in CI rots within a month. This job builds it and then starts
+  # it, because an image that builds but cannot serve its own health endpoint has not been tested.
+  image:
+    runs-on: ubuntu-latest
+    container:
+      image: node:20
+      # The runner creates job containers against an isolated docker-in-docker daemon; this mounts
+      # that daemon's socket so the job can build. It is not the host daemon.
+      options: -v /var/run/docker.sock:/var/run/docker.sock
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the docker CLI
+        run: |
+          curl -fsSL -o /tmp/docker.tgz \
+            https://download.docker.com/linux/static/stable/x86_64/docker-27.5.1.tgz
+          tar -xzf /tmp/docker.tgz -C /tmp
+          install /tmp/docker/docker /usr/local/bin/docker
+          docker version
+      - name: Build the runtime image
+        run: docker build --target runtime -t "sightline:ci-${GITHUB_SHA}" .
+      - name: Build the dev image
+        # scripts/dev.sh runs tests, lint and format out of this stage, so it has to build too.
+        run: docker build --target dev -t "sightline:ci-dev-${GITHUB_SHA}" .
+      - name: The image starts and answers its own health endpoint
+        run: |
+          set -eu
+          name="sightline-ci-${GITHUB_SHA}"
+          docker rm -f "$name" >/dev/null 2>&1 || true
+          docker run -d --name "$name" "sightline:ci-${GITHUB_SHA}"
+          ok=0
+          for _ in $(seq 1 30); do
+            if docker exec "$name" python -c "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3).status == 200 else 1)" 2>/dev/null; then
+              ok=1
+              break
+            fi
+            sleep 2
+          done
+          docker logs "$name" || true
+          docker exec "$name" python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3).read().decode())" || true
+          docker rm -f "$name" >/dev/null 2>&1 || true
+          if [ "$ok" -ne 1 ]; then
+            echo "the image built but never became healthy" >&2
+            exit 1
+          fi
+      - name: Clean up the images this job created
+        if: always()
+        run: docker image rm -f "sightline:ci-${GITHUB_SHA}" "sightline:ci-dev-${GITHUB_SHA}" || true

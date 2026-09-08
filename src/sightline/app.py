@@ -1,0 +1,175 @@
+"""The FastAPI application.
+
+One process, one container. Server-rendered HTML with light progressive enhancement — no SPA
+framework (SPEC §09). This module builds the app, wires the run store and the background runner
+into its lifespan, and serves the status page that later items grow into the four screens.
+
+The vocabulary constraint from SPEC §11 applies to everything rendered here: Sightline *reviews*
+and *refreshes*. It does not evaluate, score or grade.
+"""
+
+from __future__ import annotations
+
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from pathlib import Path
+from typing import Any
+
+from fastapi import FastAPI, Request
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+
+from . import __version__
+from .assets import TokensNotFoundError, resolve_tokens_css
+from .config import Settings, get_settings
+from .logging import configure_logging, get_logger
+from .runner import BackgroundRunner
+from .store import RunStore
+
+PACKAGE_ROOT = Path(__file__).resolve().parent
+TEMPLATE_DIR = PACKAGE_ROOT / "templates"
+STATIC_DIR = PACKAGE_ROOT / "static"
+
+log = get_logger("sightline.app")
+
+#: Determinacy tiers, rendered as the legend on the status page. Kept here rather than in the
+#: template so the wording has one home; SPEC §02 is the source.
+TIERS: tuple[dict[str, str], ...] = (
+    {
+        "letter": "A",
+        "css": "tier-a",
+        "name": "Deterministic",
+        "handling": "Computed by a parser. No model. Stated declaratively.",
+    },
+    {
+        "letter": "B",
+        "css": "tier-b",
+        "name": "Evidenced",
+        "handling": "A model locates and quotes the passage. Worded as evidence.",
+    },
+    {
+        "letter": "C",
+        "css": "tier-c",
+        "name": "Judgment",
+        "handling": "Context assembled and the question drafted. Never pre-rated.",
+    },
+    {
+        "letter": "D",
+        "css": "tier-d",
+        "name": "Out of scope",
+        "handling": "Not determinable from course artifacts. Defaults to N/A with a note.",
+    },
+)
+
+
+def create_app(settings: Settings | None = None) -> FastAPI:
+    """Build the application. Passing ``settings`` is how tests get an isolated data root."""
+    resolved = settings or get_settings()
+    configure_logging(level=resolved.log_level, fmt=resolved.log_format)
+
+    @asynccontextmanager
+    async def lifespan(application: FastAPI) -> AsyncIterator[None]:
+        paths = resolved.paths.ensure()
+        store = RunStore.open(paths)
+        runner = BackgroundRunner(store)
+        application.state.settings = resolved
+        application.state.paths = paths
+        application.state.store = store
+        application.state.runner = runner
+        interrupted = runner.recover()
+        log.info(
+            "startup",
+            version=__version__,
+            data_root=str(paths.root),
+            canvas_configured=resolved.canvas_configured,
+            ollama_configured=resolved.ollama_configured,
+            escalation_configured=resolved.escalation_configured,
+            interrupted_runs=len(interrupted),
+        )
+        try:
+            yield
+        finally:
+            await runner.shutdown()
+            store.dispose()
+            log.info("shutdown", version=__version__)
+
+    application = FastAPI(
+        title="Sightline",
+        version=__version__,
+        summary="An automated first pass over an online course against a review rubric.",
+        lifespan=lifespan,
+    )
+    application.state.settings = resolved
+
+    templates = Jinja2Templates(directory=str(TEMPLATE_DIR))
+    templates.env.globals["app_version"] = __version__
+
+    # The tokens live outside the package on purpose (see sightline.assets). Serving them from a
+    # dedicated route rather than the static mount keeps the "one source of colour" literal.
+    @application.get("/assets/tokens.css", include_in_schema=False)
+    async def tokens_css() -> FileResponse:
+        return FileResponse(
+            resolve_tokens_css(resolved.tokens_css_path),
+            media_type="text/css",
+            headers={"Cache-Control": "no-cache"},
+        )
+
+    application.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
+    @application.get("/healthz", include_in_schema=True)
+    async def healthz(request: Request) -> JSONResponse:
+        """Liveness and readiness in one place; the container HEALTHCHECK calls this.
+
+        Every check reports what it examined, not merely that it passed.
+        """
+        checks: dict[str, Any] = {}
+
+        paths = getattr(request.app.state, "paths", resolved.paths)
+        try:
+            paths.ensure()
+            checks["data_root"] = {"ok": True, "path": str(paths.root)}
+        except OSError as exc:
+            checks["data_root"] = {"ok": False, "path": str(paths.root), "error": str(exc)}
+
+        store: RunStore | None = getattr(request.app.state, "store", None)
+        if store is None:
+            checks["run_store"] = {"ok": False, "error": "store not initialised"}
+        else:
+            try:
+                counts = store.counts_by_status()
+                checks["run_store"] = {"ok": True, "runs_by_status": counts}
+            except Exception as exc:  # pragma: no cover - surfaced, never swallowed
+                checks["run_store"] = {"ok": False, "error": str(exc)}
+
+        try:
+            tokens = resolve_tokens_css(resolved.tokens_css_path)
+            checks["design_tokens"] = {"ok": True, "path": str(tokens)}
+        except TokensNotFoundError as exc:
+            checks["design_tokens"] = {"ok": False, "error": str(exc)}
+
+        healthy = all(check["ok"] for check in checks.values())
+        payload = {"status": "ok" if healthy else "unhealthy", "version": __version__, **checks}
+        return JSONResponse(payload, status_code=200 if healthy else 503)
+
+    @application.get("/", include_in_schema=False)
+    async def index(request: Request) -> Any:
+        store: RunStore | None = getattr(request.app.state, "store", None)
+        runs = store.list_runs(limit=10) if store is not None else []
+        paths = getattr(request.app.state, "paths", resolved.paths)
+        return templates.TemplateResponse(
+            request=request,
+            name="index.html",
+            context={
+                "settings_rows": resolved.status_rows(),
+                "tiers": TIERS,
+                "runs": runs,
+                "data_root": str(paths.root),
+                "database": str(paths.database),
+            },
+        )
+
+    return application
+
+
+app = create_app()
