@@ -645,13 +645,16 @@ Over the synthetic sample course on `llama3.1:8b`, target host, 2026-09-17:
 |---|---|---|
 | one pass, ten extractors | 127 | 953 s |
 | three runs | 381 | 2 859 s |
+| three runs, repeated later the same day | 381 | 2 865 s |
 
 Exactly 3.0×. Concurrency is 1 by design, so nothing amortizes and the arithmetic is the whole
 story. **On that course and that model the router flagged nothing**: all ten extractors returned
 byte-identical evidence across three runs, and a fourth independent pass in a separate process 48
-minutes later returned the same 226 quotes again. That is a measurement of one model on one
-synthetic course, not a general claim — but it is the number to weigh `--runs 3` against, which is
-why the default is one run.
+minutes later returned the same 226 quotes again. The whole three-run pass was then repeated from a
+clean process and returned the same 226 quotes over the same ten extractors, on an identical
+160 998 tokens, flagging nothing a second time. That is a measurement of one model on one synthetic
+course, not a general claim — but it is the number to weigh `--runs 3` against, which is why the
+default is one run.
 
 ### The verb table judges, not the model
 
