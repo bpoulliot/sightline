@@ -23,7 +23,7 @@ Queue lives at `~/docker/overnight-sightline/`. Next free item number: **34**.
 | 08 | Mobile detectors + optional-section flag | 1 | READY | **DONE** — PR #12 |
 | 09 | Ollama client, capability filter, model picker | 1 | READY | **DONE** — PR #14 |
 | 10 | Extraction layer with verified quotes | 1 | READY | **DONE** — PR #15 |
-| 11 | Three-run disagreement router | 1 | READY | queued 10 |
+| 11 | Three-run disagreement router | 1 | READY | **DONE** — PR #17 |
 | 12a | Effort model — ship it | 1 | READY | queued 11a |
 | 12b | Effort model — fit the costs | 1 | **BLOCKED** — item 06/07/08 detectors have all landed; unblocked in code, still needs the calibration corpus | — |
 | 13 | XLSX writer | 2 | READY | staged 13 |
@@ -81,7 +81,7 @@ command runs verbatim (490 tests, clean lint and format, container healthy).
 08-sightline-item09-ollama-client.md              # DONE — PR #14. Three host behaviours measured.
 09-sightline-item10-extraction-layer.md          # DONE — PR #15. 10 extractors, quotes verified.
 09a-sightline-item32-dotenv-leaks-into-tests.md  # DONE — PR #16. Two holes, not one.
-10-sightline-item11-disagreement-router.md
+10-sightline-item11-disagreement-router.md      # DONE — PR #17. Union, not intersection.
 11-sightline-item17-batch-runner.md              # DONE — PR #18. The gate landed with it.
 11a-sightline-item12a-effort-model.md            # LAST in batch 2, before anything renders a band
 ```
@@ -457,6 +457,27 @@ pre-selected (many rows per call, a deterministic pre-filter, embeddings, or not
 measured against current behaviour as ground truth, and a hard condition on any of them: a row
 whose corpus was narrowed must say how much of the course it read. Sorts after every pending item —
 it is slow, not wrong, and the project stage now prints the estimate before anything is spent.
+
+**11 · DONE 2026-09-17 (PR #17). Three runs, compared on the spans, and the cost measured twice
+rather than once.**
+
+- **What `--runs 3` costs, from two independent three-run passes** over the synthetic sample course
+  on `llama3.1:8b`, target host, 2026-09-17: **381 calls in 2 859 s** (19:21Z) and **381 calls in
+  2 865 s** (21:56Z), against **127 calls in 953 s** for a single pass. 7.50 s a call in every one
+  of them. Concurrency is 1 by design, so nothing amortizes and three runs cost 3.0× — the
+  arithmetic is the whole story, which is why the default is one run and the router is asked for.
+- **The two passes returned the same evidence, span for span.** 226 quotes over ten extractors,
+  the same per-extractor distribution, and an identical 160 998 total tokens. **Neither pass
+  flagged anything**: `0 subject(s) flagged for attention over 3 run(s)`, both times. A separate
+  single pass 48 minutes after the first returned the same 226 quotes again.
+- **That is a measurement of one model on one synthetic course, not a general claim** — and it is
+  the honest number to weigh `--runs 3` against. Three times the calls bought no disagreement here.
+  Zero variance is exactly what SPEC §01 predicts of an agreeable model on prompts it finds easy,
+  which is why agreement is recorded nowhere in the output: the router reports difference, and the
+  absence of difference is not evidence of correctness.
+- **The figures were re-measured before the merge rather than carried over from the session that
+  wrote them.** The first pass belonged to an attempt that ran out of session before it could
+  publish; every number above was recomputed from the second run's own JSON.
 
 **10 · DONE 2026-09-17 (PR #15). The extraction layer: ten extractors, one schema, and the
 string match that stands between a model and a fabricated quote.**

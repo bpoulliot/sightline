@@ -14,6 +14,7 @@ The two assertions worth reading twice:
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, fields
 from pathlib import Path
 
@@ -238,3 +239,19 @@ def _no_findings():
     from sightline.detect.runner import DetectionReport
 
     return DetectionReport(results=())
+
+
+def test_a_request_round_trips_through_its_own_serialization() -> None:
+    """``from_dict`` is the inverse of ``to_dict``, and the pair covers every field.
+
+    The disagreement set roadmap item 11 writes is read back by item 18, possibly days later and
+    in another process, so the reconstruction has to be total. Asserting it field by field off the
+    dataclass rather than against a hand-written list is the point: a field added to the request
+    and to ``to_dict`` but forgotten in ``from_dict`` fails here instead of silently dropping out
+    of the subset an escalation re-runs.
+    """
+    plan = manifest(project(load(UNBOUND), _no_findings(), tags=TagIndex.build([])).rows)
+    for request in plan.requests:
+        payload = json.loads(json.dumps(request.to_dict()))
+        assert ExtractionRequest.from_dict(payload) == request
+        assert set(payload) == {field.name for field in fields(ExtractionRequest)}
