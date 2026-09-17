@@ -55,19 +55,23 @@ Three expectations appear:
 |---|---|
 | `defect` | The detector should find something here. |
 | `clean` | The detector should find nothing here — the case a detector that fires on everything gets wrong. |
-| `not_covered` | The sample cannot exercise this detector yet, and the row says why. |
+| `not_covered` | The sample cannot exercise this detector yet, and the row says why. The detector must still record what it could not read. |
 
 `clean` rows are half the value. A detector with only defects to look at passes its tests by
 returning "found it" unconditionally.
 
-Four detectors are `not_covered` today and each says so rather than being quietly absent:
+Three detectors are `not_covered` today and each says so rather than being quietly absent:
 
 - **D02, D30, D36** need a document's own bytes. This course ships file *metadata* and no file
   bytes, so PDF tagging, DOCX styles and printability cannot be read from it. Bytes arrive with a
-  content export, which is acquired at run time and never committed.
-- **D11** needs course outcomes, which item 03 does not acquire — no outcome endpoint is
-  normalized yet. Whichever item adds D11 adds the endpoint with it.
+  content export, which is acquired at run time and never committed. D02 still has a row and still
+  has to speak: its `not_covered` case is satisfied by recording `syllabus.pdf` as something it
+  could not read, not by coming back clean.
 - **D45** is tier C: the sample supplies the external tool, not the answer about its mobile app.
+
+**D11 was `not_covered` and is not any more.** It needed course outcomes, which nothing acquired;
+item 07 added the `outcome_group_links` endpoint and this course now records two outcomes, one of
+them with an empty description for D11 to find.
 
 ## Adding to it
 

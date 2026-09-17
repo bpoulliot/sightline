@@ -128,6 +128,7 @@ def test_the_sample_course_loads(document: CourseDocument) -> None:
         ArtifactKind.FILE,
         ArtifactKind.EMBED,
         ArtifactKind.SYLLABUS,
+        ArtifactKind.OUTCOME,
     ):
         assert counts.get(kind.value), f"the sample course holds no {kind.value}"
 
@@ -155,6 +156,7 @@ def test_canvas_paths_match_what_the_model_would_build(document: CourseDocument)
         file_path,
         module_item_path,
         module_path,
+        outcome_path,
         page_path,
         quiz_path,
         syllabus_path,
@@ -176,6 +178,8 @@ def test_canvas_paths_match_what_the_model_would_build(document: CourseDocument)
         assert module.canvas_path == module_path(course, module.canvas_id)
         for item in module.items:
             assert item.canvas_path == module_item_path(course, item.canvas_id)
+    for outcome in document.outcomes:
+        assert outcome.canvas_path == outcome_path(course, outcome.canvas_id)
     for item in document.files:
         if item.link_exact:
             assert item.canvas_path == file_path(course, item.canvas_id)
@@ -209,7 +213,10 @@ def test_every_row_names_a_detector_the_spec_lists(
 def test_every_row_names_an_artifact_or_collection_that_exists(
     planted: list[dict[str, str]], document: CourseDocument
 ) -> None:
-    ids = {artifact.id for artifact in document.artifacts()}
+    # The course artifact is deliberately not in `artifacts()` — it is the container, not one of
+    # the contents — but it is what a finding about the course as a whole is located on, so a row
+    # is allowed to name it. `by_id` resolves it, which is what the detectors depend on.
+    ids = {artifact.id for artifact in document.artifacts()} | {document.course_artifact.id}
     collections = {"navigation", "assignment_groups", "pages", "quizzes", "modules", "course"}
     for row in planted:
         target = row.get("artifact")

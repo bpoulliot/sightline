@@ -5,10 +5,14 @@
     {
       "method": "GET",
       "path": "/api/v1/courses/4411",
-      "query": { "include[]": "syllabus_body" },
+      "query": {
+        "include[]": "syllabus_body"
+      },
       "response": {
         "status": 200,
-        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
         "json": {
           "id": 4411,
           "name": "Sample Course 4411",
@@ -28,45 +32,103 @@
     {
       "method": "GET",
       "path": "/api/v1/courses/4411/tabs",
-      "query": { "per_page": 100 },
+      "query": {
+        "per_page": 100
+      },
       "response": {
         "status": 200,
-        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
         "json": [
-          { "id": "home", "html_url": "/courses/4411", "label": "Home", "type": "internal", "position": 1 },
-          { "id": "modules", "html_url": "/courses/4411/modules", "label": "Modules", "type": "internal", "position": 2 },
-          { "id": "chat", "html_url": "/courses/4411/chat", "label": "Chat", "type": "internal", "position": 3 },
-          { "id": "pages", "html_url": "/courses/4411/wiki", "label": "Pages", "type": "internal", "position": 4, "hidden": true, "visibility": "admins" }
+          {
+            "id": "home",
+            "html_url": "/courses/4411",
+            "label": "Home",
+            "type": "internal",
+            "position": 1
+          },
+          {
+            "id": "modules",
+            "html_url": "/courses/4411/modules",
+            "label": "Modules",
+            "type": "internal",
+            "position": 2
+          },
+          {
+            "id": "chat",
+            "html_url": "/courses/4411/chat",
+            "label": "Chat",
+            "type": "internal",
+            "position": 3
+          },
+          {
+            "id": "pages",
+            "html_url": "/courses/4411/wiki",
+            "label": "Pages",
+            "type": "internal",
+            "position": 4,
+            "hidden": true,
+            "visibility": "admins"
+          }
         ]
       }
     },
     {
       "method": "GET",
       "path": "/api/v1/courses/4411/assignment_groups",
-      "query": { "per_page": 100 },
+      "query": {
+        "per_page": 100
+      },
       "response": {
         "status": 200,
-        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
         "json": [
-          { "id": 4101, "name": "Synthetic assignments group", "position": 1, "group_weight": 60.0 },
-          { "id": 4102, "name": "Synthetic quizzes group", "position": 2, "group_weight": 30.0 }
+          {
+            "id": 4101,
+            "name": "Synthetic assignments group",
+            "position": 1,
+            "group_weight": 60.0
+          },
+          {
+            "id": 4102,
+            "name": "Synthetic quizzes group",
+            "position": 2,
+            "group_weight": 30.0
+          }
         ]
       }
     },
     {
       "method": "GET",
       "path": "/api/v1/courses/4411/rubrics",
-      "query": { "per_page": 100 },
+      "query": {
+        "per_page": 100
+      },
       "response": {
         "status": 200,
-        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
         "json": [
           {
             "id": 2101,
             "title": "Synthetic reflection rubric",
             "points_possible": 30.0,
             "free_form_criterion_comments": false,
-            "data": [{ "id": "c1" }, { "id": "c2" }, { "id": "c3" }]
+            "data": [
+              {
+                "id": "c1"
+              },
+              {
+                "id": "c2"
+              },
+              {
+                "id": "c3"
+              }
+            ]
           }
         ]
       }
@@ -74,10 +136,15 @@
     {
       "method": "GET",
       "path": "/api/v1/courses/4411/modules",
-      "query": { "per_page": 100, "include[]": "items" },
+      "query": {
+        "per_page": 100,
+        "include[]": "items"
+      },
       "response": {
         "status": 200,
-        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
         "json": [
           {
             "id": 3101,
@@ -86,8 +153,24 @@
             "published": true,
             "items_count": 3,
             "items": [
-              { "id": 31101, "title": "Synthetic overview", "position": 1, "indent": 0, "type": "Page", "page_url": "synthetic-overview", "published": true },
-              { "id": 31102, "title": "Synthetic reflection", "position": 2, "indent": 0, "type": "Assignment", "content_id": 9101, "published": true }
+              {
+                "id": 31101,
+                "title": "Synthetic overview",
+                "position": 1,
+                "indent": 0,
+                "type": "Page",
+                "page_url": "synthetic-overview",
+                "published": true
+              },
+              {
+                "id": 31102,
+                "title": "Synthetic reflection",
+                "position": 2,
+                "indent": 0,
+                "type": "Assignment",
+                "content_id": 9101,
+                "published": true
+              }
             ]
           },
           {
@@ -97,8 +180,25 @@
             "published": false,
             "items_count": 2,
             "items": [
-              { "id": 31201, "title": "Synthetic section", "position": 1, "indent": 0, "type": "SubHeader" },
-              { "id": 31202, "title": "Synthetic quiz", "position": 2, "indent": 1, "type": "Quiz", "content_id": 8101, "published": false, "completion_requirement": { "type": "must_submit" } }
+              {
+                "id": 31201,
+                "title": "Synthetic section",
+                "position": 1,
+                "indent": 0,
+                "type": "SubHeader"
+              },
+              {
+                "id": 31202,
+                "title": "Synthetic quiz",
+                "position": 2,
+                "indent": 1,
+                "type": "Quiz",
+                "content_id": 8101,
+                "published": false,
+                "completion_requirement": {
+                  "type": "must_submit"
+                }
+              }
             ]
           }
         ]
@@ -107,27 +207,73 @@
     {
       "method": "GET",
       "path": "/api/v1/courses/4411/modules/3101/items",
-      "query": { "per_page": 100 },
+      "query": {
+        "per_page": 100
+      },
       "response": {
         "status": 200,
-        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
         "json": [
-          { "id": 31101, "title": "Synthetic overview", "position": 1, "indent": 0, "type": "Page", "page_url": "synthetic-overview", "published": true },
-          { "id": 31102, "title": "Synthetic reflection", "position": 2, "indent": 0, "type": "Assignment", "content_id": 9101, "published": true },
-          { "id": 31103, "title": "Synthetic tool", "position": 3, "indent": 0, "type": "ExternalTool", "external_url": "https://canvas.example.edu/courses/4411/external_tools/retrieve?url=synthetic", "published": true }
+          {
+            "id": 31101,
+            "title": "Synthetic overview",
+            "position": 1,
+            "indent": 0,
+            "type": "Page",
+            "page_url": "synthetic-overview",
+            "published": true
+          },
+          {
+            "id": 31102,
+            "title": "Synthetic reflection",
+            "position": 2,
+            "indent": 0,
+            "type": "Assignment",
+            "content_id": 9101,
+            "published": true
+          },
+          {
+            "id": 31103,
+            "title": "Synthetic tool",
+            "position": 3,
+            "indent": 0,
+            "type": "ExternalTool",
+            "external_url": "https://canvas.example.edu/courses/4411/external_tools/retrieve?url=synthetic",
+            "published": true
+          }
         ]
       }
     },
     {
       "method": "GET",
       "path": "/api/v1/courses/4411/pages",
-      "query": { "per_page": 100 },
+      "query": {
+        "per_page": 100
+      },
       "response": {
         "status": 200,
-        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
         "json": [
-          { "page_id": 4031, "url": "synthetic-overview", "title": "Synthetic overview", "published": true, "front_page": true, "updated_at": "2026-01-11T09:00:00Z" },
-          { "page_id": 4032, "url": "synthetic-reading", "title": "Synthetic reading", "published": true, "front_page": false, "updated_at": "2026-01-18T09:00:00Z" }
+          {
+            "page_id": 4031,
+            "url": "synthetic-overview",
+            "title": "Synthetic overview",
+            "published": true,
+            "front_page": true,
+            "updated_at": "2026-01-11T09:00:00Z"
+          },
+          {
+            "page_id": 4032,
+            "url": "synthetic-reading",
+            "title": "Synthetic reading",
+            "published": true,
+            "front_page": false,
+            "updated_at": "2026-01-18T09:00:00Z"
+          }
         ]
       }
     },
@@ -136,7 +282,9 @@
       "path": "/api/v1/courses/4411/pages/synthetic-overview",
       "response": {
         "status": 200,
-        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
         "json": {
           "page_id": 4031,
           "url": "synthetic-overview",
@@ -153,7 +301,9 @@
       "path": "/api/v1/courses/4411/pages/synthetic-reading",
       "response": {
         "status": 200,
-        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
         "json": {
           "page_id": 4032,
           "url": "synthetic-reading",
@@ -168,10 +318,14 @@
     {
       "method": "GET",
       "path": "/api/v1/courses/4411/assignments",
-      "query": { "per_page": 100 },
+      "query": {
+        "per_page": 100
+      },
       "response": {
         "status": 200,
-        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
         "json": [
           {
             "id": 9101,
@@ -183,12 +337,21 @@
             "lock_at": null,
             "points_possible": 30.0,
             "grading_type": "points",
-            "submission_types": ["online_text_entry"],
+            "submission_types": [
+              "online_text_entry"
+            ],
             "assignment_group_id": 4101,
             "omit_from_final_grade": false,
             "updated_at": "2026-01-11T10:00:00Z",
-            "rubric": [{ "id": "c1" }],
-            "rubric_settings": { "id": 2101, "title": "Synthetic reflection rubric" }
+            "rubric": [
+              {
+                "id": "c1"
+              }
+            ],
+            "rubric_settings": {
+              "id": 2101,
+              "title": "Synthetic reflection rubric"
+            }
           },
           {
             "id": 9102,
@@ -198,7 +361,9 @@
             "due_at": null,
             "points_possible": 100.0,
             "grading_type": "points",
-            "submission_types": ["none"],
+            "submission_types": [
+              "none"
+            ],
             "assignment_group_id": 4101,
             "omit_from_final_grade": false,
             "updated_at": "2026-02-01T10:00:00Z"
@@ -209,10 +374,14 @@
     {
       "method": "GET",
       "path": "/api/v1/courses/4411/quizzes",
-      "query": { "per_page": 100 },
+      "query": {
+        "per_page": 100
+      },
       "response": {
         "status": 200,
-        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
         "json": [
           {
             "id": 8101,
@@ -233,10 +402,15 @@
     {
       "method": "GET",
       "path": "/api/v1/courses/4411/discussion_topics",
-      "query": { "per_page": 100, "only_announcements": "false" },
+      "query": {
+        "per_page": 100,
+        "only_announcements": "false"
+      },
       "response": {
         "status": 200,
-        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
         "json": [
           {
             "id": 7101,
@@ -269,10 +443,15 @@
     {
       "method": "GET",
       "path": "/api/v1/courses/4411/discussion_topics",
-      "query": { "per_page": 100, "only_announcements": "true" },
+      "query": {
+        "per_page": 100,
+        "only_announcements": "true"
+      },
       "response": {
         "status": 200,
-        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
         "json": [
           {
             "id": 6101,
@@ -289,10 +468,14 @@
     {
       "method": "GET",
       "path": "/api/v1/courses/4411/files",
-      "query": { "per_page": 100 },
+      "query": {
+        "per_page": 100
+      },
       "response": {
         "status": 200,
-        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
         "json": [
           {
             "id": 5101,
@@ -310,11 +493,53 @@
     },
     {
       "method": "GET",
-      "path": "/api/v1/courses/4411/content_exports",
-      "query": { "per_page": 100 },
+      "path": "/api/v1/courses/4411/outcome_group_links",
+      "query": {
+        "per_page": 100,
+        "outcome_style": "full"
+      },
       "response": {
         "status": 200,
-        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
+        "json": [
+          {
+            "outcome_group": {
+              "id": 301,
+              "title": "Course Outcomes"
+            },
+            "outcome": {
+              "id": 7101,
+              "title": "Describe the synthetic analysis sequence",
+              "description": "<p>The learner names each stage of the sequence and the check that makes it falsifiable.</p>"
+            }
+          },
+          {
+            "outcome_group": {
+              "id": 301,
+              "title": "Course Outcomes"
+            },
+            "outcome": {
+              "id": 7102,
+              "title": "Apply the method to a new case",
+              "description": ""
+            }
+          }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/courses/4411/content_exports",
+      "query": {
+        "per_page": 100
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
         "json": []
       }
     }

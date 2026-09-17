@@ -5,10 +5,14 @@
     {
       "method": "GET",
       "path": "/api/v1/courses/4412",
-      "query": { "include[]": "syllabus_body" },
+      "query": {
+        "include[]": "syllabus_body"
+      },
       "response": {
         "status": 200,
-        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
         "json": {
           "id": 4412,
           "name": "Sample Course 4412",
@@ -22,53 +26,93 @@
     {
       "method": "GET",
       "path": "/api/v1/courses/4412/tabs",
-      "query": { "per_page": 100 },
+      "query": {
+        "per_page": 100
+      },
       "response": {
         "status": 200,
-        "headers": { "Content-Type": "application/json; charset=utf-8" },
-        "json": [{ "id": "home", "label": "Home", "type": "internal", "position": 1 }]
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
+        "json": [
+          {
+            "id": "home",
+            "label": "Home",
+            "type": "internal",
+            "position": 1
+          }
+        ]
       }
     },
     {
       "method": "GET",
       "path": "/api/v1/courses/4412/assignment_groups",
-      "query": { "per_page": 100 },
+      "query": {
+        "per_page": 100
+      },
       "response": {
         "status": 200,
-        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
         "json": []
       }
     },
     {
       "method": "GET",
       "path": "/api/v1/courses/4412/rubrics",
-      "query": { "per_page": 100 },
+      "query": {
+        "per_page": 100
+      },
       "response": {
         "status": 200,
-        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
         "json": []
       }
     },
     {
       "method": "GET",
       "path": "/api/v1/courses/4412/modules",
-      "query": { "per_page": 100, "include[]": "items" },
+      "query": {
+        "per_page": 100,
+        "include[]": "items"
+      },
       "response": {
         "status": 200,
-        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
         "json": []
       }
     },
     {
       "method": "GET",
       "path": "/api/v1/courses/4412/pages",
-      "query": { "per_page": 100 },
+      "query": {
+        "per_page": 100
+      },
       "response": {
         "status": 200,
-        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
         "json": [
-          { "page_id": 4041, "url": "synthetic-readable", "title": "Synthetic readable", "published": true, "updated_at": "2026-01-11T09:00:00Z" },
-          { "page_id": 4042, "url": "synthetic-refused", "title": "Synthetic refused", "published": true, "updated_at": "2026-01-11T09:00:00Z" }
+          {
+            "page_id": 4041,
+            "url": "synthetic-readable",
+            "title": "Synthetic readable",
+            "published": true,
+            "updated_at": "2026-01-11T09:00:00Z"
+          },
+          {
+            "page_id": 4042,
+            "url": "synthetic-refused",
+            "title": "Synthetic refused",
+            "published": true,
+            "updated_at": "2026-01-11T09:00:00Z"
+          }
         ]
       }
     },
@@ -77,7 +121,9 @@
       "path": "/api/v1/courses/4412/pages/synthetic-readable",
       "response": {
         "status": 200,
-        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
         "json": {
           "page_id": 4041,
           "url": "synthetic-readable",
@@ -92,68 +138,138 @@
       "path": "/api/v1/courses/4412/pages/synthetic-refused",
       "response": {
         "status": 403,
-        "headers": { "Content-Type": "application/json; charset=utf-8" },
-        "json": { "status": "unauthorized", "errors": [{ "message": "user not authorized to perform that action" }] }
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
+        "json": {
+          "status": "unauthorized",
+          "errors": [
+            {
+              "message": "user not authorized to perform that action"
+            }
+          ]
+        }
       }
     },
     {
       "method": "GET",
       "path": "/api/v1/courses/4412/assignments",
-      "query": { "per_page": 100 },
+      "query": {
+        "per_page": 100
+      },
       "response": {
         "status": 200,
-        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
         "json": []
       }
     },
     {
       "method": "GET",
       "path": "/api/v1/courses/4412/quizzes",
-      "query": { "per_page": 100 },
+      "query": {
+        "per_page": 100
+      },
       "response": {
         "status": 403,
-        "headers": { "Content-Type": "application/json; charset=utf-8" },
-        "json": { "status": "unauthorized", "errors": [{ "message": "user not authorized to perform that action" }] }
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
+        "json": {
+          "status": "unauthorized",
+          "errors": [
+            {
+              "message": "user not authorized to perform that action"
+            }
+          ]
+        }
       }
     },
     {
       "method": "GET",
       "path": "/api/v1/courses/4412/discussion_topics",
-      "query": { "per_page": 100, "only_announcements": "false" },
+      "query": {
+        "per_page": 100,
+        "only_announcements": "false"
+      },
       "response": {
         "status": 200,
-        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
         "json": []
       }
     },
     {
       "method": "GET",
       "path": "/api/v1/courses/4412/discussion_topics",
-      "query": { "per_page": 100, "only_announcements": "true" },
+      "query": {
+        "per_page": 100,
+        "only_announcements": "true"
+      },
       "response": {
         "status": 200,
-        "headers": { "Content-Type": "application/json; charset=utf-8" },
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
         "json": []
       }
     },
     {
       "method": "GET",
       "path": "/api/v1/courses/4412/files",
-      "query": { "per_page": 100 },
+      "query": {
+        "per_page": 100
+      },
       "response": {
         "status": 404,
-        "headers": { "Content-Type": "application/json; charset=utf-8" },
-        "json": { "errors": [{ "message": "The specified resource does not exist." }] }
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
+        "json": {
+          "errors": [
+            {
+              "message": "The specified resource does not exist."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/courses/4412/outcome_group_links",
+      "query": {
+        "per_page": 100,
+        "outcome_style": "full"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
+        "json": []
       }
     },
     {
       "method": "GET",
       "path": "/api/v1/courses/4412/content_exports",
-      "query": { "per_page": 100 },
+      "query": {
+        "per_page": 100
+      },
       "response": {
         "status": 403,
-        "headers": { "Content-Type": "application/json; charset=utf-8" },
-        "json": { "status": "unauthorized", "errors": [{ "message": "user not authorized to perform that action" }] }
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
+        "json": {
+          "status": "unauthorized",
+          "errors": [
+            {
+              "message": "user not authorized to perform that action"
+            }
+          ]
+        }
       }
     }
   ]

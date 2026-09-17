@@ -52,12 +52,14 @@
     {
       "detector": "D06",
       "expectation": "defect",
+      "artifact": "course:4410",
       "collection": "navigation",
       "note": "Collaborations, Chat and Attendance are visible and unused."
     },
     {
       "detector": "D07",
       "expectation": "defect",
+      "artifact": "course:4410",
       "collection": "assignment_groups",
       "note": "Group weights are 30 + 40 + 20 = 90, not 100."
     },
@@ -87,9 +89,17 @@
     },
     {
       "detector": "D11",
-      "expectation": "not_covered",
-      "collection": "course",
-      "note": "Outcomes are not acquired yet; item 03 normalizes no outcome endpoint."
+      "expectation": "defect",
+      "artifact": "outcome:7102",
+      "marker": "Apply the method to a new case",
+      "note": "An outcome is recorded with an empty description, so what it measures is not stated."
+    },
+    {
+      "detector": "D11",
+      "expectation": "clean",
+      "artifact": "outcome:7101",
+      "marker": "analysis sequence",
+      "note": "An outcome recorded with a description that says what is measured."
     },
     {
       "detector": "D12",
@@ -121,6 +131,7 @@
     {
       "detector": "D16",
       "expectation": "defect",
+      "artifact": "course:4410",
       "collection": "quizzes",
       "note": "Every assessment is graded; there is no low-stakes practice."
     },
@@ -133,6 +144,7 @@
     {
       "detector": "D18",
       "expectation": "defect",
+      "artifact": "course:4410",
       "collection": "pages",
       "note": "No instructor bio or introduction anywhere in the course."
     },
@@ -145,6 +157,7 @@
     {
       "detector": "D20",
       "expectation": "defect",
+      "artifact": "course:4410",
       "collection": "pages",
       "note": "No course feedback mechanism."
     },

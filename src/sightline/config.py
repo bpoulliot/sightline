@@ -59,6 +59,14 @@ class Settings(BaseSettings):
         default=True, validation_alias="SIGHTLINE_REQUEST_CONTENT_EXPORT"
     )
 
+    #: Whether the policy-link check may make outbound requests to addresses a course links to.
+    #: **Default off**, and that is a decision rather than caution: it is the only traffic
+    #: Sightline generates outside Canvas, a batch review would make it in bulk, and a check that
+    #: quietly becomes a few hundred requests is one an institution's network team switches off
+    #: rather than us. With it off the check reports which policy links are *present* and claims
+    #: nothing about where they go. See :mod:`sightline.detect.links`.
+    resolve_links: bool = Field(default=False, validation_alias="SIGHTLINE_RESOLVE_LINKS")
+
     # -- Working data ------------------------------------------------------------------------
     data_dir: Path = Field(default=Path("./data"), validation_alias="SIGHTLINE_DATA_DIR")
 

@@ -141,8 +141,10 @@ def test_the_tags_command_lists_the_vocabulary_and_what_implements_each_concept(
     out = capsys.readouterr().out
     assert "capability tag(s) in" in out
     assert "alt_text  [D21]" in out
-    # A concept awaiting a detector is listed as such. Ordinary, and visible.
-    assert "due_date_coverage  [no detector yet]" in out
+    # A concept awaiting a detector is listed as such. Ordinary, and visible. Which concept
+    # that is moves as detectors land — `due_date_coverage` was the example until item 07's D10
+    # implemented it — so pick another unimplemented one, never widen the assertion.
+    assert "document_printability  [no detector yet]" in out
     # Every shipped detector appears against the concept it declared, and no concept is described
     # by a rubric criterion — the catalogue is what a person authoring a pack reads.
     for detector_id in ("D21", "D22", "D23", "D30"):
@@ -181,7 +183,7 @@ def test_the_import_command_applies_a_mapping_file(capsys: pytest.CaptureFixture
     # The report says what the mapping reached, so an import can be checked rather than trusted.
     assert "mapping: uccs-oscqr-3-1-3.yaml reached 68 of 68 row(s)" in captured.err
     assert "Join key: column F, 68 distinct value(s)" in captured.err
-    assert "39 are bound to a capability no detector implements yet" in captured.err
+    assert "14 are bound to a capability no detector implements yet" in captured.err
 
 
 def test_an_unreadable_mapping_file_exits_two_without_writing_a_pack(
@@ -205,8 +207,8 @@ def test_the_packs_command_reports_each_shipped_pack_separately(
     assert "2 rubric pack(s)" in out
     assert "uccs-oscqr-3-1-3" in out
     assert "uccs-oscqr-rsi" in out
-    assert "10 of 68 criteria have deterministic coverage" in out
-    assert "5 of 18 criteria have deterministic coverage" in out
+    assert "35 of 68 criteria have deterministic coverage" in out
+    assert "13 of 18 criteria have deterministic coverage" in out
     # The three states are printed apart, and the middle one is named for what it is.
     assert "are bound to a capability no detector implements yet" in out
     assert "are evidence-only" in out

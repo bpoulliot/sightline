@@ -123,12 +123,16 @@ criteria:
 
   - code: REA 3
     section: REA
-    text: Graded work carries a due date.
+    text: Attached documents can be downloaded and printed.
     tier: A
     priority: null
     # In the vocabulary; no detector implements it yet. NOT_YET_IMPLEMENTED, which is transient and
     # is not the same thing as this row having no binding.
-    bindings: [due_date_coverage]
+    #
+    # THE TAG HERE HAS TO BE ONE NOTHING IMPLEMENTS, and which one that is moves as detectors land.
+    # It was `due_date_coverage` until item 07 shipped D10; if this row ever reads as covered, the
+    # fix is to pick another unimplemented tag, never to widen the assertions.
+    bindings: [document_printability]
     source_ids:
       printed_as: "6"
 

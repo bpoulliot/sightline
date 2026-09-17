@@ -49,6 +49,7 @@ class ArtifactKind(enum.StrEnum):
     FILE = "file"
     EMBED = "embed"
     SYLLABUS = "syllabus"
+    OUTCOME = "outcome"
 
 
 class Source(enum.StrEnum):
@@ -307,6 +308,10 @@ class Discussion(Artifact):
     kind: ArtifactKind = ArtifactKind.DISCUSSION
     canvas_id: str
     graded: bool = False
+    #: A graded topic's due date. Canvas keeps it on the *assignment* the topic is attached to,
+    #: never on the topic itself, so a detector reading ``due_at`` off a discussion would read
+    #: ``None`` on every graded discussion ever posted and report each one as undated.
+    due_at: str | None = None
     posted_at: str | None = None
     delayed_post_at: str | None = None
     require_initial_post: bool = False
@@ -317,6 +322,7 @@ class Discussion(Artifact):
         return {
             "canvas_id": self.canvas_id,
             "graded": self.graded,
+            "due_at": self.due_at,
             "posted_at": self.posted_at,
             "delayed_post_at": self.delayed_post_at,
             "require_initial_post": self.require_initial_post,
@@ -331,6 +337,7 @@ class Discussion(Artifact):
             kind=ArtifactKind(payload.get("kind", ArtifactKind.DISCUSSION)),
             canvas_id=str(payload["canvas_id"]),
             graded=bool(payload.get("graded", False)),
+            due_at=_opt_str(payload.get("due_at")),
             posted_at=_opt_str(payload.get("posted_at")),
             delayed_post_at=_opt_str(payload.get("delayed_post_at")),
             require_initial_post=bool(payload.get("require_initial_post", False)),
@@ -514,6 +521,45 @@ class Syllabus(Artifact):
         return cls(**Artifact._base_kwargs(payload))
 
 
+@dataclass(frozen=True, kw_only=True, slots=True)
+class CourseOutcome(Artifact):
+    """One learning outcome recorded in the course, and the outcome group it sits in.
+
+    Canvas keeps outcomes in a tree of groups rather than against modules, so ``group`` is the
+    only structural placement there is to read. A detector wanting to say something about where an
+    outcome sits has this and nothing else, and it says so rather than inferring a module.
+
+    ``description`` is instructor-authored text and travels verbatim, like any other body.
+    """
+
+    kind: ArtifactKind = ArtifactKind.OUTCOME
+    canvas_id: str
+    #: Title of the outcome group this outcome is linked into. Empty for the course's root group.
+    group: str = ""
+    #: The outcome's own description, as plain text. May be empty, which is the fact D11 reads.
+    description: str = ""
+    #: Canvas's "friendly name" for the outcome, where one is set. Often empty.
+    display_name: str = ""
+
+    def _extra_dict(self) -> dict[str, Any]:
+        return {
+            "canvas_id": self.canvas_id,
+            "group": self.group,
+            "description": self.description,
+            "display_name": self.display_name,
+        }
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> CourseOutcome:
+        return cls(
+            **Artifact._base_kwargs(payload),
+            canvas_id=str(payload["canvas_id"]),
+            group=str(payload.get("group") or ""),
+            description=str(payload.get("description") or ""),
+            display_name=str(payload.get("display_name") or ""),
+        )
+
+
 # ---------------------------------------------------------------------------------------------
 # Course-level structure that is not itself an artifact
 # ---------------------------------------------------------------------------------------------
@@ -689,6 +735,7 @@ class CourseDocument:
     announcements: tuple[Discussion, ...] = ()
     files: tuple[CourseFile, ...] = ()
     embeds: tuple[Embed, ...] = ()
+    outcomes: tuple[CourseOutcome, ...] = ()
     navigation: tuple[NavigationTab, ...] = ()
     assignment_groups: tuple[AssignmentGroup, ...] = ()
     rubrics: tuple[RubricSummary, ...] = ()
@@ -717,12 +764,37 @@ class CourseDocument:
         yield from self.announcements
         yield from self.files
         yield from self.embeds
+        yield from self.outcomes
+
+    @property
+    def course_artifact(self) -> Artifact:
+        """The course itself, as something a finding can be located on.
+
+        Several structure detectors answer a question about the course as a whole — it has no
+        syllabus, its navigation lists tools nothing uses, its group weights do not total 100 —
+        and a finding has to point somewhere a reviewer can open. This is that somewhere.
+
+        **It is deliberately not yielded by :meth:`artifacts`**, which is the course's *contents*.
+        A container that listed itself among its contents would make every count off by one, and
+        the detector integrity guard's empty document — a course holding zero artifacts, which
+        every detector must refuse to report on — would hold one. So :meth:`by_id` resolves it and
+        :meth:`artifacts` does not yield it, and ``tests/test_model.py`` asserts both halves.
+        """
+        return Artifact(
+            kind=ArtifactKind.COURSE,
+            id=artifact_id(ArtifactKind.COURSE, self.course.id),
+            title=self.course.name,
+            canvas_path=self.course.canvas_path,
+        )
 
     def by_id(self, artifact_id: str) -> Artifact | None:
         return self._index().get(artifact_id)
 
     def _index(self) -> dict[str, Artifact]:
-        return {artifact.id: artifact for artifact in self.artifacts()}
+        index = {artifact.id: artifact for artifact in self.artifacts()}
+        course = self.course_artifact
+        index[course.id] = course
+        return index
 
     def of_kind(self, kind: ArtifactKind) -> tuple[Artifact, ...]:
         return tuple(artifact for artifact in self.artifacts() if artifact.kind is kind)
@@ -764,6 +836,7 @@ class CourseDocument:
             "announcements": [item.to_dict() for item in self.announcements],
             "files": [item.to_dict() for item in self.files],
             "embeds": [item.to_dict() for item in self.embeds],
+            "outcomes": [item.to_dict() for item in self.outcomes],
             "navigation": [tab.to_dict() for tab in self.navigation],
             "assignment_groups": [group.to_dict() for group in self.assignment_groups],
             "rubrics": [rubric.to_dict() for rubric in self.rubrics],
@@ -802,6 +875,7 @@ class CourseDocument:
             ),
             files=tuple(CourseFile.from_dict(item) for item in payload.get("files") or ()),
             embeds=tuple(Embed.from_dict(item) for item in payload.get("embeds") or ()),
+            outcomes=tuple(CourseOutcome.from_dict(item) for item in payload.get("outcomes") or ()),
             navigation=tuple(
                 NavigationTab.from_dict(item) for item in payload.get("navigation") or ()
             ),
@@ -873,6 +947,11 @@ def module_item_path(course_id: str, item_id: str) -> str:
 
 def file_path(course_id: str, file_id: str) -> str:
     return f"/courses/{course_id}/files/{file_id}"
+
+
+def outcome_path(course_id: str, outcome_id: str) -> str:
+    """The course outcomes screen, anchored at the outcome. Canvas has no per-outcome page."""
+    return f"/courses/{course_id}/outcomes#outcome_{outcome_id}"
 
 
 def file_search_path(course_id: str, filename: str) -> str:
@@ -951,6 +1030,7 @@ ARTIFACT_CLASSES: Mapping[ArtifactKind, Any] = {
     ArtifactKind.MODULE_ITEM: ModuleItem,
     ArtifactKind.EMBED: Embed,
     ArtifactKind.SYLLABUS: Syllabus,
+    ArtifactKind.OUTCOME: CourseOutcome,
 }
 
 
@@ -970,6 +1050,7 @@ __all__ = [
     "CourseDocument",
     "CourseFile",
     "CourseInfo",
+    "CourseOutcome",
     "Discussion",
     "Embed",
     "Examination",
@@ -994,6 +1075,7 @@ __all__ = [
     "file_search_path",
     "module_item_path",
     "module_path",
+    "outcome_path",
     "page_path",
     "quiz_path",
     "sort_artifacts",

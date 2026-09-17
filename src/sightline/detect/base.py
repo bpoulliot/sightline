@@ -49,12 +49,24 @@ from ..capabilities import require as require_capability
 from ..model import (
     Artifact,
     ArtifactKind,
+    Assignment,
+    AssignmentGroup,
     CourseDocument,
     CourseFile,
+    CourseInfo,
+    CourseOutcome,
+    Discussion,
     Embed,
     Examination,
     ExaminationState,
+    Module,
+    NavigationTab,
+    Page,
+    Quiz,
+    RubricSummary,
+    Syllabus,
 )
+from .links import LinkCheck, LinkResolver, NoLinkResolver
 from .sources import FileSource
 
 
@@ -310,10 +322,12 @@ class Survey:
         detector: Detector,
         *,
         files: FileSource | None = None,
+        links: LinkResolver | None = None,
     ) -> None:
         self._document = document
         self._detector = detector
         self._files = files
+        self._links = links or NoLinkResolver()
         self._examined: set[str] = set()
         self._subjects = 0
         self._undetermined: list[Undetermined] = []
@@ -357,8 +371,14 @@ class Survey:
         Narrowing still counts every file considered, not only the matches. A course of forty
         files none of which is a PDF has been examined by the PDF detector; reporting that as zero
         examined would turn an honest "no documents here" into the error state.
+
+        An extension may be written with or without its leading dot. The model stores ``.pdf``,
+        and a caller passing ``"pdf"`` used to match nothing at all and report it as a clean
+        course with no PDFs in it — a wrong answer with no error, which is the failure this whole
+        interface exists to prevent. Both spellings are normalized here rather than in each
+        caller, because the caller that gets it wrong is by definition the one not looking.
         """
-        wanted = {extension.lower() for extension in extensions}
+        wanted = {f".{extension.lstrip('.').lower()}" for extension in extensions}
         for artifact in self._document.files:
             self._examined.add(artifact.id)
             if not wanted or artifact.extension in wanted:
@@ -378,7 +398,145 @@ class Survey:
             return None
         return self._files.read(file)
 
+    # -- course structure --------------------------------------------------------------------
+    #
+    # The API-sourced detectors of item 07 read structure rather than markup, and each accessor
+    # counts exactly as the body and file accessors above do. Two of these deliberately do not
+    # count, and both say why on themselves: `course_location` builds a location and hands out no
+    # artifact, and `population` answers "does the course have any of these" without opening one.
+
+    def syllabus(self) -> Syllabus | None:
+        """The course syllabus, counted when there is one."""
+        entry = self._document.syllabus
+        if entry is not None:
+            self._examined.add(entry.id)
+        return entry
+
+    def modules(self) -> Iterator[Module]:
+        """Every module, in the course's own order. Items travel inside the module."""
+        for module in self._document.modules:
+            self._examined.add(module.id)
+            yield module
+
+    def pages(self) -> Iterator[Page]:
+        for page in self._document.pages:
+            self._examined.add(page.id)
+            yield page
+
+    def assignments(self) -> Iterator[Assignment]:
+        for assignment in self._document.assignments:
+            self._examined.add(assignment.id)
+            yield assignment
+
+    def quizzes(self) -> Iterator[Quiz]:
+        for quiz in self._document.quizzes:
+            self._examined.add(quiz.id)
+            yield quiz
+
+    def discussions(self) -> Iterator[Discussion]:
+        for topic in self._document.discussions:
+            self._examined.add(topic.id)
+            yield topic
+
+    def announcements(self) -> Iterator[Discussion]:
+        for topic in self._document.announcements:
+            self._examined.add(topic.id)
+            yield topic
+
+    def outcomes(self) -> Iterator[CourseOutcome]:
+        for outcome in self._document.outcomes:
+            self._examined.add(outcome.id)
+            yield outcome
+
+    def navigation(self) -> Iterator[NavigationTab]:
+        """The course navigation menu, in menu order.
+
+        A tab is not an :class:`~sightline.model.Artifact` and has no id of that shape, so it is
+        counted under a prefixed key. It is still something examined: a detector that read the
+        menu and found nothing wrong looked at fifteen entries, and that number belongs in the
+        result.
+        """
+        for tab in self._document.navigation:
+            self._examined.add(f"tab:{tab.id}")
+            yield tab
+
+    def assignment_groups(self) -> Iterator[AssignmentGroup]:
+        for group in self._document.assignment_groups:
+            self._examined.add(f"assignment_group:{group.id}")
+            yield group
+
+    def rubrics(self) -> Iterator[RubricSummary]:
+        for rubric in self._document.rubrics:
+            self._examined.add(f"rubric:{rubric.id}")
+            yield rubric
+
+    def population(self, collection: str) -> int:
+        """How many things the course holds in ``collection``, **without examining any of them**.
+
+        A census, not an examination. D06 asks whether the Quizzes tab has any quizzes behind it;
+        it never opens a quiz, and counting one as examined would let a detector inflate its own
+        count by asking questions about collections it never reads.
+
+        The consequence is deliberate: a detector whose only call was this one would examine zero
+        artifacts and be refused by :class:`NothingExamined`, exactly as a broken detector is.
+        """
+        if collection == "syllabus":
+            return 1 if self._document.syllabus is not None else 0
+        field = {"tabs": "navigation"}.get(collection, collection)
+        value = getattr(self._document, field, ())
+        return len(value) if isinstance(value, tuple) else 0
+
+    def course(self) -> CourseInfo:
+        """The course's own metadata — name, code, term dates. Not an artifact, not counted."""
+        return self._document.course
+
+    # -- links ---------------------------------------------------------------------------------
+
+    def resolve(self, url: str) -> LinkCheck:
+        """Ask the run's link resolver about one URL.
+
+        Resolution is off by default and the answer then says so, which is a different fact from
+        a link that was tried and did not answer. See :mod:`sightline.detect.links`.
+        """
+        return self._links.check(url)
+
+    @property
+    def link_resolution_enabled(self) -> bool:
+        return not isinstance(self._links, NoLinkResolver)
+
     # -- building what a detector emits ------------------------------------------------------
+
+    def course_location(self, *, within: str | None = None, path: str | None = None) -> Location:
+        """A location on the course as a whole, for a finding about the course as a whole.
+
+        Some facts belong to no artifact: the course has no syllabus, its navigation menu lists
+        tools nothing uses, its group weights total 90. A finding still has to point somewhere a
+        reviewer can open, so it points at the course.
+
+        **This hands out no artifact and therefore counts nothing.** A detector that built one of
+        these and examined nothing else has examined nothing, and the framework refuses it — which
+        is what stops a course-level detector from quietly becoming exempt from the invariant.
+
+        ``path`` narrows the link to a course-scoped screen — the navigation settings, the
+        assignment groups — and is checked against the course path so that a detector cannot send
+        a reviewer somewhere else.
+        """
+        artifact = self._document.course_artifact
+        canvas_path = artifact.canvas_path
+        if path is not None:
+            if not path.startswith(canvas_path):
+                raise ValueError(
+                    f"{path!r} is not inside {canvas_path!r}; a course-level finding may only "
+                    "link into the course it is about."
+                )
+            canvas_path = path
+        return Location(
+            artifact_id=artifact.id,
+            artifact_kind=artifact.kind,
+            title=artifact.title,
+            canvas_path=canvas_path,
+            within=within,
+        )
 
     def location(
         self,
@@ -533,9 +691,15 @@ class Detector:
 
     # -- final --------------------------------------------------------------------------------
 
-    def run(self, document: CourseDocument, *, files: FileSource | None = None) -> DetectorResult:
+    def run(
+        self,
+        document: CourseDocument,
+        *,
+        files: FileSource | None = None,
+        links: LinkResolver | None = None,
+    ) -> DetectorResult:
         """Run this detector over one course. Not overridable — see :meth:`__init_subclass__`."""
-        survey = Survey(document, self, files=files)
+        survey = Survey(document, self, files=files, links=links)
         findings = tuple(self.examine(survey))
         examined = survey.examined
         unreadable = survey.unreadable()

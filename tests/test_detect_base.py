@@ -378,9 +378,10 @@ def test_an_export_source_stops_at_its_read_cap(tmp_path: Path) -> None:
 # -- the shipped set -----------------------------------------------------------------------------
 
 
-def test_the_accessibility_cluster_is_registered_and_declares_what_it_reads() -> None:
+def test_the_shipped_clusters_are_registered_and_declare_what_they_read() -> None:
+    """The Canvas structure cluster (item 07) and the accessibility cluster (item 06)."""
     shipped = {detector.id: detector for detector in detectors() if detector.id.startswith("D")}
-    assert sorted(shipped) == [f"D{number}" for number in range(21, 31)]
+    assert sorted(shipped) == [f"D{number:02d}" for number in range(1, 31)]
     for detector in shipped.values():
         assert detector.title and not detector.title.endswith(".")
         assert detector.collections

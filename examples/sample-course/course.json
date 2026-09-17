@@ -1,7 +1,6 @@
 {
   "schema_version": 1,
   "base_url": "https://canvas.example.edu",
-
   "course": {
     "id": "4410",
     "name": "Introduction to Synthetic Studies",
@@ -13,7 +12,6 @@
     "is_public": false,
     "time_zone": "Etc/UTC"
   },
-
   "syllabus": {
     "kind": "syllabus",
     "id": "syllabus:4410",
@@ -21,36 +19,122 @@
     "canvas_path": "/courses/4410/assignments/syllabus",
     "body_file": "bodies/syllabus.html"
   },
-
   "navigation": [
-    { "id": "home", "label": "Home", "position": 1 },
-    { "id": "syllabus", "label": "Syllabus", "position": 2 },
-    { "id": "modules", "label": "Modules", "position": 3 },
-    { "id": "assignments", "label": "Assignments", "position": 4 },
-    { "id": "quizzes", "label": "Quizzes", "position": 5 },
-    { "id": "discussions", "label": "Discussions", "position": 6 },
-    { "id": "grades", "label": "Grades", "position": 7 },
-    { "id": "people", "label": "People", "position": 8 },
-    { "id": "pages", "label": "Pages", "position": 9, "hidden": true, "visibility": "admins" },
-    { "id": "files", "label": "Files", "position": 10 },
-    { "id": "outcomes", "label": "Outcomes", "position": 11, "hidden": true, "visibility": "admins" },
-    { "id": "collaborations", "label": "Collaborations", "position": 12 },
-    { "id": "chat", "label": "Chat", "position": 13 },
-    { "id": "attendance", "label": "Attendance", "position": 14 },
-    { "id": "context_external_tool_7700", "label": "Synthetic Courseware", "position": 15, "type": "external" }
+    {
+      "id": "home",
+      "label": "Home",
+      "position": 1
+    },
+    {
+      "id": "syllabus",
+      "label": "Syllabus",
+      "position": 2
+    },
+    {
+      "id": "modules",
+      "label": "Modules",
+      "position": 3
+    },
+    {
+      "id": "assignments",
+      "label": "Assignments",
+      "position": 4
+    },
+    {
+      "id": "quizzes",
+      "label": "Quizzes",
+      "position": 5
+    },
+    {
+      "id": "discussions",
+      "label": "Discussions",
+      "position": 6
+    },
+    {
+      "id": "grades",
+      "label": "Grades",
+      "position": 7
+    },
+    {
+      "id": "people",
+      "label": "People",
+      "position": 8
+    },
+    {
+      "id": "pages",
+      "label": "Pages",
+      "position": 9,
+      "hidden": true,
+      "visibility": "admins"
+    },
+    {
+      "id": "files",
+      "label": "Files",
+      "position": 10
+    },
+    {
+      "id": "outcomes",
+      "label": "Outcomes",
+      "position": 11,
+      "hidden": true,
+      "visibility": "admins"
+    },
+    {
+      "id": "collaborations",
+      "label": "Collaborations",
+      "position": 12
+    },
+    {
+      "id": "chat",
+      "label": "Chat",
+      "position": 13
+    },
+    {
+      "id": "attendance",
+      "label": "Attendance",
+      "position": 14
+    },
+    {
+      "id": "context_external_tool_7700",
+      "label": "Synthetic Courseware",
+      "position": 15,
+      "type": "external"
+    }
   ],
-
   "assignment_groups": [
-    { "id": "4001", "name": "Assignments", "position": 1, "group_weight": 30.0 },
-    { "id": "4002", "name": "Quizzes", "position": 2, "group_weight": 40.0 },
-    { "id": "4003", "name": "Discussions", "position": 3, "group_weight": 20.0 }
+    {
+      "id": "4001",
+      "name": "Assignments",
+      "position": 1,
+      "group_weight": 30.0
+    },
+    {
+      "id": "4002",
+      "name": "Quizzes",
+      "position": 2,
+      "group_weight": 40.0
+    },
+    {
+      "id": "4003",
+      "name": "Discussions",
+      "position": 3,
+      "group_weight": 20.0
+    }
   ],
-
   "rubrics": [
-    { "id": "2001", "title": "Reflection Rubric", "criteria_count": 3, "points_possible": 30.0 },
-    { "id": "2002", "title": "Lab Report Rubric", "criteria_count": 4, "points_possible": 40.0 }
+    {
+      "id": "2001",
+      "title": "Reflection Rubric",
+      "criteria_count": 3,
+      "points_possible": 30.0
+    },
+    {
+      "id": "2002",
+      "title": "Lab Report Rubric",
+      "criteria_count": 4,
+      "points_possible": 40.0
+    }
   ],
-
   "modules": [
     {
       "kind": "module",
@@ -253,7 +337,6 @@
       ]
     }
   ],
-
   "pages": [
     {
       "kind": "page",
@@ -327,7 +410,6 @@
       "body_file": "bodies/untitled-page.html"
     }
   ],
-
   "assignments": [
     {
       "kind": "assignment",
@@ -340,7 +422,9 @@
       "due_at": "2026-01-23T23:59:00Z",
       "points_possible": 30.0,
       "grading_type": "points",
-      "submission_types": ["online_text_entry"],
+      "submission_types": [
+        "online_text_entry"
+      ],
       "assignment_group_id": "4001",
       "has_rubric": true,
       "rubric_title": "Reflection Rubric",
@@ -356,7 +440,9 @@
       "updated_at": "2026-02-01T10:00:00Z",
       "points_possible": 100.0,
       "grading_type": "points",
-      "submission_types": ["none"],
+      "submission_types": [
+        "none"
+      ],
       "assignment_group_id": "4001",
       "has_rubric": false,
       "body_html": ""
@@ -372,14 +458,15 @@
       "due_at": "2026-02-06T23:59:00Z",
       "points_possible": 40.0,
       "grading_type": "points",
-      "submission_types": ["online_upload"],
+      "submission_types": [
+        "online_upload"
+      ],
       "assignment_group_id": "4001",
       "has_rubric": true,
       "rubric_title": "Lab Report Rubric",
       "body_file": "bodies/assignment-9003.html"
     }
   ],
-
   "quizzes": [
     {
       "kind": "quiz",
@@ -398,7 +485,6 @@
       "body_file": "bodies/quiz-8001.html"
     }
   ],
-
   "discussions": [
     {
       "kind": "discussion",
@@ -422,13 +508,13 @@
       "published": true,
       "updated_at": "2026-01-25T08:00:00Z",
       "graded": true,
+      "due_at": "2026-02-13T23:59:00Z",
       "posted_at": "2026-01-26T08:00:00Z",
       "require_initial_post": true,
       "discussion_type": "threaded",
       "body_file": "bodies/discussion-7002.html"
     }
   ],
-
   "announcements": [
     {
       "kind": "announcement",
@@ -453,7 +539,6 @@
       "body_file": "bodies/announcement-6002.html"
     }
   ],
-
   "files": [
     {
       "kind": "file",
@@ -526,7 +611,26 @@
       "folder_path": "web_resources"
     }
   ],
-
+  "outcomes": [
+    {
+      "kind": "outcome",
+      "id": "outcome:7101",
+      "canvas_id": "7101",
+      "title": "Describe the analysis sequence",
+      "canvas_path": "/courses/4410/outcomes#outcome_7101",
+      "group": "Course Outcomes",
+      "description": "Given a set of observations, the learner describes each stage of the analysis sequence and names the check that makes that stage falsifiable."
+    },
+    {
+      "kind": "outcome",
+      "id": "outcome:7102",
+      "canvas_id": "7102",
+      "title": "Apply the method to a new case",
+      "canvas_path": "/courses/4410/outcomes#outcome_7102",
+      "group": "Course Outcomes",
+      "description": ""
+    }
+  ],
   "examinations": [
     {
       "collection": "content_export",

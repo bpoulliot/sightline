@@ -48,9 +48,11 @@ BUNDLE_COLLECTIONS: tuple[str, ...] = (
     "embeds",
     "files",
     "modules",
+    "outcomes",
     "pages",
     "quizzes",
     "rubrics",
+    "syllabus",
     "tabs",
 )
 
@@ -116,6 +118,7 @@ def load_bundle(directory: Path | str) -> CourseDocument:
                     "discussions",
                     "announcements",
                     "files",
+                    "outcomes",
                     "navigation",
                     "assignment_groups",
                     "rubrics",
@@ -224,14 +227,18 @@ def _examinations(
             built.append(by_name[name])
             continue
         items = getattr(document, _COLLECTION_FIELD.get(name, name), ())
+        # The syllabus is one artifact rather than a collection, so it is counted as present or
+        # absent. It still needs a record: a detector reading it has to be able to tell a course
+        # with no syllabus from a syllabus the bundle failed to load.
+        count = (1 if items else 0) if name == "syllabus" else len(items)
         built.append(
             Examination(
                 collection=name,
-                state=ExaminationState.OK if items else ExaminationState.EMPTY,
-                examined=len(items),
+                state=ExaminationState.OK if count else ExaminationState.EMPTY,
+                examined=count,
                 source=Source.BUNDLE,
                 endpoint=f"{MANIFEST_NAME}#{name}",
-                detail=f"The bundle declares {len(items)} item(s) in this collection.",
+                detail=f"The bundle declares {count} item(s) in this collection.",
             )
         )
     for entry in declared:

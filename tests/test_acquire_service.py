@@ -99,6 +99,7 @@ def export_transport(*, listed: bool = True) -> httpx.MockTransport:
         "/api/v1/courses/4413/quizzes": [],
         "/api/v1/courses/4413/discussion_topics": [],
         "/api/v1/courses/4413/files": [],
+        "/api/v1/courses/4413/outcome_group_links": [],
         "/api/v1/courses/4413/content_exports": exports,
     }
 

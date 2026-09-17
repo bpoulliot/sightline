@@ -26,6 +26,7 @@ from .base import (
     Undetermined,
     detectors,
 )
+from .links import LinkResolver
 from .sources import FileSource
 
 log = get_logger(__name__)
@@ -81,14 +82,21 @@ def run_detectors(
     document: CourseDocument,
     *,
     files: FileSource | None = None,
+    links: LinkResolver | None = None,
     only: Sequence[Detector] | None = None,
 ) -> DetectionReport:
-    """Run every registered detector, or the ones given, over one normalized course."""
+    """Run every registered detector, or the ones given, over one normalized course.
+
+    ``links`` is the resolver the one link-following detector asks. Omitted means
+    :class:`~sightline.detect.links.NoLinkResolver`: no detector reaches the network unless a
+    caller hands one in, which is why the suite and CI need no network and a batch run does not
+    silently become a crawl.
+    """
     selected = tuple(only) if only is not None else detectors()
     results: list[DetectorResult] = []
     for detector in selected:
         try:
-            results.append(detector.run(document, files=files))
+            results.append(detector.run(document, files=files, links=links))
         except NothingExamined as exc:
             log.warning(
                 "detector_examined_nothing",
