@@ -281,3 +281,30 @@ def test_e01_and_e06_read_the_task_verb_off_the_quote_rather_than_the_document()
     context = E01Objectives().annotate("Students will analyze two proposals.", None)  # type: ignore[arg-type]
     assert context["bloom_level"] == "analyze"
     assert E01Objectives().annotate("Read chapter three.", None)["task_verb"] is None  # type: ignore[arg-type]
+
+
+def test_an_extractor_cannot_replace_its_own_verification() -> None:
+    """`accept()` is the one line between a model and a fabricated quote (SPEC §11).
+
+    Enforced at class-definition time rather than reviewed, for the same reason `Detector.run` is:
+    a check a subclass can switch off is a check that will eventually be switched off by whoever
+    is trying to get their extractor to return something.
+    """
+    with registry_snapshot():
+        with pytest.raises(TypeError) as caught:
+
+            class Lenient(Extractor):
+                id = "E95"
+                title = "A test extractor"
+                kinds = (ArtifactKind.PAGE,)
+                ask = "Find every sentence about anything at all."
+
+                def accept(self, finding, passage):  # type: ignore[override]
+                    return object()  # pragma: no cover - the raise happens at definition
+
+        assert "final" in str(caught.value)
+
+
+def test_no_shipped_extractor_overrides_it() -> None:
+    for extractor_id, cls in registry().items():
+        assert "accept" not in cls.__dict__, extractor_id

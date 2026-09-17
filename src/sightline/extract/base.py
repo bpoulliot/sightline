@@ -423,6 +423,13 @@ class Extractor:
         super().__init_subclass__(**kw)
         if abstract:
             return
+        if "accept" in cls.__dict__:
+            raise TypeError(
+                f"{cls.__name__} overrides accept(). It is final: it is the string match that "
+                "stands between a model and a fabricated quote (SPEC §11), and an extractor that "
+                "can relax its own verification is an extractor that can be written to pass. "
+                "Compute from the verified quote in annotate() instead."
+            )
         if not cls.__dict__.get("collections") and cls.kinds:
             cls.collections = tuple(
                 dict.fromkeys(COLLECTION_OF[kind] for kind in cls.kinds if kind in COLLECTION_OF)
@@ -460,10 +467,14 @@ class Extractor:
     # -- the one thing a subclass may not do --------------------------------------------------
 
     def accept(self, finding: RawFinding, passage: Passage) -> Match | None:
-        """Verify one returned quote against the passage. Final by convention and by test.
+        """Verify one returned quote against the passage. **Final** — see
+        :meth:`__init_subclass__`.
 
-        It is here rather than in the runner only so that a subclass overriding it shows up in a
-        diff as what it is: the one line standing between a model and a fabricated quote.
+        It lives on the class rather than in the runner so that the one line standing between a
+        model and a fabricated quote is named, in one place, in the language of the interface. A
+        subclass cannot replace it: an extractor that could relax its own verification is an
+        extractor that could be written to pass, which is the whole of SPEC §11's quote-fabrication
+        risk arriving through the back door.
         """
         return verify(finding.quote, passage.text, normalized_source=passage.normalized)
 
