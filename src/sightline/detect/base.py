@@ -30,7 +30,11 @@ honest answer often enough that it needs a first-class shape rather than a silen
 **A detector never names a rubric criterion.** Detectors emit facts about course artifacts; a
 rubric pack decides how those facts are reported and rated (SPEC §04, and the item 04 decision
 recorded in ``docs/ROADMAP.md``). The criteria column in SPEC §05 is documentation of the 3.1.3
-pack, not a property of anything here.
+pack, not a property of anything here. What a detector *does* declare is a ``capability_tag`` from
+the closed vocabulary in :mod:`sightline.capabilities` — a course-quality concept, not a criterion
+and not a rubric number — and a ``capability_description`` of its share of that concept. Packs bind
+rows to tags, so one detector serves every rubric that cares about the same concept and none of
+them has to be crosswalked to another.
 """
 
 from __future__ import annotations
@@ -41,6 +45,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
 from typing import Any, ClassVar
 
+from ..capabilities import require as require_capability
 from ..model import (
     Artifact,
     ArtifactKind,
@@ -221,6 +226,9 @@ class DetectorResult:
     detector: str
     title: str
     tier: Tier
+    #: The capability tag the detector declared. Travels with the result so that projecting onto a
+    #: rubric is a pure function of (pack, report) and needs no lookup back into the registry.
+    capability_tag: str
     state: ResultState
     #: Artifacts opened. Zero is only ever paired with ``NOT_EXAMINED``.
     examined: int
@@ -266,6 +274,7 @@ class DetectorResult:
             "detector": self.detector,
             "title": self.title,
             "tier": self.tier.value,
+            "capability_tag": self.capability_tag,
             "state": self.state.value,
             "examined": self.examined,
             "subjects": self.subjects,
@@ -462,10 +471,18 @@ class Survey:
 class Detector:
     """Base class for every detector. Subclasses implement :meth:`examine` and nothing else.
 
-    A subclass declares four things: a stable ``id``, a plain-language ``title`` saying what it
-    finds, the determinacy ``tier`` it reports at, and the acquisition ``collections`` it reads.
-    The collections are not documentation — they are how a zero count is told apart from a broken
-    detector, and how a refused collection reaches the result.
+    A subclass declares six things: a stable ``id``, a plain-language ``title`` saying what it
+    finds, the determinacy ``tier`` it reports at, the acquisition ``collections`` it reads, and a
+    ``capability_tag`` with a ``capability_description``. The collections are not documentation —
+    they are how a zero count is told apart from a broken detector, and how a refused collection
+    reaches the result.
+
+    **The capability tag is the only thing connecting a detector to a rubric, and it connects in
+    one direction only.** The tag names a course-quality concept from the closed vocabulary in
+    :mod:`sightline.capabilities` — ``alt_text``, ``due_date_coverage``. A *pack* binds its own
+    rows to tags; nothing here knows or may know which rows those are. A tag outside the vocabulary
+    raises at class-definition time, because we write the detectors and a typo in one is our bug.
+    Several detectors may share a tag, and a row bound to it receives from all of them.
     """
 
     #: ``D21``. Stable across refactors; downstream keys on it.
@@ -475,6 +492,13 @@ class Detector:
     tier: ClassVar[Tier] = Tier.A
     #: Acquisition collection names, as recorded in :class:`~sightline.model.Examination`.
     collections: ClassVar[tuple[str, ...]] = ()
+    #: The course-quality concept this detector produces facts about, from the vocabulary in
+    #: :mod:`sightline.capabilities`. Never a criterion, never a rubric number.
+    capability_tag: ClassVar[str] = ""
+    #: What this detector contributes to that concept, in a reviewer's words. Distinct from
+    #: ``title``: the title describes this parser, and this describes its share of the concept —
+    #: which is what a person authoring a pack reads when deciding whether to bind the tag.
+    capability_description: ClassVar[str] = ""
 
     def __init_subclass__(cls, *, abstract: bool = False, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
@@ -488,9 +512,17 @@ class Detector:
                 "and a detector that takes its own count is a detector that can forget to. "
                 "Implement examine(survey) instead."
             )
-        for attribute in ("id", "title", "collections"):
+        for attribute in (
+            "id",
+            "title",
+            "collections",
+            "capability_tag",
+            "capability_description",
+        ):
             if not getattr(cls, attribute, None):
                 raise TypeError(f"{cls.__name__} must declare {attribute}.")
+        # Hard failure, not a warning. See the class docstring and sightline.capabilities.
+        require_capability(cls.capability_tag, declared_by=f"{cls.__module__}.{cls.__qualname__}")
         register(cls)
 
     # -- the one method a detector writes ----------------------------------------------------
@@ -524,6 +556,7 @@ class Detector:
                 detector=self.id,
                 title=self.title,
                 tier=self.tier,
+                capability_tag=self.capability_tag,
                 state=ResultState.NOT_EXAMINED,
                 examined=0,
                 subjects=0,
@@ -538,6 +571,7 @@ class Detector:
             detector=self.id,
             title=self.title,
             tier=self.tier,
+            capability_tag=self.capability_tag,
             state=ResultState.EXAMINED,
             examined=examined,
             subjects=survey.subjects,

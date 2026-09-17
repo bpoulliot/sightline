@@ -1,0 +1,59 @@
+# A SYNTHETIC THIRD-PARTY INSTRUMENT WITH NO BINDINGS AT ALL.
+#
+# This is the shape of a rubric somebody has just uploaded: their own rows, their own numbering,
+# their own wording, and nothing mapped. **It is a success case, not a degraded one.** It loads,
+# it runs, and every row comes back NO_DETERMINISTIC_COVERAGE and routed to the extraction layer
+# for a located quote. Binding is an optimization, not a prerequisite, and requiring somebody to
+# author forty bindings before their own rubric would work is a roadblock this project does not
+# put in front of them — the more so because Sightline can never ship a pack for a proprietary
+# instrument, so a third-party import is the only way those users exist at all.
+#
+# Nothing here is an OSCQR derivative, nothing carries an OPEN SUNY number, and nothing is
+# crosswalked to 3.1.3. It is invented for the suite and traces to no real department.
+
+schema_version: 1
+id: unbound-checklist
+name: Departmental Online Course Checklist
+version: "2026.1"
+description: >-
+  A four-row internal checklist, imported and not yet mapped to anything. The state every
+  third-party rubric starts in.
+
+source:
+  title: Departmental Online Course Checklist
+  key_source: authored
+
+sections:
+  - code: A
+    title: Before the term starts
+  - code: B
+    title: During the term
+
+criteria:
+  - code: A1
+    section: A
+    text: The course shell is published before the first day of class.
+    tier: B
+    priority: null
+    bindings: []
+
+  - code: A2
+    section: A
+    text: A welcome message tells learners where to begin.
+    tier: B
+    priority: null
+    bindings: []
+
+  - code: B1
+    section: B
+    text: Feedback on graded work is returned within the window the syllabus commits to.
+    tier: C
+    priority: null
+    bindings: []
+
+  - code: B2
+    section: B
+    text: The instructor posts at least once a week.
+    tier: C
+    priority: null
+    bindings: []

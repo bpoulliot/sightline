@@ -192,6 +192,13 @@ inaccessible one, and reporting it as either is a fabrication. So is reporting i
 projects them onto its own rows, which is what makes adding a rubric a mapping file rather than
 code (SPEC §04). The criteria column in SPEC §05 is documentation of the 3.1.3 pack.
 
+What a detector *does* declare is a **capability tag** and a plain-language description of what it
+contributes to that concept — `alt_text`, `due_date_coverage` — from the closed vocabulary in
+[`src/sightline/capabilities.yaml`](src/sightline/capabilities.yaml). A pack binds its own rows to
+tags, so the join runs in one direction and one detector serves every rubric that cares about the
+same concept. See [Rubric packs](#rubric-packs) below and
+[`docs/RUBRIC-PACKS.md`](docs/RUBRIC-PACKS.md).
+
 ### The accessibility cluster, D21–D30
 
 | | |
@@ -241,14 +248,15 @@ in the registry reads:
 
 ```
 10 detector(s) registered; 10 covered by 54 fixture test(s); 0 uncovered.
-Observed by calling 108 test function(s) across 7 module(s): …
+Observed by calling 208 test function(s) across 12 module(s): …
   1 registry sweep(s) credited to no detector: …
   D21: 5 test(s)
   …
 The zero-examined invariant holds for 10 of 10 registered detector(s).
+10 detector(s) declare 10 capability tag(s); 0 declaration(s) will not resolve; 36 vocabulary tag(s) have no detector yet.
 ```
 
-Three guards, and each one is demonstrated failing in the same file, on purpose:
+Four guards, and each one is demonstrated failing in the same file, on purpose:
 
 - **Every registered detector is covered by a fixture test.** Coverage is *observed*, not read off
   the source: the ledger calls the suite's detector tests with `Detector.run` instrumented and
@@ -261,9 +269,87 @@ Three guards, and each one is demonstrated failing in the same file, on purpose:
 - **The zero-examined invariant still holds for every registered detector.** Each one is run against
   a course holding nothing and required to refuse. Returning a result there is a fabricated count,
   and returning a *clean* result there is a course reported as having nothing wrong.
+- **Every registered detector declares a capability tag a rubric can bind.** The tag is the only
+  thing joining a detector to a rubric row, so a detector shipped without one runs, finds things,
+  and is reported against nothing. Fired three ways — no tag, an unknown tag, a tag with no
+  description — on the declarations rather than on the registry, because the detector interface
+  already refuses an unknown tag at class-definition time and a guard whose input cannot be wrong
+  is a guard that cannot fail.
 
 Without Docker: `uv run pytest tests/test_detector_integrity.py -q -s`. CI runs the same line as a
 step of its own, separate from the full suite, so the guard can be seen to go red on its own.
+
+## Rubric packs
+
+Stage 5 of the pipeline in SPEC §04, and the thing that makes stage 3 worth building once.
+**Sightline reviews the course; the rubric is only the lens.** UCCS OSCQR 3.1.3 is the reference
+instrument — not the schema, not a required intermediate, and not something a third-party rubric
+gets aligned to. Quality Matters, an internal departmental checklist, or an instrument written last
+week loads unchanged and gets a working review, and no step requires it to be crosswalked to 3.1.3
+first. (The licensing reality makes that concrete: Sightline can never *ship* a Quality Matters
+pack, so third-party rubric support is the only way those users exist.)
+
+A pack is one YAML file, validated on load against a JSON Schema committed at
+[`src/sightline/rubric/pack.schema.json`](src/sightline/rubric/pack.schema.json). The format is
+documented in [`docs/RUBRIC-PACKS.md`](docs/RUBRIC-PACKS.md).
+
+```sh
+python -m sightline.rubric coverage --pack tests/fixtures/rubric/tiny-pack.yaml
+python -m sightline.rubric import --workbook "rubrics/source/UCCS OSCQR 3.1.3.xlsx" > pack.yaml
+python -m sightline.rubric tags
+```
+
+**A pack with no bindings is normal, and it is a success case.** Binding is an optimization, not a
+prerequisite: a freshly imported rubric loads, runs, and produces a usable review with its rows
+routed to the extraction layer for quoted passages. An earlier design made *upload your rubric*
+mean *write forty YAML bindings first*, which is a roadblock an open-source tool cannot justify.
+So the importer's job is finished when the rows are in — and it has to be, because neither source
+workbook has a column naming a detector and no import can produce a binding.
+
+`coverage` is the command worth having. It needs no course and no token, so *"will Sightline
+actually do anything useful with my rubric?"* has a checkable answer before anybody uploads
+anything:
+
+```
+Tiny Synthetic Review Instrument 0.2: 4 of 10 criteria have deterministic coverage, 3 are
+evidence-only, 2 are bound to a capability no detector implements yet, 1 are not determinable
+from course artifacts.
+```
+
+### Three states, and conflating them is the failure this layer prevents
+
+| State | Meaning | |
+|---|---|---|
+| `not_yet_implemented` | The bound capability exists; no detector implements it yet | Transient |
+| `no_deterministic_coverage` | The row has no usable binding; it routes to extraction | **Normal, permanent** |
+| `deterministic` + no findings | A detector ran and found nothing | **The only one meaning clean** |
+
+If an absent detector or an unbound row could read *Sufficiently Present*, Sightline would report a
+course clean on criteria it never examined — the silent under-detection of SPEC §11, and the single
+worst thing this tool can do. So anything that is not `deterministic` *and* actually examined stays
+at the instrument's own default cell state, with the reason on the row.
+
+The tiers override the arithmetic rather than the other way round (SPEC §02/§07): a Tier C row stays
+at *No Response* however many findings its bindings produced — the findings are carried as context
+for the question a human answers — and a Tier D row defaults to *Not Applicable* with a note.
+
+### Projection is many-to-many, both ways
+
+One detector fans **out**: the syllabus check reaches four getting-started rows at once. Several
+detectors fan **in**: GSOV 5 receives from both the schedule check and the due-date check. A row
+fed by several detectors **sums their effort and bands the total** — one global rule for every row,
+never worst-of, so there is one effort model to calibrate rather than sixty-eight.
+
+Band thresholds are *pack* data, because they are printed on the instrument. The per-defect costs
+summed into them are global configuration and are currently a labelled placeholder
+(`src/sightline/rubric/effort.py`); a band shows as an estimate while that is true.
+
+### Validation is asymmetric, on purpose
+
+A **detector** declaring a tag outside the vocabulary fails hard, at class-definition time: we
+write the detectors, so a typo in one is our bug and it should stop the build. A **pack** binding
+an unknown tag is a reported warning, and that row degrades to `no_deterministic_coverage`. Packs
+are third-party, and a rubric somebody uploaded must never be able to hard-fail Sightline.
 
 ## Canvas token scopes
 
@@ -485,7 +571,7 @@ and says which check it skipped rather than passing quietly.
 ## Repository layout
 
 ```
-docs/            SPEC.md, ROADMAP.md, tokens.css
+docs/            SPEC.md, ROADMAP.md, RUBRIC-PACKS.md, tokens.css
 examples/        synthetic sample course and sample report — never anything real
 rubrics/source/  the blank rubric workbooks
 scripts/         dev.sh (container-backed test/lint/format), scan-secrets.sh
@@ -493,9 +579,11 @@ src/sightline/   the application
   canvas/        the Canvas connector: client, connection test, reference resolution, sanitizer
   acquire/       acquisition and normalization: the API reader, the fetch/unzip layer, the cache
   detect/        the detector framework and the accessibility cluster D21-D30
+  rubric/        the pack format, its JSON Schema, the importer, and the projection onto rows
+  capabilities.yaml  the capability-tag vocabulary: the one thing detectors and packs share
   model.py       the normalized document model every detector reads
 tests/           the suite
-  fixtures/      synthetic recorded Canvas responses — never anything real
+  fixtures/      synthetic recorded Canvas responses and synthetic rubric packs — never anything real
 ```
 
 ## Licence

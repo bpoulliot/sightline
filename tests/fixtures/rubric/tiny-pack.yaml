@@ -1,0 +1,175 @@
+# A SMALL SYNTHETIC INSTRUMENT, for the suite. Not a real rubric and not derived from one.
+#
+# The real packs are roadmap item 05. This exists to exercise the format, and every row in it is
+# here to hold one case open:
+#
+#   DES 1   tier A, bound to one capability                  -> deterministic
+#   DES 2   tier A, bound to TWO capabilities                -> FANS IN; effort sums, then bands
+#   DES 3   tier A, bound to the same capability as DES 1    -> FANS OUT from one detector
+#   REA 1   tier B, no binding                               -> NO_DETERMINISTIC_COVERAGE
+#   REA 2   tier C, bound and producing findings             -> stays at No Response anyway
+#   REA 3   tier A, bound to a capability with no detector    -> NOT_YET_IMPLEMENTED
+#   REA 4   tier D                                           -> Not Applicable, with a note
+#   REA 5   tier A, bound to a tag nothing recognises        -> warns, degrades, does not fail
+#   SML 1   in an OPTIONAL section                           -> omitted when the section is off
+#   SML 2   in an OPTIONAL section, unbound                  -> omitted when the section is off
+#
+# Comments survive in this file because a pack is hand-authored and edited by hand. They do not
+# survive RubricPack.to_yaml(), which exists for the importer's output and for diffing a re-import.
+
+schema_version: 1
+id: tiny-synthetic
+name: Tiny Synthetic Review Instrument
+version: "0.2"
+description: >-
+  A ten-row instrument invented for Sightline's test suite. It is not an OSCQR derivative, carries
+  no OPEN SUNY numbering, and is crosswalked to nothing — which is the point: a pack has to work
+  without any of that.
+
+source:
+  title: Tiny Synthetic Review Instrument
+  key_source: authored
+
+# The instrument's own priority labels, most important first. A row may carry none of them.
+priority_order:
+  - Critical
+  - Worth doing
+
+rating_scale:
+  sufficiently_present: Present
+  not_applicable: Not applicable
+  no_response: Not answered
+  bands:
+    - rating: minor
+      label: Small revision
+      up_to_hours: 0.5
+      range_label: half an hour or less
+    - rating: moderate
+      label: Medium revision
+      up_to_hours: 2.0
+      range_label: half an hour to two hours
+    - rating: major
+      label: Large revision
+      up_to_hours: null
+      range_label: over two hours
+
+sections:
+  - code: DES
+    title: How the pages are built
+  - code: REA
+    title: Whether learners can reach the material
+  - code: SML
+    title: Small screens
+    # THE OPTIONAL-RENDER FLAG. A section that declares this may be switched off; one that does
+    # not, cannot, and the loader refuses `enabled: false` without it.
+    optional: true
+    note: >-
+      Only reviewed where a course is expected to be used on a phone.
+
+criteria:
+  - code: DES 1
+    section: DES
+    text: Every image that carries meaning is described for a learner who cannot see it.
+    tier: A
+    priority: Critical
+    bindings: [alt_text]
+    source_ids:
+      printed_as: "1"
+
+  - code: DES 2
+    section: DES
+    text: >-
+      Page structure is real structure: headings are headings, and a link says where it goes.
+    tier: A
+    priority: Worth doing
+    # TWO capabilities on one row. Their effort SUMS and the total is banded once — not worst-of.
+    bindings: [heading_structure, link_text]
+    source_ids:
+      printed_as: "2"
+
+  - code: DES 3
+    section: DES
+    text: Decorative images are marked as decorative rather than described.
+    tier: A
+    # No priority. Null is ordinary and ordering tolerates it; nothing fills it in.
+    priority: null
+    # The same capability as DES 1. One detector therefore reaches both rows.
+    bindings: [alt_text]
+    source_ids:
+      printed_as: "3"
+
+  - code: REA 1
+    section: REA
+    text: The course says how quickly a learner can expect an answer to a question.
+    tier: B
+    priority: Critical
+    # NO BINDING, AND THAT IS NORMAL. This row routes to the extraction layer for a located quote.
+    bindings: []
+    source_ids:
+      printed_as: "4"
+
+  - code: REA 2
+    section: REA
+    text: >-
+      The reading load is appropriate to the level of the course and the credit hours attached to
+      it.
+    tier: C
+    priority: Worth doing
+    # Bound, and it will produce findings. It STILL stays at the instrument's default rating: a
+    # pedagogical judgement is never pre-rated, whatever the arithmetic says.
+    bindings: [alt_text]
+    source_ids:
+      printed_as: "5"
+
+  - code: REA 3
+    section: REA
+    text: Graded work carries a due date.
+    tier: A
+    priority: null
+    # In the vocabulary; no detector implements it yet. NOT_YET_IMPLEMENTED, which is transient and
+    # is not the same thing as this row having no binding.
+    bindings: [due_date_coverage]
+    source_ids:
+      printed_as: "6"
+
+  - code: REA 4
+    section: REA
+    text: The course has been checked on a screen reader by a person.
+    tier: D
+    priority: null
+    bindings: []
+    note: >-
+      Whether a person sat down with a screen reader is not recorded anywhere in the course, so
+      nothing here can establish it.
+    source_ids:
+      printed_as: "7"
+
+  - code: REA 5
+    section: REA
+    text: Materials are offered in more than one format.
+    tier: A
+    priority: Worth doing
+    # A tag this build does not recognise. It is REPORTED and this row degrades to no deterministic
+    # coverage; the pack still loads and still runs. Packs are third-party and must never be able
+    # to hard-fail Sightline.
+    bindings: [format_alternatives_nobody_declared]
+    source_ids:
+      printed_as: "8"
+
+  - code: SML 1
+    section: SML
+    text: Layout widths are proportional rather than fixed.
+    tier: A
+    priority: Worth doing
+    bindings: [fixed_width_layout]
+    source_ids:
+      printed_as: "9"
+
+  - code: SML 2
+    section: SML
+    text: Embedded players work without a plugin.
+    tier: A
+    priority: null
+    bindings: []
+    source_ids:
+      printed_as: "10"

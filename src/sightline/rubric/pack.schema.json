@@ -1,0 +1,209 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://git.bitmapserv.org/bitmap/sightline/rubric/pack.schema.json",
+  "title": "Sightline rubric pack",
+  "description": "A rubric pack is the lens Sightline reports a course review through. It carries the instrument's own rows and identifiers, the rating bands printed on that instrument, and zero or more bindings from each row to a capability tag. A pack with no bindings at all is valid and usable: its rows route to the extraction layer. Nothing here requires a pack to be an OSCQR derivative, to carry an OPEN SUNY number, or to be crosswalked to any other instrument.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "id", "name", "version", "sections", "criteria"],
+  "properties": {
+    "schema_version": {
+      "description": "Version of this schema the pack was written against.",
+      "type": "integer",
+      "enum": [1]
+    },
+    "id": {
+      "description": "Stable identifier for the pack. Chosen once and never renumbered, so a revised import diffs against it.",
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]*$",
+      "maxLength": 96
+    },
+    "name": {
+      "description": "What to call this instrument in the interface and the report.",
+      "type": "string",
+      "minLength": 1
+    },
+    "version": {
+      "description": "The instrument's own version, as a string because instruments are numbered like '3.1.3'. Free text; Sightline does not order it.",
+      "type": "string",
+      "minLength": 1
+    },
+    "description": {
+      "type": "string"
+    },
+    "source": {
+      "description": "Where the rows came from, so a re-import of a revised instrument can be told apart from a hand edit.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "description": "The instrument's own title as printed on it.",
+          "type": "string"
+        },
+        "workbook": {
+          "description": "Filename of the workbook imported, without a directory. A path is not recorded: it can name a person's home directory.",
+          "type": "string"
+        },
+        "sheet": {
+          "type": "string"
+        },
+        "imported_at": {
+          "description": "ISO date of the import.",
+          "type": "string",
+          "format": "date"
+        },
+        "key_source": {
+          "description": "What the row codes were built from. 'positional_index' is a warning in itself: an instrument with no stable identifier of its own renumbers when a row is inserted, and a re-import cannot diff cleanly (SPEC §11).",
+          "type": "string",
+          "enum": ["category_and_index", "composite_code", "positional_index", "authored"]
+        },
+        "notes": {
+          "description": "Anything the importer had to decide, stated so a reviewer can check it.",
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "priority_order": {
+      "description": "The instrument's own priority labels, most important first. Action-plan ordering uses this. A row with no priority sorts after every labelled one, which is what the mobile block of the reference instrument needs.",
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "rating_scale": {
+      "description": "The rating names and the effort bands PRINTED ON THIS INSTRUMENT. Band thresholds are pack data because they belong to the instrument; the per-defect costs that get summed into them are global configuration, calibrated once (SPEC §07).",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sufficiently_present": {
+          "description": "What this instrument calls 'a detector ran and found nothing'. It has no band, because it is 'no qualifying defects found' rather than zero hours.",
+          "type": "string",
+          "minLength": 1
+        },
+        "not_applicable": { "type": "string", "minLength": 1 },
+        "no_response": {
+          "description": "The default cell state. Every Tier C row stays here and so does every row Sightline could not establish.",
+          "type": "string",
+          "minLength": 1
+        },
+        "bands": {
+          "description": "Effort bands in ascending order. The last one is open-ended and carries a null ceiling.",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["rating", "label", "up_to_hours"],
+            "properties": {
+              "rating": {
+                "description": "Sightline's internal name for the band. Distinct from the label so two instruments with different wording share one effort model.",
+                "type": "string",
+                "enum": ["minor", "moderate", "major"]
+              },
+              "label": {
+                "description": "What this instrument prints for the band.",
+                "type": "string",
+                "minLength": 1
+              },
+              "up_to_hours": {
+                "description": "Inclusive upper bound in hours; null on the last band, which is open-ended.",
+                "type": ["number", "null"],
+                "exclusiveMinimum": 0
+              },
+              "range_label": {
+                "description": "The range as printed on the instrument, e.g. '1/2 hour or less'. Quoted rather than derived, so the report can show the instrument's own words.",
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "sections": {
+      "description": "The instrument's own sections, declared so the report can be grouped in instrument order and so an optional block can be switched off.",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "title"],
+        "properties": {
+          "code": {
+            "description": "Short code for the section, used by criteria to point at it.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32
+          },
+          "title": { "type": "string", "minLength": 1 },
+          "optional": {
+            "description": "Whether this section may be switched off without invalidating the pack. THIS IS THE OPTIONAL-RENDER FLAG: a block that only applies to some courses — a mobile-standards section, say — declares itself optional here, and only a section that has done so may set 'enabled' to false.",
+            "type": "boolean",
+            "default": false
+          },
+          "enabled": {
+            "description": "Whether this pack switches the section on. Defaults true. Setting it false requires 'optional': true, so a mandatory block can never be dropped by a typo.",
+            "type": "boolean",
+            "default": true
+          },
+          "note": {
+            "description": "Why the section is optional, or why it is switched off. Rendered beside the omission so a gap is stated rather than silent.",
+            "type": "string"
+          }
+        }
+      }
+    },
+    "criteria": {
+      "description": "The rows. At least one: an instrument with no rows is an import that failed, not an empty instrument.",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "section", "text", "tier"],
+        "properties": {
+          "code": {
+            "description": "The row's identifier, and the key EVERY lookup uses. Never a positional index into this array: the reference instrument skips an index inside one of its categories, and index-walking silently misaligns criteria.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "section": {
+            "description": "The code of a section declared above.",
+            "type": "string",
+            "minLength": 1
+          },
+          "text": {
+            "description": "The criterion as written on the instrument, verbatim.",
+            "type": "string",
+            "minLength": 1
+          },
+          "tier": {
+            "description": "Determinacy tier (SPEC §02). A: computed by a parser. B: located and quoted. C: pedagogical judgement, never pre-rated. D: not determinable from course artifacts.",
+            "type": "string",
+            "enum": ["A", "B", "C", "D"]
+          },
+          "priority": {
+            "description": "The instrument's own priority label, or null. NULLABLE ON PURPOSE — the reference instrument's mobile block carries no flag at all, and ordering must tolerate that rather than inventing one.",
+            "type": ["string", "null"]
+          },
+          "bindings": {
+            "description": "Capability tags this row is about. ZERO IS NORMAL and is the ordinary steady state for a freshly imported third-party instrument: the row carries NO_DETERMINISTIC_COVERAGE and routes to the extraction layer. Tags are course-quality concepts from sightline/capabilities.yaml, never detector ids. A tag this build does not recognise is reported and the row degrades to no deterministic coverage — it does not invalidate the pack.",
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 },
+            "uniqueItems": true,
+            "default": []
+          },
+          "note": {
+            "description": "A statement carried into the report beside this row — what a Tier D row cannot be determined from, for instance.",
+            "type": "string"
+          },
+          "source_ids": {
+            "description": "The identifiers the source instrument carries for this row, kept verbatim so a re-import diffs cleanly instead of silently renumbering criteria (SPEC §11). Free-form: a third-party instrument's identifiers are its own business, and nothing here requires an OPEN SUNY number or any other instrument's numbering.",
+            "type": "object",
+            "additionalProperties": { "type": ["string", "number", "null"] }
+          }
+        }
+      }
+    }
+  }
+}

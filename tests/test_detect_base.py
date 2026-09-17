@@ -12,12 +12,15 @@ behaviour.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable
 from pathlib import Path
 
 import pytest
 
 from detector_fixtures import BASE_URL, course, course_file, examined, page, refused
+from sightline.capabilities import UnknownCapabilityTag
+from sightline.capabilities import known as known_capability
 from sightline.detect import (
     DetectorResult,
     NothingExamined,
@@ -50,6 +53,8 @@ with registry_snapshot():
         id = "T01"
         title = "A test detector that opens every body"
         collections = ("pages",)
+        capability_tag = "page_titles"
+        capability_description = "A test detector; any tag in the vocabulary serves here."
 
         def examine(self, survey: Survey) -> Iterable[Finding]:
             for body in survey.bodies():
@@ -67,6 +72,8 @@ with registry_snapshot():
         id = "T02"
         title = "A test detector that opens nothing"
         collections = ("pages",)
+        capability_tag = "page_titles"
+        capability_description = "A test detector; any tag in the vocabulary serves here."
 
         def examine(self, survey: Survey) -> Iterable[Finding]:
             return ()
@@ -146,6 +153,8 @@ def test_a_detector_that_overrides_run_fails_at_class_definition() -> None:
             id = "T90"
             title = "Takes its own count"
             collections = ("pages",)
+            capability_tag = "page_titles"
+            capability_description = "A test detector; any tag in the vocabulary serves here."
 
             def examine(self, survey: Survey) -> Iterable[Finding]:
                 return ()
@@ -156,12 +165,68 @@ def test_a_detector_that_overrides_run_fails_at_class_definition() -> None:
                 raise AssertionError("never reached")
 
 
-@pytest.mark.parametrize("missing", ["id", "title", "collections"])
+#: A complete declaration, for the tests below that remove one thing from it.
+COMPLETE = {
+    "id": "T91",
+    "title": "Incomplete",
+    "collections": ("pages",),
+    "capability_tag": "page_titles",
+    "capability_description": "A test detector; any tag in the vocabulary serves here.",
+}
+
+
+@pytest.mark.parametrize("missing", sorted(COMPLETE))
 def test_a_detector_missing_a_declaration_fails_at_class_definition(missing: str) -> None:
-    body = {"id": "T91", "title": "Incomplete", "collections": ("pages",)}
+    body = dict(COMPLETE)
     body.pop(missing)
     with pytest.raises(TypeError, match=f"must declare {missing}"):
         type("Incomplete", (Detector,), body)
+
+
+def test_a_detector_declaring_a_capability_nobody_recognises_fails_hard() -> None:
+    """The asymmetry, from the detector side.
+
+    We write the detectors, so a tag outside the vocabulary is our typo and it stops the build at
+    class-definition time. A *pack* naming an unknown tag is the opposite — reported, and that row
+    degrades — because packs are third-party and an uploaded rubric must never be able to
+    hard-fail Sightline. ``tests/test_rubric_project.py`` holds the other half.
+    """
+    body = dict(COMPLETE) | {"id": "T93", "capability_tag": "alt_txt"}
+    with pytest.raises(UnknownCapabilityTag, match="not in the vocabulary") as caught:
+        type("Misspelled", (Detector,), body)
+    # And the message names a near miss rather than only the mistake, because the vocabulary is
+    # fifty entries long and "that is wrong" is not enough to fix it with.
+    assert "alt_text" in str(caught.value)
+    assert caught.value.suggestions == ("alt_text",)
+
+
+def test_a_detector_declaring_an_unknown_capability_is_never_registered() -> None:
+    """The failure has to keep it out of the registry, not merely announce itself.
+
+    A class that raised in ``__init_subclass__`` and landed in the registry anyway would be worse
+    than one that never failed: the coverage guard would report a detector nothing ships, and
+    ``detectors()`` would hand a broken instance to the runner.
+    """
+    body = dict(COMPLETE) | {"id": "T94", "capability_tag": "no_such_capability"}
+    with pytest.raises(UnknownCapabilityTag):
+        type("Unknown", (Detector,), body)
+    assert "T94" not in registry()
+
+
+def test_every_shipped_detector_declares_a_capability_and_never_a_criterion() -> None:
+    """Each detector says which course-quality concept it produces facts about.
+
+    The tag is the *only* thing joining a detector to a rubric, and it joins in one direction:
+    packs bind their own rows to tags. So a detector naming a criterion — ``ACD 8``, ``GSOV 5`` —
+    is the bug, and this asserts none of them does, in the title and the description a person
+    actually reads as well as in the tag itself.
+    """
+    pattern = re.compile(r"\b(COAL|GSOV|OREP|ACD|ENIN|ASFE|MOB)\s*-?\d", re.I)
+    for detector in detectors():
+        assert known_capability(detector.capability_tag), detector.id
+        assert detector.capability_description.strip(), detector.id
+        for text in (detector.title, detector.capability_description, detector.capability_tag):
+            assert not pattern.search(text), f"{detector.id} names a rubric criterion: {text!r}"
 
 
 def test_an_abstract_base_is_not_registered() -> None:
@@ -173,7 +238,7 @@ def test_an_abstract_base_is_not_registered() -> None:
 
 
 def test_two_detectors_cannot_claim_the_same_id() -> None:
-    body = {"id": "T92", "title": "First", "collections": ("pages",)}
+    body = dict(COMPLETE) | {"id": "T92", "title": "First"}
     type("First", (Detector,), dict(body))
     with pytest.raises(TypeError, match="claim the id T92"):
         type("Second", (Detector,), dict(body))
@@ -195,6 +260,8 @@ def test_examined_counts_distinct_artifacts_not_repeated_passes() -> None:
         id = "T03"
         title = "Walks the bodies twice"
         collections = ("pages",)
+        capability_tag = "page_titles"
+        capability_description = "A test detector; any tag in the vocabulary serves here."
 
         def examine(self, survey: Survey) -> Iterable[Finding]:
             list(survey.bodies())
@@ -210,6 +277,8 @@ def test_clean_means_it_ran_and_found_nothing_it_could_not_account_for() -> None
         id = "T04"
         title = "Opens a file it cannot read"
         collections = ("files",)
+        capability_tag = "page_titles"
+        capability_description = "A test detector; any tag in the vocabulary serves here."
 
         def examine(self, survey: Survey) -> Iterable[Finding]:
             for item in survey.files():

@@ -100,6 +100,7 @@ def run_detectors(
                     detector=detector.id,
                     title=detector.title,
                     tier=detector.tier,
+                    capability_tag=detector.capability_tag,
                     state=ResultState.NOT_EXAMINED,
                     examined=0,
                     subjects=0,

@@ -7,7 +7,7 @@ fail.** So everything here is a pure function over a *report*, and the report is
 can build by hand with a detector deliberately broken in it. Firing the guard costs a fixture, not
 a repository edit.
 
-Three checks, and each one answers a different question.
+Four checks, and each one answers a different question.
 
 **Coverage.** Is every registered detector actually exercised by a fixture test? A detector nobody
 runs is a detector nobody has seen fail, and it ships. :func:`coverage` takes the registry and a
@@ -30,8 +30,21 @@ raised, it *returned a result* — a detector claiming it examined something ove
 which is a fabricated count and the worst of the three — or it raised something else, which is a
 detector that crashes rather than refuses.
 
-**Nothing here is a verdict either.** Both reports state counts and name names. ``statement()`` is
-what a human reads; ``failure()`` is what an assertion prints, and it lists every id rather than
+**Capability declarations.** Does every registered detector declare a capability tag the
+vocabulary carries, with a description of what it contributes? Item 04 made the tag the only thing
+connecting a detector to a rubric, and a detector with no tag is a detector no pack can ever reach
+— it runs, it finds things, and nothing is reported. :func:`capabilities` checks the declarations,
+and it is a pure function over them for the reason everything else here is: the detector interface
+*also* rejects an unknown tag at class-definition time, so a detector that got as far as the
+registry cannot carry one, and a guard whose input cannot be wrong is a guard that cannot fail.
+Handing it the declarations means the drill can hand it a bad one.
+
+**This is the check that makes items 07 and 08 comply without being told to.** Their detectors are
+written against :class:`~sightline.detect.base.Detector`, and the build goes red by name if one of
+them ships without a tag.
+
+**Nothing here is a verdict either.** Every report states counts and names names. ``statement()``
+is what a human reads; ``failure()`` is what an assertion prints, and it lists every id rather than
 the first one, because a build that names one of four missing detectors gets fixed four times.
 """
 
@@ -41,6 +54,7 @@ import enum
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 
+from ..capabilities import Vocabulary, vocabulary
 from ..model import CourseDocument, CourseInfo
 from .base import Detector, NothingExamined
 
@@ -289,14 +303,152 @@ def invariant(detectors: Sequence[Detector]) -> InvariantReport:
     )
 
 
+# ---------------------------------------------------------------------------------------------
+# Capability declarations: can a rubric ever reach this detector?
+# ---------------------------------------------------------------------------------------------
+
+
+@dataclass(frozen=True, kw_only=True, slots=True)
+class Declaration:
+    """What one detector declared about the concept it produces facts about."""
+
+    detector: str
+    tag: str
+    description: str
+
+
+@dataclass(frozen=True, kw_only=True, slots=True)
+class Undeclared:
+    """One detector whose capability declaration is unusable, and why."""
+
+    detector: str
+    tag: str
+    reason: str
+
+    def line(self) -> str:
+        return f"  {self.detector}: {self.reason}"
+
+
+@dataclass(frozen=True, kw_only=True, slots=True)
+class CapabilityReport:
+    """Every detector's capability declaration, and the ones that will not resolve."""
+
+    #: Declarations checked, in detector-id order.
+    checked: tuple[Declaration, ...]
+    #: Declarations that cannot be resolved to a concept a pack could bind.
+    undeclared: tuple[Undeclared, ...]
+    #: Tag -> the detectors declaring it. Several detectors sharing a tag is by design.
+    shared: Mapping[str, tuple[str, ...]]
+    #: Vocabulary tags no registered detector implements. Ordinary, and the reason the
+    #: ``NOT_YET_IMPLEMENTED`` state exists; reported rather than treated as a fault.
+    unimplemented: tuple[str, ...]
+
+    @property
+    def ok(self) -> bool:
+        return not self.undeclared
+
+    def statement(self) -> str:
+        lines = [
+            f"{len(self.checked)} detector(s) declare {len(self.shared)} capability tag(s); "
+            f"{len(self.undeclared)} declaration(s) will not resolve; "
+            f"{len(self.unimplemented)} vocabulary tag(s) have no detector yet."
+        ]
+        for tag, ids in self.shared.items():
+            if len(ids) > 1:
+                lines.append(f"  {tag}: shared by {', '.join(ids)}")
+        return "\n".join(lines)
+
+    def failure(self) -> str:
+        if self.ok:
+            return ""
+        named = "\n".join(entry.line() for entry in self.undeclared)
+        return (
+            f"{len(self.undeclared)} detector(s) declare a capability nothing can bind:\n"
+            f"{named}\n"
+            "A capability tag is the only thing connecting a detector to a rubric row, so a "
+            "detector without a usable one runs, finds things, and is reported against nothing. "
+            "Declare a tag from sightline/capabilities.yaml and a sentence saying what this "
+            "detector contributes to it — and never a criterion: packs bind rows to tags, "
+            "detectors do not name rows.\n"
+            f"{self.statement()}"
+        )
+
+
+def declarations(detectors: Sequence[Detector]) -> tuple[Declaration, ...]:
+    """Read the capability declarations off a set of detectors, in id order."""
+    return tuple(
+        Declaration(
+            detector=detector.id,
+            tag=detector.capability_tag,
+            description=detector.capability_description,
+        )
+        for detector in sorted(detectors, key=lambda detector: detector.id)
+    )
+
+
+def capabilities(
+    declared: Iterable[Declaration], *, words: Vocabulary | None = None
+) -> CapabilityReport:
+    """Check capability declarations against the vocabulary."""
+    known = words or vocabulary()
+    checked = tuple(declared)
+    problems: list[Undeclared] = []
+    shared: dict[str, list[str]] = {}
+    for entry in checked:
+        if not entry.tag:
+            problems.append(
+                Undeclared(
+                    detector=entry.detector,
+                    tag=entry.tag,
+                    reason="declares no capability tag at all",
+                )
+            )
+            continue
+        if entry.tag not in known:
+            suggestions = known.suggestions(entry.tag)
+            hint = f" Nearest known: {', '.join(suggestions)}." if suggestions else ""
+            problems.append(
+                Undeclared(
+                    detector=entry.detector,
+                    tag=entry.tag,
+                    reason=f"declares {entry.tag!r}, which is not in the vocabulary.{hint}",
+                )
+            )
+            continue
+        if not entry.description.strip():
+            problems.append(
+                Undeclared(
+                    detector=entry.detector,
+                    tag=entry.tag,
+                    reason=(
+                        f"declares {entry.tag!r} with no description, so nothing tells a person "
+                        "authoring a pack what this detector contributes to it"
+                    ),
+                )
+            )
+            continue
+        shared.setdefault(entry.tag, []).append(entry.detector)
+    return CapabilityReport(
+        checked=checked,
+        undeclared=tuple(problems),
+        shared={tag: tuple(ids) for tag, ids in sorted(shared.items())},
+        unimplemented=tuple(tag for tag in known.tags if tag not in shared),
+    )
+
+
 __all__ = [
     "EMPTY_COURSE_ID",
     "Breach",
+    "CapabilityReport",
     "CoverageLedger",
     "CoverageReport",
+    "Declaration",
     "InvariantReport",
     "Outcome",
+    "Undeclared",
+    "capabilities",
     "coverage",
+    "declarations",
     "empty_document",
     "invariant",
     "zero_examined_breaches",

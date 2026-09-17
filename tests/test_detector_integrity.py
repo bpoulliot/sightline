@@ -1,6 +1,6 @@
 """The detector integrity guard, and the proof that it can fail.
 
-Three guards, each demonstrated firing in this file on purpose. That is the whole point of the item
+Four guards, each demonstrated firing in this file on purpose. That is the whole point of the item
 and not a flourish: **a guard that has never failed is indistinguishable from a guard that cannot
 fail.** The case this is modelled on was a 31-suite JS test set on this network that gated nothing
 for months, because the obvious one-line runner ran a *directory*, printed one opaque error and
@@ -19,6 +19,8 @@ Coverage over the registry    a detector defined with no test; and a ledger that
 The zero-examined invariant   a sabotaged examined count, in both directions — a count
                               fabricated over an empty course, and a detector that reads
                               the document behind the survey's back so its count stays 0
+Capability declarations       a declaration with no tag, one with an unknown tag, and one
+                              with no description — each fed in and watched go red
 The instrument itself         discovery asserted non-empty and anchored to a named test,
                               and the observation asserted to have no holes in it
 ============================  ==========================================================
@@ -51,8 +53,11 @@ from sightline.detect import NothingExamined, detectors, registry
 from sightline.detect.base import Detector, Finding, Severity, Survey, registry_snapshot
 from sightline.detect.integrity import (
     CoverageLedger,
+    Declaration,
     Outcome,
+    capabilities,
     coverage,
+    declarations,
     empty_document,
     invariant,
 )
@@ -80,6 +85,8 @@ def test_the_coverage_guard_fires_on_a_detector_nobody_tests() -> None:
             id = "D99"
             title = "A detector added with no test behind it"
             collections = ("pages",)
+            capability_tag = "page_titles"
+            capability_description = "A drill detector; any tag in the vocabulary serves here."
 
             def examine(self, survey: Survey) -> Iterable[Finding]:
                 return ()
@@ -254,6 +261,8 @@ def test_a_detector_that_reaches_past_the_survey_is_caught_by_its_own_zero_count
             id = "T21"
             title = "A detector that reaches the document past the survey that counts"
             collections = ("pages",)
+            capability_tag = "page_titles"
+            capability_description = "A drill detector; any tag in the vocabulary serves here."
 
             def examine(self, survey: Survey) -> Iterable[Finding]:
                 # The back door. Every artifact reached this way is an artifact the survey never
@@ -274,6 +283,88 @@ def test_a_detector_that_reaches_past_the_survey_is_caught_by_its_own_zero_count
     assert "examined 0 artifacts" in str(caught.value)
 
 
+# -- (c) every registered detector declares a capability a rubric can bind -----------------------
+
+
+def test_every_registered_detector_declares_a_valid_capability_tag() -> None:
+    """The guard. A detector with no usable capability tag is reported against nothing.
+
+    The tag is the only thing joining a detector to a rubric row (item 04), and it joins in one
+    direction: packs bind their rows to tags, and a detector never names a row. So a detector that
+    ships without a tag runs, finds things, and no instrument can ever show what it found. **This
+    is the check that makes the detectors of roadmap items 07 and 08 comply without their prompts
+    having to know tags exist.**
+    """
+    report = capabilities(declarations(detectors()))
+    assert report.ok, report.failure()
+    assert report.undeclared == ()
+    assert len(report.checked) == len(registry())
+
+
+@pytest.mark.parametrize(
+    ("declaration", "expected"),
+    [
+        (Declaration(detector="D98", tag="", description="Anything."), "no capability tag at all"),
+        (
+            Declaration(detector="D98", tag="alt_txt", description="Anything."),
+            "not in the vocabulary",
+        ),
+        (Declaration(detector="D98", tag="alt_text", description="   "), "with no description"),
+    ],
+)
+def test_the_capability_guard_fires_on_a_declaration_that_will_not_resolve(
+    declaration: Declaration, expected: str
+) -> None:
+    """Guard (c), fired, three ways.
+
+    It is a pure function over the *declarations* rather than over the registry, and that is
+    deliberate: the detector interface already refuses an unknown tag at class-definition time, so
+    a detector that reached the registry cannot carry one — and a guard whose input cannot be wrong
+    is indistinguishable from a guard that cannot fail. Handing it a bad declaration is how it gets
+    shown failing. The interface's own refusal is asserted in ``tests/test_detect_base.py``.
+    """
+    report = capabilities([declaration])
+    assert report.ok is False
+    assert [entry.detector for entry in report.undeclared] == ["D98"]
+    assert expected in report.undeclared[0].reason
+    failure = report.failure()
+    assert "D98" in failure
+    assert "reported against nothing" in failure
+
+
+def test_the_capability_guard_accepts_several_detectors_sharing_one_tag() -> None:
+    """Sharing is by design, and it is the fan-in the rubric layer is built for.
+
+    Two parsers can produce facts about the same course-quality concept — a table checker and a
+    mobile-layout checker both find things about table semantics — and a row bound to that concept
+    receives from both, their effort summed. A guard that treated a shared tag as a collision would
+    forbid the case the projection exists to handle.
+    """
+    report = capabilities(
+        [
+            Declaration(detector="D24", tag="table_semantics", description="Headers and scope."),
+            Declaration(detector="D40", tag="table_semantics", description="Layout misuse."),
+        ]
+    )
+    assert report.ok
+    assert report.shared == {"table_semantics": ("D24", "D40")}
+    assert "shared by D24, D40" in report.statement()
+
+
+def test_a_vocabulary_tag_with_no_detector_is_reported_and_not_a_fault() -> None:
+    """The reason ``NOT_YET_IMPLEMENTED`` exists as a state rather than as a silence.
+
+    Most of the vocabulary is concepts some future detector implements. A pack bound to one of
+    those has to read as "nothing examined this yet" — transient and honest — rather than as
+    either a clean row or a broken rubric, and the count is reported here so the gap is visible.
+    """
+    report = capabilities(declarations(detectors()))
+    assert report.ok
+    assert report.unimplemented, "the inventory is not finished; some tag has no detector"
+    assert "due_date_coverage" in report.unimplemented
+    assert "alt_text" not in report.unimplemented
+
+
 # -- (d) what the documented command prints -------------------------------------------------------
 
 
@@ -286,10 +377,12 @@ def test_the_guard_reports_counts_rather_than_a_verdict() -> None:
     """
     report = coverage(registry(), ledger())
     invariant_report = invariant(detectors())
+    capability_report = capabilities(declarations(detectors()))
 
     statement = report.statement()
     print("\n" + statement)
     print(invariant_report.statement())
+    print(capability_report.statement())
     print(
         f"Empty-course document used: course id {empty_document().course.id}, "
         f"{len(tuple(empty_document().artifacts()))} artifact(s)."
@@ -301,3 +394,4 @@ def test_the_guard_reports_counts_rather_than_a_verdict() -> None:
         assert f"  {detector_id}: " in statement
     for word in ("score", "grade", "healthy", "good", "pass"):
         assert word not in statement.lower()
+        assert word not in capability_report.statement().lower()

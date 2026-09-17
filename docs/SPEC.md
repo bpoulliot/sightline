@@ -182,6 +182,12 @@ pack** is a mapping from detector findings onto its own rows.
 One `link_text` detector fires once. The 3.1.3 pack renders it at ACD 5; the RSI pack at criterion
 8; an uploaded rubric wherever its mapping says. Adding a rubric costs a mapping file, not code.
 
+A detector declares a **capability tag** — a course-quality concept from a closed, committed
+vocabulary — and never a criterion; a pack binds each of its rows to zero or more tags. **An
+unbound row is normal**, and routes to the extraction layer rather than reading as clean, so a
+rubric nobody has written a mapping for still produces a review. The pack format, the vocabulary
+and the three coverage states are documented in `docs/RUBRIC-PACKS.md` (roadmap item 04).
+
 ### Pipeline
 
 | # | Stage | Detail |

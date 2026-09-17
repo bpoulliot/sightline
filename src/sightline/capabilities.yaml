@@ -1,0 +1,246 @@
+# The capability-tag vocabulary.
+#
+# WHAT A TAG IS. A name for a course-quality concept — something a course either does or does not
+# do, stated in the words a reviewer would use. `alt_text`. `due_date_coverage`. A detector says
+# "I find facts about this concept"; a rubric pack says "this row of my instrument is about this
+# concept". Neither one names the other, and that is the whole point of the file: a detector never
+# names a criterion, and a pack never names a detector.
+#
+# WHAT A TAG IS NOT. It is not a rubric criterion, not an OSCQR number, not a Sightline detector id,
+# and not a crosswalk. A pack from Quality Matters, a departmental checklist or an instrument
+# invented last week binds to the same tags as the reference instrument does, and none of them has
+# to be aligned to OSCQR 3.1.3 first. Sightline reviews the course; a rubric is only the lens.
+#
+# CLOSED, AND EXTENSIBLE. Closed, because a typo in a detector should be a build failure rather
+# than a silently unbound row. Extensible, because adding a concept is an edit to this file. The
+# validation is deliberately ASYMMETRIC and the asymmetry is the design:
+#
+#   * A DETECTOR declaring a tag that is not here FAILS HARD, at class-definition time. We write
+#     the detectors; a typo in one is our bug and it should stop the build.
+#   * A PACK binding a tag that is not here is a REPORTED WARNING, and that row degrades to
+#     NO_DETERMINISTIC_COVERAGE and routes to the extraction layer. Packs are third-party. A
+#     rubric somebody uploaded must never be able to hard-fail Sightline on us.
+#
+# A TAG WITH NO DETECTOR IS NORMAL HERE. Most of the entries below name a concept some future
+# detector will implement; SPEC §05 is the inventory and most of it is not built yet. A pack bound
+# to one of those reads NOT_YET_IMPLEMENTED — transient, a development-phase artifact — which is
+# a different state from "no binding at all" and a very different state from "a detector ran and
+# found nothing". Conflating those three is the silent under-detection SPEC §11 is about.
+#
+# SEVERAL DETECTORS MAY SHARE ONE TAG. Table semantics is the shipped example: the HTML table
+# detector and the mobile layout-table detector both find facts about `table_semantics`, and a row
+# bound to it receives from both. Their effort sums and the total is banded once.
+#
+# EXTRACTION IS NOT IN HERE. These tags name what a *parser* can establish. The model-backed
+# extractors of SPEC §05 (E01–E14) reach a row through the routing contract in
+# sightline.rubric.routing, not through a binding, so there is no tag to bind them to and a row
+# that needs one of them is correctly left unbound.
+
+version: 1
+
+groups:
+  structure: How the course is put together and what a learner finds on arriving
+  materials: The learning materials themselves, and how they are presented
+  accessibility: Whether the content is reachable by a learner using assistive technology
+  engagement: Interaction between learners, the instructor and the content
+  assessment: Activities, grading and feedback
+  mobile: Whether the course holds up on a small screen
+
+tags:
+  # -- structure ------------------------------------------------------------------------------
+  - tag: syllabus_presence
+    group: structure
+    summary: A syllabus exists, is reachable, and is not an empty placeholder.
+
+  - tag: syllabus_printability
+    group: structure
+    summary: The syllabus can be printed or saved, and the saved copy keeps its structure.
+
+  - tag: module_overview
+    group: structure
+    summary: Each module opens with an overview of what it covers and what is due.
+
+  - tag: course_schedule
+    group: structure
+    summary: A schedule lists the course activities against dates.
+
+  - tag: welcome_announcement
+    group: structure
+    summary: An announcement welcomes learners and tells them where to start.
+
+  - tag: navigation_pruning
+    group: structure
+    summary: The course navigation menu shows the tools the course uses and hides the ones it does
+      not.
+
+  - tag: policy_links
+    group: structure
+    summary: Links to institutional policies are present and resolve.
+
+  - tag: support_resource_links
+    group: structure
+    summary: Links to learner support services are present and resolve.
+
+  - tag: external_tool_inventory
+    group: structure
+    summary: Which external tools and integrations the course uses, and what a learner needs to use
+      them.
+
+  - tag: page_titles
+    group: structure
+    summary: Pages carry titles that are present, descriptive and distinct from one another.
+
+  - tag: module_naming_consistency
+    group: structure
+    summary: Modules are named and structured the same way as each other.
+
+  - tag: stale_content
+    group: structure
+    summary: Content left over from a previous offering is still in the course.
+
+  - tag: outcomes_defined
+    group: structure
+    summary: Learning outcomes are recorded at the course level and against modules.
+
+  # -- materials ------------------------------------------------------------------------------
+  - tag: material_type_variety
+    group: materials
+    summary: A module offers more than one kind of learning material.
+
+  - tag: html_primary_delivery
+    group: materials
+    summary: Text content is delivered as course pages rather than as files a learner must
+      download.
+
+  - tag: content_chunking
+    group: materials
+    summary: Pages are broken into sections rather than running to an unreadable length.
+
+  - tag: attribution_and_licence
+    group: materials
+    summary: Materials carry attribution or licence text near where they are used.
+
+  - tag: oer_signals
+    group: materials
+    summary: Materials come from open repositories or carry an open licence.
+
+  - tag: document_printability
+    group: materials
+    summary: Attached documents can be downloaded and printed.
+
+  # -- accessibility --------------------------------------------------------------------------
+  - tag: alt_text
+    group: accessibility
+    summary: Images carry alt text that is present, is not the filename, and is not empty on an
+      image that carries meaning.
+
+  - tag: heading_structure
+    group: accessibility
+    summary: Pages use real headings, in order, without skipped levels or bold text standing in
+      for a heading.
+
+  - tag: link_text
+    group: accessibility
+    summary: Links are labelled with text that says where they go, rather than "click here" or a
+      raw address.
+
+  - tag: table_semantics
+    group: accessibility
+    summary: Tables of data declare their header cells and scope, and tables are not used to lay
+      out a page.
+
+  - tag: colour_contrast
+    group: accessibility
+    summary: Text reaches the contrast ratio against its background that the rubric asks for.
+
+  - tag: colour_as_sole_cue
+    group: accessibility
+    summary: Colour is not the only thing carrying a piece of meaning.
+
+  - tag: captions_and_transcripts
+    group: accessibility
+    summary: Video carries captions and audio carries a transcript.
+
+  - tag: type_size_and_family
+    group: accessibility
+    summary: Text is at or above the minimum size the rubric asks for, in a typeface it asks for.
+
+  - tag: text_as_image
+    group: accessibility
+    summary: Text a learner needs is set as live text rather than rendered into a picture.
+
+  - tag: document_accessibility
+    group: accessibility
+    summary: Attached PDFs, word-processor files and slide decks carry the structure assistive
+      technology reads.
+
+  - tag: tool_accessibility_statement
+    group: accessibility
+    summary: Each external tool the course uses has an accessibility statement beside it.
+
+  # -- engagement -----------------------------------------------------------------------------
+  - tag: instructor_presence
+    group: engagement
+    summary: The course carries something that introduces the instructor to learners.
+
+  - tag: discussion_inventory
+    group: engagement
+    summary: What discussions the course holds, graded and ungraded.
+
+  - tag: course_feedback_mechanism
+    group: engagement
+    summary: Learners have a way to give feedback on the course.
+
+  # -- assessment -----------------------------------------------------------------------------
+  - tag: activity_instructions
+    group: assessment
+    summary: Each activity states what to do, when it is due, and how to submit it.
+
+  - tag: due_date_coverage
+    group: assessment
+    summary: How many of the graded items carry a due date.
+
+  - tag: gradebook_structure
+    group: assessment
+    summary: The gradebook is organised, and where weighting is used the weights total 100.
+
+  - tag: assignment_rubric_attached
+    group: assessment
+    summary: A graded activity has an evaluation rubric attached to it.
+
+  - tag: formative_opportunities
+    group: assessment
+    summary: The course offers low-stakes or ungraded practice as well as graded work.
+
+  - tag: assessment_scaffolding
+    group: assessment
+    summary: A long assessment is broken into staged parts with their own dates.
+
+  - tag: timed_assessment_disclosure
+    group: assessment
+    summary: An assessment with a time limit says so where a learner will see it.
+
+  # -- mobile ---------------------------------------------------------------------------------
+  - tag: embed_fallback_link
+    group: mobile
+    summary: Embedded content is accompanied by a plain link to the same thing.
+
+  - tag: text_float_beside_media
+    group: mobile
+    summary: Text is not floated beside an image in a way that collapses on a narrow screen.
+
+  - tag: fixed_width_layout
+    group: mobile
+    summary: Widths are declared as proportions rather than as fixed pixel counts.
+
+  - tag: legacy_embeds
+    group: mobile
+    summary: Embedded players rely on a plugin or a format a phone cannot show.
+
+  - tag: attachment_formats
+    group: mobile
+    summary: Which file formats the course attaches, and whether a phone can open them.
+
+  - tag: mobile_app_availability
+    group: mobile
+    summary: An app the course requires is available on the platforms learners have.
