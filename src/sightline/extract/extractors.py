@@ -172,7 +172,7 @@ class E05Authentic(Extractor):
 
 class E06Progression(Extractor):
     id = "E06"
-    title = "Sentences stating what learners do, read module by module"
+    title = "Sentences stating what learners do, grouped by the module they sit in"
     tier = Tier.C
     kinds = (ArtifactKind.PAGE, *ACTIVITY_KINDS)
     ask = (
@@ -243,7 +243,7 @@ class E07Sources(Extractor):
 
 class E08Criteria(Extractor):
     id = "E08"
-    title = "Sentences stating how submitted work will be evaluated, or showing an example of it"
+    title = "Sentences stating how submitted work will be marked, or pointing at an example"
     tier = Tier.B
     kinds = (*ACTIVITY_KINDS, ArtifactKind.PAGE, ArtifactKind.SYLLABUS)
     ask = (
