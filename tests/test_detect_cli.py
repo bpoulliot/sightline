@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from sightline.detect.__main__ import main
+from sightline.detect.__main__ import build_parser, main
 
 
 def test_the_documented_command_runs_against_the_sample_course(
@@ -20,7 +20,7 @@ def test_the_documented_command_runs_against_the_sample_course(
     code = main(["--bundle", str(repo_root / "examples" / "sample-course")])
     out = capsys.readouterr().out
     assert code == 0
-    assert out.startswith("10 of 10 detector(s) examined the course")
+    assert out.startswith("30 of 30 detector(s) examined the course")
     assert "alt_missing" in out
     assert "https://canvas.example.edu/courses/4410/pages/start-here" in out
 
@@ -53,7 +53,7 @@ def test_json_output_is_the_whole_report(
     code = main(["--bundle", str(repo_root / "examples" / "sample-course"), "--json"])
     payload = json.loads(capsys.readouterr().out)
     assert code == 0
-    assert len(payload["results"]) == 10
+    assert len(payload["results"]) == 30
     assert all(result["examined"] > 0 for result in payload["results"])
 
 
@@ -81,3 +81,26 @@ def test_a_directory_that_is_not_a_bundle_is_reported_rather_than_traced(
     code = main(["--bundle", str(tmp_path)])
     assert code == 1
     assert "not a course bundle" in capsys.readouterr().err
+
+
+def test_link_checking_is_off_unless_it_is_typed() -> None:
+    """The only outbound traffic any detector makes, and it needs a flag.
+
+    Asserted on the parser rather than by running the command, because a test that proved this by
+    *not* observing a request would pass just as well if the flag were removed altogether.
+    """
+    parser = build_parser()
+    assert parser.parse_args(["--bundle", "."]).resolve_links is False
+    assert parser.parse_args(["--bundle", ".", "--resolve-links"]).resolve_links is True
+
+
+def test_the_documented_run_makes_no_request_outside_canvas(
+    repo_root: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """D13 over the sample course, with the flag absent: it reports the policy link it found and
+    records nothing it could not read, because it asked nothing."""
+    code = main(["--bundle", str(repo_root / "examples" / "sample-course"), "--detector", "D13"])
+    out = capsys.readouterr().out
+    assert code == 0
+    assert "found 0 observation(s)." in out
+    assert "not read" not in out

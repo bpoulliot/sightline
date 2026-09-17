@@ -22,8 +22,9 @@ from sightline.acquire import load_bundle
 from sightline.detect import DetectionReport, ResultState, registry, run_detectors
 from sightline.model import CourseDocument
 
-#: The detectors this item ships. Rows naming anything else are another item's contract.
-SHIPPED = tuple(f"D{number}" for number in range(21, 31))
+#: The detectors shipped so far — the accessibility cluster of item 06 and the Canvas structure
+#: cluster of item 07. Rows naming anything else are a later item's contract.
+SHIPPED = tuple(f"D{number:02d}" for number in (*range(1, 21), *range(21, 31)))
 
 
 @pytest.fixture
@@ -51,9 +52,34 @@ def test_the_sample_exercises_every_detector_this_item_ships(planted: list[dict[
     assert named == set(SHIPPED)
 
 
+def test_a_course_level_finding_is_located_on_the_course_and_links_into_it(
+    report: DetectionReport, document: CourseDocument
+) -> None:
+    """The structure cluster's answers are often absences, and an absence still has to open
+    somewhere. Every finding on the course artifact links inside the course, never above it."""
+    course_id = document.course_artifact.id
+    on_course = [
+        finding for finding in report.findings if finding.location.artifact_id == course_id
+    ]
+    assert on_course, "no detector reported anything about the course as a whole"
+    for finding in on_course:
+        assert finding.location.canvas_path.startswith(f"/courses/{document.course.id}")
+
+
+def test_no_finding_states_a_conclusion_where_a_count_belongs(report: DetectionReport) -> None:
+    """The register check, applied to every observation rather than to the summary alone. These
+    words are how a finding turns into a verdict about a course or a person (SPEC §11)."""
+    forbidden = ("should", "must", "poor", "inadequate", "fails to", "failure to", "unacceptable")
+    for finding in report.findings:
+        lowered = finding.observed.lower()
+        for word in forbidden:
+            assert word not in lowered, f"{finding.detector}/{finding.code}: {finding.observed}"
+
+
 def test_every_detector_examined_the_sample_course(report: DetectionReport) -> None:
-    """None of the ten may come back in the ``NOT_EXAMINED`` state over a course with fifteen
-    bodies and six files in it. One that did would have found nothing for a reason nobody saw."""
+    """None of them may come back in the ``NOT_EXAMINED`` state over a course with fifteen bodies,
+    six files, four modules and a full navigation menu in it. One that did would have found
+    nothing for a reason nobody saw."""
     assert report.not_examined == ()
     for detector_id in SHIPPED:
         result = report.by_detector(detector_id)
@@ -65,6 +91,8 @@ def test_every_detector_examined_the_sample_course(report: DetectionReport) -> N
 def test_every_finding_carries_a_location_a_reviewer_can_open(
     report: DetectionReport, document: CourseDocument
 ) -> None:
+    """Including the course-level ones. A finding about the course as a whole is located on the
+    course artifact, which ``by_id`` resolves — so "no syllabus" opens somewhere."""
     for finding in report.findings:
         assert document.by_id(finding.location.artifact_id) is not None, finding.code
         assert finding.location.canvas_path.startswith("/courses/")
@@ -117,9 +145,9 @@ def test_each_case_planted_to_be_clean_is_left_alone(
 def test_a_row_the_sample_cannot_exercise_is_recorded_as_unread_not_as_clean(
     report: DetectionReport, planted: list[dict[str, str]]
 ) -> None:
-    """``not_covered`` is the sample saying it lacks what the detector needs — D30 needs document
-    bytes and the sample ships metadata only. The detector must say the same thing, by recording
-    what it could not read, rather than coming back clean."""
+    """``not_covered`` is the sample saying it lacks what the detector needs — D02, D30 and D36
+    need document bytes and the sample ships metadata only. The detector must say the same thing,
+    by recording what it could not read, rather than coming back clean."""
     for row in planted:
         if row["expectation"] != "not_covered":
             continue
@@ -131,12 +159,12 @@ def test_a_row_the_sample_cannot_exercise_is_recorded_as_unread_not_as_clean(
         ), f"{row['detector']} said nothing about {row.get('artifact')}"
 
 
-def test_the_registry_holds_the_ten_this_item_ships_and_nothing_stray() -> None:
-    assert sorted(registry()) == list(SHIPPED)
+def test_the_registry_holds_what_these_items_ship_and_nothing_stray() -> None:
+    assert sorted(registry()) == sorted(SHIPPED)
 
 
 def test_the_summary_is_counts_rather_than_a_verdict(report: DetectionReport) -> None:
     statement = report.statement()
-    assert statement.startswith("10 of 10 detector(s) examined the course")
+    assert statement.startswith(f"{len(SHIPPED)} of {len(SHIPPED)} detector(s) examined the course")
     for word in ("score", "grade", "fail", "poor", "good"):
         assert word not in statement.lower()

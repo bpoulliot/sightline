@@ -158,7 +158,7 @@ first:
 python -m sightline.acquire --bundle examples/sample-course
 ```
 
-See `examples/sample-course/README.md` for what is planted in it, and for the four detectors it
+See `examples/sample-course/README.md` for what is planted in it, and for the three detectors it
 cannot exercise yet and why.
 
 ## Detectors
@@ -198,6 +198,54 @@ contributes to that concept — `alt_text`, `due_date_coverage` — from the clo
 tags, so the join runs in one direction and one detector serves every rubric that cares about the
 same concept. See [Rubric packs](#rubric-packs) below and
 [`docs/RUBRIC-PACKS.md`](docs/RUBRIC-PACKS.md).
+
+### The Canvas structure cluster, D01–D20
+
+These read what the API knows about a course's *shape* rather than the markup inside its pages.
+
+| | |
+|---|---|
+| D01 | no syllabus at all, an empty one, or one short enough to be a pointer — with the length measured |
+| D02 | a syllabus with no headings to divide it, and an attached printable copy carrying neither tags nor an outline |
+| D03 | modules with no item named as an overview, introduction or objectives listing |
+| D04 | no schedule anywhere, or a schedule with no calendar dates written on it |
+| D05 | no welcome announcement posted for **this** offering — an announcement predating the course start belongs to a previous one |
+| D06 | navigation entries a learner sees with nothing behind them, and tools Canvas exposes no content for at all |
+| D07 | assignment group weights that do not total 100, and weighting applied to only some groups |
+| D08 | graded assignments with no rubric attached, and rubrics attached to nothing |
+| D09 | activities with no description, and graded assignments Canvas offers nowhere to submit |
+| D10 | graded items with no due date, each carrying the course's coverage count with it |
+| D11 | a course recording no learning outcomes, and outcomes recorded with an empty description |
+| D12 | external tool launches no page, syllabus or assignment text says anything about |
+| D13 | no links to campus policies; and — only when link checking is switched on — links the far end says are gone |
+| D14 | no links to learner support anywhere, and a syllabus carrying none when the course does |
+| D15 | a time limit set in Canvas that the assessment's own description never mentions — tier B, quoted |
+| D16 | no practice quiz, survey, or zero-point assignment: nothing a learner can attempt without it counting |
+| D17 | no discussions at all, and discussions opening with no prompt |
+| D18 | nothing in the course titled or written as an introduction to the instructor — tier B |
+| D19 | an assessment carrying over a quarter of the graded points with no draft, proposal or milestone beside it — tier B |
+| D20 | no survey, feedback discussion or course-evaluation link: nowhere a learner can say how it is going |
+
+**Some of these answer with an absence, and an absence still has to open somewhere.** A finding
+about the course as a whole is located on the course itself, which `by_id` resolves and
+`artifacts()` does not yield — the course is the container, not one of its contents. Building that
+location hands out no artifact and so counts nothing, which is what stops a course-level detector
+from becoming exempt from the zero-examined invariant.
+
+**What a detector cannot see, it says.** Canvas exposes no content behind Collaborations, Chat or
+Attendance, so D06 reports those entries as *unevidenced* rather than as unused, in those words.
+Canvas records no link between an outcome and a module, so D11 establishes the course-level half
+and does not infer the other. D15 reads an assessment's own description and says so, rather than
+claiming a time limit is disclosed nowhere in the course.
+
+**D13 is the only detector that touches the network, and it is off by default.** With
+`SIGHTLINE_RESOLVE_LINKS` unset — or without `--resolve-links` on the command — it reports which
+policy links are *present* and claims nothing about where they go. Switched on, it works within a
+per-run budget, a short timeout, a minimum interval between requests, and a cache that holds
+failures as well as successes. **A request that fails is `UNKNOWN`, never a broken link**: a 403 is
+a login wall, a 429 is a rate limit, and a DNS timeout is a network. Only a 404 or a 410 from the
+far end is reported as gone. Reporting a working campus policy page as broken because a lookup
+timed out is exactly the false finding that costs a tool its credibility.
 
 ### The accessibility cluster, D21–D30
 
@@ -243,17 +291,17 @@ command prints what it measured rather than a word like *ok*:
 `-s` is not decoration. Without it the entire output is one line saying how many tests passed,
 which is the opaque green this check exists because of — on this network a 31-suite JS test set
 gated nothing for months because the obvious one-line runner pointed at a directory, printed one
-error and exited 0. With `-s` the command prints what it measured, which with the D21–D30 cluster
-in the registry reads:
+error and exited 0. With `-s` the command prints what it measured, which with the D01–D30
+detectors in the registry reads:
 
 ```
-10 detector(s) registered; 10 covered by 54 fixture test(s); 0 uncovered.
-Observed by calling 208 test function(s) across 12 module(s): …
+30 detector(s) registered; 30 covered by 145 fixture test(s); 0 uncovered.
+Observed by calling 382 test function(s) across 16 module(s): …
   1 registry sweep(s) credited to no detector: …
   D21: 5 test(s)
   …
-The zero-examined invariant holds for 10 of 10 registered detector(s).
-10 detector(s) declare 10 capability tag(s); 0 declaration(s) will not resolve; 36 vocabulary tag(s) have no detector yet.
+The zero-examined invariant holds for 30 of 30 registered detector(s).
+30 detector(s) declare 30 capability tag(s); 0 declaration(s) will not resolve; 16 vocabulary tag(s) have no detector yet.
 ```
 
 Four guards, and each one is demonstrated failing in the same file, on purpose:
@@ -397,6 +445,7 @@ every request Sightline makes today. `sightline.canvas.scopes` is the source of 
 | `url:GET\|/api/v1/courses/:course_id/rubrics` | `GET /api/v1/courses/{id}/rubrics` | Reads the rubrics defined in the course, so an unattached one is still visible. |
 | `url:GET\|/api/v1/courses/:course_id/tabs` | `GET /api/v1/courses/{id}/tabs` | Reads the course navigation menu, including which entries are hidden from learners. |
 | `url:GET\|/api/v1/courses/:course_id/files` | `GET /api/v1/courses/{id}/files` | Lists the course's files, so a document with no bytes in the export is still named. |
+| `url:GET\|/api/v1/courses/:course_id/outcome_group_links` | `GET /api/v1/courses/{id}/outcome_group_links` | Lists the course's learning outcomes and the outcome group each is filed under, in one call rather than one per group. |
 | `url:GET\|/api/v1/courses/:course_id/content_exports` | `GET /api/v1/courses/{id}/content_exports` | Finds a content export the course already has. This is the path taken when the fresh-export request is switched off on the Settings screen. |
 | `url:POST\|/api/v1/courses/:course_id/content_exports` | `POST /api/v1/courses/{id}/content_exports` | Asks Canvas to package a copy of the course under review. It does not modify course content: an export artifact appears in the course's export list and nothing a learner or instructor sees changes. A setting turns this request off. |
 | `url:GET\|/api/v1/courses/:course_id/content_exports/:id` | `GET /api/v1/courses/{id}/content_exports/{export_id}` | Polls one export until Canvas finishes building it. An export is asynchronous and a large course takes minutes, so the state has to be read back rather than assumed. |
@@ -482,6 +531,7 @@ repository is a bug, and `tests/test_config.py` fails the build over one.
 | `CANVAS_BASE_URL` | Base URL of your Canvas instance. **Treated as a secret**: it identifies the institution. |
 | `CANVAS_API_TOKEN` | Canvas API token. Read access, plus permission to export course content when the setting below is on — see **Canvas token scopes**. |
 | `SIGHTLINE_REQUEST_CONTENT_EXPORT` | Whether to ask Canvas to build a fresh content export of each course reviewed. Default `true`. Fallback for the setting of the same name on the Settings screen, which wins over it. |
+| `SIGHTLINE_RESOLVE_LINKS` | Whether the policy-link check may request the addresses a course links to. Default `false` — the only traffic Sightline makes outside Canvas. With it off the check reports which policy links are present and claims nothing about where they go; a request that fails is reported as unknown, never as a broken link. |
 | `SIGHTLINE_SECRET_KEY` | Key for credentials entered in the UI. Unset means Sightline manages a key file under the data root. |
 | `SIGHTLINE_DATA_DIR` | Root for everything downloaded or generated. Default `./data`; `/data` in the container. |
 | `OLLAMA_BASE_URL` | Ollama endpoint. No default. |

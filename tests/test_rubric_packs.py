@@ -83,14 +83,14 @@ RSI_TIERS = {Tier.A: 7, Tier.B: 9, Tier.C: 2}
 #: or reporting the middle one as though it were the third, is the silent under-detection SPEC §11
 #: names.
 REFERENCE_COVERAGE = {
-    "deterministic": 10,
-    "not_yet_implemented": 39,
+    "deterministic": 35,
+    "not_yet_implemented": 14,
     "evidence_only": 18,
     "not_determinable": 1,
 }
 RSI_COVERAGE = {
-    "deterministic": 5,
-    "not_yet_implemented": 9,
+    "deterministic": 13,
+    "not_yet_implemented": 1,
     "evidence_only": 4,
     "not_determinable": 0,
 }
@@ -612,26 +612,86 @@ def test_every_tier_a_row_binds_at_least_one_capability() -> None:
                 assert criterion.bindings, f"{pack.id} {criterion.code}"
 
 
-def test_every_row_with_deterministic_coverage_today_is_tier_a() -> None:
-    """**A guard, and it is expected to fire.**
+#: Tier B rows a detector now answers in part. **This is roadmap item 28's debt, written down.**
+#:
+#: Item 05 armed the guard below to fire the day item 07 or 08 landed, and item 07 landed it. The
+#: read it asked for was done and it confirmed the problem rather than dissolving it: each of these
+#: rows is bound to a capability that *bears on* it without *settling* it — ``GSOV 7`` asks what
+#: the syllabus states and ``syllabus_presence`` establishes only that one exists — and
+#: ``project._rate`` cannot tell those apart. A clean detector run on any row below reads
+#: **Sufficiently Present**, which is the one rating that means nothing needs doing.
+#:
+#: It is recorded rather than fixed here because the fix is a design decision item 28 owns and
+#: item 07 is not the place to take it: a ``supporting:`` list beside ``bindings:``, or a rule in
+#: ``_rate`` that only Tier A may reach ``SUFFICIENTLY_PRESENT``. What item 07 owes is that the
+#: list is exact, so a *new* row joining it still fails this test.
+TIER_B_ROWS_A_DETECTOR_NOW_ANSWERS = {
+    (REFERENCE_ID, code)
+    for code in (
+        "ACD 10",
+        "ASFE 2",
+        "ASFE 4",
+        "ASFE 5",
+        "ASFE 7",
+        "COAL 1",
+        "COAL 2",
+        "ENIN 1",
+        "ENIN 3",
+        "ENIN 11",
+        "GSOV 1",
+        "GSOV 4",
+        "GSOV 5",
+        "GSOV 6",
+        "GSOV 7",
+        "GSOV 8",
+        "GSOV 9",
+        "GSOV 10",
+        "GSOV 11",
+        "OREP 3",
+    )
+} | {(RSI_ID, code) for code in ("1", "3", "4", "12", "13", "17", "18")}
+
+
+def test_every_row_with_deterministic_coverage_is_tier_a_or_a_known_exception() -> None:
+    """**The guard item 05 armed. It fired on item 07, and this is the record of that.**
 
     A Tier A row is settled by its detectors and is not routed for quotes; a Tier B row is not, and
-    gathers located evidence as well. Today every row a detector answers is Tier A, so a clean run
-    can only close a row the mapping says it settles.
+    gathers located evidence as well. The pack format has one binding channel and it carries both
+    *contributes evidence* and *can settle this row*, so a partial capability bound to a Tier B row
+    reads Sufficiently Present once its detectors run clean. That is roadmap item 28.
 
-    Items 07 and 08 will bind capabilities to Tier B rows — ``ACD 10`` binds
-    ``timed_assessment_disclosure``, which measures disclosure where the row also asks about lead
-    time — and this test will fail when the first of them lands. **That is the moment to look**:
-    the pack format has one binding channel and it carries both *contributes evidence* and *can
-    settle this row*, so a partial capability on a Tier B row can read Sufficiently Present. See
-    roadmap item 28. Update the exception list below only with that read done.
+    The exception set is **exact and closed**: a row joining it fails here, which is the whole
+    reason the guard survives being fired. Do not add to it to make a build green — the second time
+    this fires is the second time somebody has to decide, and deciding is item 28.
     """
-    allowed_tier_b_with_coverage: set[tuple[str, str]] = set()
+    unexpected = []
     for pack in both():
         for row in coverage_of_pack(pack.id).deterministic:
-            if (pack.id, row.code) in allowed_tier_b_with_coverage:
+            if row.tier is Tier.A:
                 continue
-            assert row.tier is Tier.A, f"{pack.id} {row.code} is tier {row.tier.value}"
+            if (pack.id, row.code) in TIER_B_ROWS_A_DETECTOR_NOW_ANSWERS:
+                continue
+            unexpected.append(f"{pack.id} {row.code} is tier {row.tier.value}")
+    assert not unexpected, (
+        "A row a detector answers is not Tier A and is not on item 28's recorded list: "
+        f"{unexpected}. See TIER_B_ROWS_A_DETECTOR_NOW_ANSWERS above before touching it."
+    )
+
+
+def test_item_28s_recorded_list_names_no_row_that_has_since_become_clean() -> None:
+    """The other direction, and the one an allowlist usually lacks.
+
+    A list of known exceptions that nobody prunes becomes a list of rows nobody checks. Every entry
+    here has to still be a Tier B row a detector answers; when item 28 lands, or when a mapping
+    moves a row to Tier A, this fails and the entry comes out.
+    """
+    live = {
+        (pack.id, row.code)
+        for pack in both()
+        for row in coverage_of_pack(pack.id).deterministic
+        if row.tier is not Tier.A
+    }
+    assert live == TIER_B_ROWS_A_DETECTOR_NOW_ANSWERS
 
 
 @pytest.mark.parametrize(

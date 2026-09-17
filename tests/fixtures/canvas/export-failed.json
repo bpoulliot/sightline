@@ -173,6 +173,21 @@
     },
     {
       "method": "GET",
+      "path": "/api/v1/courses/4415/outcome_group_links",
+      "query": {
+        "per_page": 100,
+        "outcome_style": "full"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
+        "json": []
+      }
+    },
+    {
+      "method": "GET",
       "path": "/api/v1/courses/4415/pages/synthetic-overview",
       "response": {
         "status": 200,

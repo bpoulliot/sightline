@@ -361,7 +361,7 @@ def test_a_vocabulary_tag_with_no_detector_is_reported_and_not_a_fault() -> None
     report = capabilities(declarations(detectors()))
     assert report.ok
     assert report.unimplemented, "the inventory is not finished; some tag has no detector"
-    assert "due_date_coverage" in report.unimplemented
+    assert "document_printability" in report.unimplemented
     assert "alt_text" not in report.unimplemented
 
 

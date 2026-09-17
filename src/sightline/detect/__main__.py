@@ -12,6 +12,12 @@ under its own heading and is never quietly absent.
 bytes come from. Without it the detectors that read PDFs and Office files report what they could
 not read instead of reporting nothing, and that is what the output says.
 
+``--resolve-links`` is the only flag that makes this command touch the network, and it is off
+unless typed. It lets the policy-link check ask the addresses a course links to whether they still
+exist, within a budget and a short timeout. Without it the check reports which policy links are
+present and claims nothing about where they go — see :mod:`sightline.detect.links` for why a
+failure is reported as unknown rather than as a broken link.
+
 It prints observations, not verdicts: a code, a location and the value measured. Nothing here says
 whether a course is good.
 """
@@ -25,6 +31,7 @@ from pathlib import Path
 from ..acquire.bundle import BundleError, load_bundle
 from ..model import CourseDocument
 from .base import ResultState
+from .links import HttpLinkResolver
 from .runner import DetectionReport, run_detectors
 from .sources import ExportFileSource
 
@@ -51,6 +58,14 @@ def build_parser() -> argparse.ArgumentParser:
         default=[],
         metavar="ID",
         help="Run only this detector. Repeatable.",
+    )
+    parser.add_argument(
+        "--resolve-links",
+        action="store_true",
+        help=(
+            "Check that the policy links a course carries still resolve. The only outbound "
+            "traffic this command makes; off unless given."
+        ),
     )
     parser.add_argument(
         "--json", action="store_true", help="Print the whole report to stdout as JSON."
@@ -92,6 +107,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     files = ExportFileSource(args.export) if args.export else None
+    links = HttpLinkResolver.from_httpx() if args.resolve_links else None
     only = None
     if args.detector:
         from .base import registry
@@ -106,7 +122,7 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         only = [known[name]() for name in args.detector]
 
-    report = run_detectors(document, files=files, only=only)
+    report = run_detectors(document, files=files, links=links, only=only)
     if args.json:
         import json
 

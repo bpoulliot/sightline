@@ -48,6 +48,10 @@ _SHOW_TEXT = re.compile(rb"(?:\)\s*Tj|\]\s*TJ|BT\b)")
 _IMAGE_XOBJECT = re.compile(rb"/Subtype\s*/Image")
 _ENCRYPT = re.compile(rb"/Encrypt\b")
 _LANG = re.compile(rb"/Lang\s*\(")
+#: A document outline — bookmarks. The only structural signal a PDF carries for "divided into
+#: sections": an empty ``/Outlines`` dictionary is written by every producer, so the entry has
+#: to name at least one child before it means anything.
+_OUTLINE = re.compile(rb"/Type\s*/Outlines[^>]*?/First\b", re.DOTALL)
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,6 +64,8 @@ class PdfReport:
     marked: bool = False
     has_text_layer: bool = False
     has_language: bool = False
+    #: Whether the file carries a non-empty document outline (what a reader shows as bookmarks).
+    has_outline: bool = False
     pages: int = 0
     images: int = 0
     encrypted: bool = False
@@ -72,6 +78,7 @@ class PdfReport:
             "marked": self.marked,
             "has_text_layer": self.has_text_layer,
             "has_language": self.has_language,
+            "has_outline": self.has_outline,
             "pages": self.pages,
             "images": self.images,
             "encrypted": self.encrypted,
@@ -119,6 +126,7 @@ def inspect_pdf(data: bytes) -> PdfReport:
         marked=bool(_MARKED.search(corpus)),
         has_text_layer=has_font and shows_text,
         has_language=bool(_LANG.search(corpus)),
+        has_outline=bool(_OUTLINE.search(corpus)),
         pages=pages,
         images=len(_IMAGE_XOBJECT.findall(corpus)),
     )

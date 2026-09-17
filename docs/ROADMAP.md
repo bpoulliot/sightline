@@ -5,7 +5,7 @@ Canonical for item status. `docs/SPEC.md` is canonical for design.
 Labels: **READY** · **NEEDS DISCUSSION** · **NEEDS MEASUREMENT** · **BLOCKED**.
 Nothing unready enters the queue. One item per conversation, one PR per item.
 
-Queue lives at `~/docker/overnight-sightline/`. Next free item number: **29**.
+Queue lives at `~/docker/overnight-sightline/`. Next free item number: **30**.
 
 ---
 
@@ -19,7 +19,7 @@ Queue lives at `~/docker/overnight-sightline/`. Next free item number: **29**.
 | 04 | Rubric pack format + capability tags | 0 | READY | **DONE** — PR #9 |
 | 05 | Ship the two rubric packs | 0 | READY | **DONE** — PR #10 |
 | 06 | Detector framework + accessibility cluster | 0 | READY | **DONE** — PR #7 |
-| 07 | Canvas structure detectors D01–D20 | 1 | READY | queued 06 |
+| 07 | Canvas structure detectors D01–D20 | 1 | READY | **DONE** — PR #11 |
 | 08 | Mobile detectors + optional-section flag | 1 | READY | queued 07 |
 | 09 | Ollama client, capability filter, model picker | 1 | READY | queued 08 |
 | 10 | Extraction layer with verified quotes | 1 | READY | queued 09 |
@@ -41,7 +41,8 @@ Queue lives at `~/docker/overnight-sightline/`. Next free item number: **29**.
 | 25 | Returned-review ingestion | 3 | **BLOCKED** — needs reviews delivered and returned | — |
 | 26 | Wire document bytes from the export to the detectors | 1 | READY | queued 99 |
 | 27 | One detector's crash must not take the whole review with it | 1 | READY | queued 99a |
-| 28 | A binding says *relevant*; rating reads it as *sufficient* | 1 | READY | queued 99b |
+| 28 | A binding says *relevant*; rating reads it as *sufficient* | 1 | READY | queued 99b — **now live**, 27 rows |
+| 29 | `Scan.text` fuses two words at every block seam | 1 | READY | queued 07a |
 
 ---
 
@@ -70,7 +71,8 @@ command runs verbatim (490 tests, clean lint and format, container healthy).
 05-sightline-item21-detector-integrity-guard.md  # DONE — PR #8
 05a-sightline-item04-rubric-pack-format.md       # DONE — PR #9. Item 08's stop is cleared.
 05b-sightline-item05-rubric-packs.md             # DONE — PR #10. 68 + 18 rows, no new reader.
-06-sightline-item07-canvas-structure-detectors.md
+06-sightline-item07-canvas-structure-detectors.md   # DONE — PR #11
+07a-sightline-item29-scan-text-block-seam.md         # filed by item 07's session
 07-sightline-item08-mobile-detectors.md          # pack flag needs item 04
 08-sightline-item09-ollama-client.md
 09-sightline-item10-extraction-layer.md
@@ -375,6 +377,56 @@ default `/24` collides.
 
 ## Notes carried forward
 
+**07 · DONE 2026-09-17 (PR #11). The Canvas structure cluster D01–D20, and five things it
+established that were not known before it ran.**
+
+- **A structure detector's interesting answer is an absence, and an absence needs a location.**
+  "This course has no syllabus" cannot be located on an artifact that does not exist. So
+  `CourseDocument.course_artifact` was added: resolvable through `by_id`, **not** yielded by
+  `artifacts()`. The asymmetry is load-bearing rather than tidy — the integrity guard's empty
+  document must hold *zero* artifacts, and a course that contained itself would hold one.
+  `Survey.course_location()` builds that location and hands out no artifact, so it counts nothing
+  and a course-level detector cannot use it to fake an examined count.
+- **D11 needed an endpoint nobody had acquired.** `outcome_group_links` was added to
+  `INDEX_ENDPOINTS` (one call answers both which outcomes exist and which group each sits in), with
+  the model type, the scope row and the sample-course outcomes to go with it. `SCHEMA_VERSION` was
+  **not** bumped: the field is additive with a default, and the cache signature already moves
+  because the collection set changed, so a stale document cannot survive the change.
+- **SPEC §05 is optimistic about D11 and the gap is Canvas's, not the spec's.** §05 says "outcomes
+  defined at course **and module** level". Canvas records no link between an outcome and a module —
+  outcomes live in a tree of outcome *groups*, and alignments are to rubrics and assignments. D11
+  establishes the course-level half and says in its own capability description that it does not
+  infer the other. Closing the remaining half needs the alignment endpoints; it is not filed as an
+  item because nothing depends on it yet.
+- **Canvas exposes no content behind Collaborations, Chat, Attendance or Conferences.** D06 reports
+  those menu entries as *unevidenced* — in those words — rather than as unused. Reporting them as
+  unused would be a guess dressed as a count, and these four are default-on in Canvas, so it would
+  be a guess made on nearly every course reviewed.
+- **A graded discussion's due date is on the assignment behind it, never on the topic.** Reading
+  `due_at` off the topic returns `None` for every graded discussion there has ever been, so D10 fed
+  by that would report each one as undated. `Discussion.due_at` now normalizes from
+  `assignment.due_at`.
+
+**Link checking is off by default and that is a decision, not caution.** D13 is the only detector
+that touches the network. `SIGHTLINE_RESOLVE_LINKS` defaults false and `--resolve-links` must be
+typed; with it off, D13 reports which policy links are *present* and claims nothing about where
+they go. Switched on it works inside a per-run budget, a short timeout, a minimum interval and a
+cache that holds failures as well as successes. **Only a 404 or a 410 is reported as gone.** A 403
+is a login wall, a 429 is a rate limit and a DNS timeout is a network, and all three are recorded
+as *could not be read*. A working campus policy page reported broken because a lookup timed out is
+the finding a faculty member remembers.
+
+**29 · FILED 2026-09-17 by item 07's session. `Scan.text` fuses two words at every block seam, and
+it is silent.** `sightline.detect.html_scan.scan()` builds `Scan.text` as `"".join(text_parts)`, so
+`<h2>Course schedule</h2><p>Week 1</p>` reads back as `Course scheduleWeek 1`. Any word-boundary
+regex over it fails at the seam and any word count over it is short by the number of seams.
+**Found by it happening**: D04 reported a course with a schedule written into its syllabus as
+having no schedule at all — wrong output, no error, and it took a failing fixture to see. Item 07
+worked around it with a local `plain_text()` that puts a space where each tag was, so D01–D20 are
+correct today. What is *not* fixed is `Scan.text` itself, which D26 and D29 read (and item 08's D35
+will), and `Element.text`/`Element.own_text`, which have the same join. Queued at `07a-` because it
+is silent wrongness in shipped code. Whoever takes it should expect word counts to move.
+
 **28 · FILED 2026-09-17 by item 05's session.** **A pack's `bindings` list carries two different
 claims and the rating code can only read one of them.** Authoring the two shipped packs against
 SPEC §05 made the ambiguity concrete: `syllabus_presence` is *relevant* to GSOV 7 — a course with
@@ -385,7 +437,19 @@ clean. So a partial capability bound to a row it does not settle can close that 
 nobody examined for it — SPEC §11's silent under-detection, arriving through the pack rather than
 through a detector.
 
-**Nothing is wrong today and that is why this is filed rather than fixed here.** Of the 46
+**UPDATE 2026-09-17, item 07's session: this is no longer latent.** Item 07 landed the 20
+structure detectors and the armed guard fired exactly as item 05 predicted it would. **27 Tier B
+rows now have deterministic coverage** — 20 in the reference pack and 7 in the RSI pack — and each
+of them reads *Sufficiently Present* once its detectors run clean, on a criterion no detector
+settles. The read item 05 asked for was done and it confirmed the problem rather than dissolving
+it; the two shapes of fix below are unchanged and neither was taken, because taking one is a design
+decision this item owns and item 07 was not the place for it. What item 07 did instead is make the
+debt **exact and closed**:
+`tests/test_rubric_packs.py::TIER_B_ROWS_A_DETECTOR_NOW_ANSWERS` lists all 27 by pack and code, one
+test fails if a *new* row joins the list, and a second test fails if an entry on it ever stops
+being true. The guard therefore survived being fired instead of being widened into uselessness.
+
+**What was true when this was filed, and why it was filed rather than fixed then.** Of the 46
 capability tags, the 10 this build implements all land on Tier A rows in both packs —
 `tests/test_rubric_packs.py::test_every_row_with_deterministic_coverage_today_is_tier_a` asserts
 exactly that and is written to **fail the day item 07 or 08 lands**, which is the moment to decide.

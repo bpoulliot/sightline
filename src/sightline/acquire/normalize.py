@@ -15,7 +15,9 @@ sorted by its own identity. Running twice over an unchanged course produces iden
 from __future__ import annotations
 
 import posixpath
+import re
 from collections.abc import Mapping, Sequence
+from html import unescape
 from typing import Any
 
 from ..model import (
@@ -26,6 +28,7 @@ from ..model import (
     CourseDocument,
     CourseFile,
     CourseInfo,
+    CourseOutcome,
     Discussion,
     Examination,
     ExaminationState,
@@ -45,6 +48,7 @@ from ..model import (
     file_search_path,
     module_item_path,
     module_path,
+    outcome_path,
     page_path,
     quiz_path,
     syllabus_path,
@@ -88,6 +92,7 @@ def normalize(
     )
     files = _files(index.items("files"), course_id, export, module_paths)
     syllabus = _syllabus(index.course, course_id)
+    outcomes = _outcomes(index.items("outcomes"), course_id)
 
     with_bodies: list[Artifact] = [
         *([syllabus] if syllabus else []),
@@ -101,6 +106,7 @@ def normalize(
 
     examinations = list(index.examinations())
     examinations.append(_embed_examination(with_bodies, embeds))
+    examinations.append(_syllabus_examination(index.course, syllabus))
     if bodies is not None and bodies.examination is not None:
         examinations.append(bodies.examination)
     if export is not None:
@@ -118,6 +124,7 @@ def normalize(
         announcements=announcements,
         files=files,
         embeds=embeds,
+        outcomes=outcomes,
         navigation=_navigation(index.items("tabs")),
         assignment_groups=_assignment_groups(index.items("assignment_groups")),
         rubrics=_rubrics(index.items("rubrics")),
@@ -161,6 +168,97 @@ def _syllabus(payload: Mapping[str, Any], course_id: str) -> Syllabus | None:
         body_html=body if isinstance(body, str) else "",
         body_source=Source.API,
     )
+
+
+def _syllabus_examination(payload: Mapping[str, Any], syllabus: Syllabus | None) -> Examination:
+    """Acquisition's own record of the syllabus, which is not a collection endpoint.
+
+    The syllabus arrives on the course payload under ``include[]=syllabus_body`` rather than from
+    a listing of its own, so nothing else would record it — and a detector reading the syllabus
+    would then have a zero count that no examination explains, which the detector framework is
+    required to treat as a broken detector rather than as a course without a syllabus. Recording
+    it here is what keeps those two apart.
+    """
+    if syllabus is None:
+        return Examination(
+            collection="syllabus",
+            state=ExaminationState.SKIPPED,
+            examined=0,
+            source=Source.API,
+            endpoint="GET /api/v1/courses/{id}?include[]=syllabus_body",
+            detail="Canvas did not return the syllabus_body field for this course.",
+            remedy=(
+                "Grant the token permission to read course content and run the review again; "
+                "until then nothing about the syllabus has been examined."
+            ),
+        )
+    present = bool((syllabus.body_html or "").strip())
+    return Examination(
+        collection="syllabus",
+        state=ExaminationState.OK if present else ExaminationState.EMPTY,
+        examined=1 if present else 0,
+        source=Source.API,
+        endpoint="GET /api/v1/courses/{id}?include[]=syllabus_body",
+        detail=(
+            "The course carries a syllabus body."
+            if present
+            else "Canvas returned the syllabus field and it is empty."
+        ),
+    )
+
+
+def _outcomes(items: Sequence[Any], course_id: str) -> tuple[CourseOutcome, ...]:
+    """Outcomes, from the course's outcome *group links*.
+
+    One endpoint answers both halves of the question: each link carries the outcome and the group
+    it is filed under, so a second call per group is not needed. Canvas gives the outcome under
+    ``outcome`` and the group under ``outcome_group``; a link missing either is skipped rather
+    than guessed at.
+    """
+    built: list[CourseOutcome] = []
+    seen: set[str] = set()
+    for payload in items:
+        if not isinstance(payload, Mapping):
+            continue
+        outcome = payload.get("outcome")
+        if not isinstance(outcome, Mapping):
+            continue
+        canvas_id = str(outcome.get("id", ""))
+        if not canvas_id or canvas_id in seen:
+            continue
+        seen.add(canvas_id)
+        group = payload.get("outcome_group")
+        group_title = str(group.get("title") or "") if isinstance(group, Mapping) else ""
+        built.append(
+            CourseOutcome(
+                id=artifact_id(ArtifactKind.OUTCOME, canvas_id),
+                title=str(outcome.get("title") or f"outcome {canvas_id}"),
+                canvas_path=outcome_path(course_id, canvas_id),
+                canvas_id=canvas_id,
+                group=group_title,
+                description=_plain(outcome.get("description")),
+                display_name=_plain(outcome.get("display_name")),
+            )
+        )
+    return tuple(sorted(built, key=lambda item: _natural(item.canvas_id)))
+
+
+#: Markup in a Canvas outcome description. Stripped here rather than in a detector so that one
+#: field of the document is not HTML while every other plain-text field is text.
+_TAG = re.compile(r"<[^>]*>")
+
+
+def _plain(value: Any) -> str:
+    """An outcome description as text. Canvas returns it as HTML even when it is one sentence.
+
+    A local strip rather than the HTML scanner in :mod:`sightline.detect.html_scan`: acquisition
+    must not import the detector package, because the dependency runs the other way and a cycle
+    here would be paid for by every later import.
+    """
+    text = _text(value) or ""
+    if not text:
+        return ""
+    return " ".join(unescape(_TAG.sub(" ", text)).split())
 
 
 def _navigation(items: Sequence[Any]) -> tuple[NavigationTab, ...]:
@@ -463,6 +561,7 @@ def _discussions(
                 updated_at=_text(payload.get("updated_at")),
                 canvas_id=canvas_id,
                 graded=payload.get("assignment_id") is not None,
+                due_at=_topic_due_at(payload),
                 posted_at=_text(payload.get("posted_at")),
                 delayed_post_at=_text(payload.get("delayed_post_at")),
                 require_initial_post=bool(payload.get("require_initial_post", False)),
@@ -471,6 +570,18 @@ def _discussions(
             )
         )
     return tuple(sorted(built, key=lambda item: _natural(item.canvas_id)))
+
+
+def _topic_due_at(payload: Mapping[str, Any]) -> str | None:
+    """A graded topic's due date, which Canvas keeps on the attached assignment.
+
+    Reading ``due_at`` off the topic itself returns ``None`` for every graded discussion there
+    has ever been, and a due-date detector fed that would report each one as undated.
+    """
+    assignment = payload.get("assignment")
+    if isinstance(assignment, Mapping):
+        return _text(assignment.get("due_at"))
+    return _text(payload.get("due_at"))
 
 
 def _files(

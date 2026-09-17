@@ -105,6 +105,14 @@ INDEX_ENDPOINTS: tuple[tuple[str, str, dict[str, Any]], ...] = (
         {"only_announcements": "true"},
     ),
     ("files", "/courses/{course_id}/files", {}),
+    # Outcomes come from the group *links* rather than from /outcomes, because one call then
+    # answers both halves of the question — which outcomes the course defines, and which group
+    # each is filed under. Asking for the outcomes alone would need a second call per group.
+    (
+        "outcomes",
+        "/courses/{course_id}/outcome_group_links",
+        {"outcome_style": "full"},
+    ),
     # Listing the course's exports. Read only when Sightline is NOT asking Canvas to build a
     # fresh one — see read_index's `include_content_exports`, which is not a micro-optimisation
     # but a correctness rule: Sightline's own export appears in this listing, the listing feeds

@@ -89,9 +89,11 @@ def _watching(by_test: dict[str, set[str]], node: dict[str, str]) -> Iterator[No
     """
     original = Detector.run
 
-    def watched(self: Detector, document: object, *, files: object = None) -> object:
+    def watched(
+        self: Detector, document: object, *, files: object = None, links: object = None
+    ) -> object:
         by_test.setdefault(node["current"], set()).add(self.id)
-        return original(self, document, files=files)  # type: ignore[arg-type]
+        return original(self, document, files=files, links=links)  # type: ignore[arg-type]
 
     Detector.run = watched  # type: ignore[method-assign]
     try:

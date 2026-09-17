@@ -20,16 +20,35 @@ from zipfile import ZIP_DEFLATED, ZipFile
 from sightline.acquire.embeds import embeds_for
 from sightline.model import (
     Artifact,
+    ArtifactKind,
+    Assignment,
+    AssignmentGroup,
     CourseDocument,
     CourseFile,
     CourseInfo,
+    CourseOutcome,
+    Discussion,
     Examination,
     ExaminationState,
+    Module,
+    ModuleItem,
+    NavigationTab,
     Page,
+    Quiz,
+    RubricSummary,
     Source,
+    Syllabus,
+    announcement_path,
     artifact_id,
+    assignment_path,
+    discussion_path,
     file_path,
+    module_item_path,
+    module_path,
+    outcome_path,
     page_path,
+    quiz_path,
+    syllabus_path,
 )
 
 COURSE_ID = "4410"
@@ -100,14 +119,24 @@ def refused(collection: str) -> Examination:
 #: Every collection any shipped detector declares. A fixture course records all of them so that a
 #: zero count in one test is never explained by a record another test forgot to write.
 FIXTURE_COLLECTIONS = (
-    "pages",
-    "assignments",
-    "quizzes",
-    "discussions",
     "announcements",
-    "files",
+    "assignment_groups",
+    "assignments",
+    "discussions",
     "embeds",
+    "files",
+    "modules",
+    "outcomes",
+    "pages",
+    "quizzes",
+    "rubrics",
+    "syllabus",
+    "tabs",
 )
+
+#: The course start date every fixture course carries, so a fixture announcement can be posted
+#: before or after it deliberately. D05 turns on exactly that comparison.
+COURSE_START = "2026-01-12T00:00:00Z"
 
 
 def course(
@@ -115,23 +144,259 @@ def course(
     *,
     files: Sequence[CourseFile] = (),
     examinations: Iterable[Examination] = (),
+    syllabus: Syllabus | None = None,
+    modules: Sequence[Module] = (),
+    assignments: Sequence[Assignment] = (),
+    quizzes: Sequence[Quiz] = (),
+    discussions: Sequence[Discussion] = (),
+    announcements: Sequence[Discussion] = (),
+    navigation: Sequence[NavigationTab] = (),
+    assignment_groups: Sequence[AssignmentGroup] = (),
+    rubrics: Sequence[RubricSummary] = (),
+    outcomes: Sequence[CourseOutcome] = (),
+    start_at: str | None = COURSE_START,
 ) -> CourseDocument:
-    """A normalized course carrying the pages and files given, with embeds derived as acquisition
-    derives them — from the bodies, through the same scanner."""
+    """A normalized course carrying whatever the test needs, with embeds derived as acquisition
+    derives them — from the bodies, through the same scanner.
+
+    Every collection gets an examination record whether the test filled it or not, so that a
+    detector's zero count is always explained by the course rather than by a record the fixture
+    forgot. A test wanting the *other* case — a collection acquisition could not read — passes it
+    in ``examinations``.
+    """
     declared = {entry.collection: entry for entry in examinations}
-    counts = {"pages": len(pages), "files": len(files)}
-    embeds = embeds_for(list(pages))
-    counts["embeds"] = len(embeds)
+    with_bodies: list[Artifact] = [
+        *([syllabus] if syllabus is not None else []),
+        *pages,
+        *assignments,
+        *quizzes,
+        *discussions,
+        *announcements,
+    ]
+    embeds = embeds_for(with_bodies)
+    counts = {
+        "announcements": len(announcements),
+        "assignment_groups": len(assignment_groups),
+        "assignments": len(assignments),
+        "discussions": len(discussions),
+        "embeds": len(embeds),
+        "files": len(files),
+        "modules": len(modules),
+        "outcomes": len(outcomes),
+        "pages": len(pages),
+        "quizzes": len(quizzes),
+        "rubrics": len(rubrics),
+        "syllabus": 1 if syllabus is not None else 0,
+        "tabs": len(navigation),
+    }
     records = [
         declared.get(name, examined(name, counts.get(name, 0))) for name in FIXTURE_COLLECTIONS
     ]
     return CourseDocument(
         base_url=BASE_URL,
-        course=CourseInfo(id=COURSE_ID, name="Synthetic Studies 101"),
+        course=CourseInfo(id=COURSE_ID, name="Synthetic Studies 101", start_at=start_at),
+        syllabus=syllabus,
+        modules=tuple(modules),
         pages=tuple(pages),
+        assignments=tuple(assignments),
+        quizzes=tuple(quizzes),
+        discussions=tuple(discussions),
+        announcements=tuple(announcements),
         files=tuple(files),
         embeds=embeds,
+        outcomes=tuple(outcomes),
+        navigation=tuple(navigation),
+        assignment_groups=tuple(assignment_groups),
+        rubrics=tuple(rubrics),
         examinations=tuple(records),
+    )
+
+
+# ---------------------------------------------------------------------------------------------
+# Structure: the objects the D01-D20 cluster reads
+# ---------------------------------------------------------------------------------------------
+
+
+def syllabus(body: str = "<h2>Syllabus</h2><p>Synthetic.</p>") -> Syllabus:
+    return Syllabus(
+        id=artifact_id(ArtifactKind.SYLLABUS, COURSE_ID),
+        title="Syllabus",
+        canvas_path=syllabus_path(COURSE_ID),
+        body_html=body,
+        published=True,
+    )
+
+
+def module_item(
+    canvas_id: str,
+    title: str,
+    *,
+    module_id: str,
+    item_type: str = "Page",
+    position: int = 1,
+    target_id: str | None = None,
+    external_url: str | None = None,
+) -> ModuleItem:
+    return ModuleItem(
+        id=artifact_id(ArtifactKind.MODULE_ITEM, canvas_id),
+        title=title,
+        canvas_path=module_item_path(COURSE_ID, canvas_id),
+        canvas_id=canvas_id,
+        module_id=module_id,
+        position=position,
+        item_type=item_type,
+        target_id=target_id,
+        external_url=external_url,
+        published=True,
+    )
+
+
+def module(canvas_id: str, title: str, *items: ModuleItem, position: int = 1) -> Module:
+    return Module(
+        id=artifact_id(ArtifactKind.MODULE, canvas_id),
+        title=title,
+        canvas_path=module_path(COURSE_ID, canvas_id),
+        canvas_id=canvas_id,
+        position=position,
+        items=tuple(items),
+        published=True,
+    )
+
+
+def assignment(
+    canvas_id: str,
+    title: str = "Synthetic assignment",
+    *,
+    body: str | None = "<p>Do the thing.</p>",
+    due_at: str | None = "2026-02-01T23:59:00Z",
+    points: float | None = 10.0,
+    grading_type: str = "points",
+    submission_types: Sequence[str] = ("online_text_entry",),
+    group_id: str | None = "4001",
+    has_rubric: bool = False,
+    rubric_title: str | None = None,
+    omit_from_final_grade: bool = False,
+) -> Assignment:
+    return Assignment(
+        id=artifact_id(ArtifactKind.ASSIGNMENT, canvas_id),
+        title=title,
+        canvas_path=assignment_path(COURSE_ID, canvas_id),
+        canvas_id=canvas_id,
+        body_html=body,
+        due_at=due_at,
+        points_possible=points,
+        grading_type=grading_type,
+        submission_types=tuple(submission_types),
+        assignment_group_id=group_id,
+        has_rubric=has_rubric,
+        rubric_title=rubric_title,
+        omit_from_final_grade=omit_from_final_grade,
+        published=True,
+    )
+
+
+def quiz(
+    canvas_id: str,
+    title: str = "Synthetic quiz",
+    *,
+    body: str | None = "<p>Ten questions.</p>",
+    quiz_type: str | None = "assignment",
+    time_limit: int | None = None,
+    due_at: str | None = "2026-02-01T23:59:00Z",
+    points: float | None = 20.0,
+) -> Quiz:
+    return Quiz(
+        id=artifact_id(ArtifactKind.QUIZ, canvas_id),
+        title=title,
+        canvas_path=quiz_path(COURSE_ID, canvas_id),
+        canvas_id=canvas_id,
+        body_html=body,
+        quiz_type=quiz_type,
+        time_limit=time_limit,
+        due_at=due_at,
+        points_possible=points,
+        published=True,
+    )
+
+
+def discussion(
+    canvas_id: str,
+    title: str = "Synthetic discussion",
+    *,
+    body: str | None = "<p>Post a reply.</p>",
+    graded: bool = False,
+    due_at: str | None = None,
+) -> Discussion:
+    return Discussion(
+        id=artifact_id(ArtifactKind.DISCUSSION, canvas_id),
+        title=title,
+        canvas_path=discussion_path(COURSE_ID, canvas_id),
+        canvas_id=canvas_id,
+        body_html=body,
+        graded=graded,
+        due_at=due_at,
+        published=True,
+    )
+
+
+def announcement(
+    canvas_id: str,
+    title: str = "Synthetic announcement",
+    *,
+    body: str | None = "<p>Something happened.</p>",
+    posted_at: str = "2026-01-13T08:00:00Z",
+) -> Discussion:
+    return Discussion(
+        kind=ArtifactKind.ANNOUNCEMENT,
+        id=artifact_id(ArtifactKind.ANNOUNCEMENT, canvas_id),
+        title=title,
+        canvas_path=announcement_path(COURSE_ID, canvas_id),
+        canvas_id=canvas_id,
+        body_html=body,
+        posted_at=posted_at,
+        published=True,
+    )
+
+
+def tab(
+    identifier: str,
+    label: str | None = None,
+    *,
+    position: int = 1,
+    hidden: bool = False,
+    type: str | None = None,
+) -> NavigationTab:
+    return NavigationTab(
+        id=identifier,
+        label=label or identifier.title(),
+        position=position,
+        hidden=hidden,
+        type=type,
+    )
+
+
+def group(identifier: str, name: str, *, weight: float | None = None, position: int = 1):
+    return AssignmentGroup(id=identifier, name=name, position=position, group_weight=weight)
+
+
+def rubric(identifier: str, title: str, *, criteria: int = 3) -> RubricSummary:
+    return RubricSummary(id=identifier, title=title, criteria_count=criteria)
+
+
+def outcome(
+    canvas_id: str,
+    title: str,
+    *,
+    description: str = "Measured this way.",
+    group: str = "Course Outcomes",
+) -> CourseOutcome:
+    return CourseOutcome(
+        id=artifact_id(ArtifactKind.OUTCOME, canvas_id),
+        title=title,
+        canvas_path=outcome_path(COURSE_ID, canvas_id),
+        canvas_id=canvas_id,
+        group=group,
+        description=description,
     )
 
 
@@ -322,18 +587,30 @@ def pptx(slides: Sequence[Mapping[str, object]]) -> bytes:
 __all__ = [
     "BASE_URL",
     "COURSE_ID",
+    "COURSE_START",
     "FIXTURE_COLLECTIONS",
+    "announcement",
+    "assignment",
     "codes",
     "course",
     "course_file",
+    "discussion",
     "docx",
     "empty_course",
     "encrypted_pdf",
     "examined",
+    "group",
     "located",
+    "module",
+    "module_item",
     "one_page",
+    "outcome",
     "page",
     "pdf",
     "pptx",
+    "quiz",
     "refused",
+    "rubric",
+    "syllabus",
+    "tab",
 ]

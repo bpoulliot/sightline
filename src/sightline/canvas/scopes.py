@@ -152,6 +152,14 @@ REQUIRED_SCOPES: tuple[Scope, ...] = (
         ),
     ),
     Scope(
+        scope="url:GET|/api/v1/courses/:course_id/outcome_group_links",
+        request="GET /api/v1/courses/{id}/outcome_group_links",
+        reason=(
+            "Lists the course's learning outcomes and the outcome group each is filed under, in "
+            "one call rather than one per group."
+        ),
+    ),
+    Scope(
         scope="url:GET|/api/v1/courses/:course_id/content_exports",
         request="GET /api/v1/courses/{id}/content_exports",
         reason=(

@@ -108,9 +108,9 @@ def test_an_unbound_pack_reports_zero_coverage_and_reads_as_a_success_line() -> 
 
 def test_the_report_names_which_capabilities_are_awaiting_a_detector() -> None:
     """Named rather than counted, because "2 rows are waiting" is not something anybody can act
-    on and "waiting on due_date_coverage" is."""
+    on and "waiting on document_printability" is."""
     detail = pack_coverage(load(TINY), tags=SHIPPED).detail()
-    assert "awaiting a detector: due_date_coverage, fixed_width_layout" in detail
+    assert "awaiting a detector: document_printability, fixed_width_layout" in detail
 
 
 def test_the_report_names_a_tag_this_build_does_not_recognise() -> None:
@@ -127,7 +127,7 @@ def test_a_row_records_which_detectors_would_feed_it() -> None:
     assert rows["DES 1"].detectors == ("D21",)
     assert rows["DES 2"].detectors == ("D22", "D23")
     assert rows["REA 3"].detectors == ()
-    assert rows["REA 3"].pending == ("due_date_coverage",)
+    assert rows["REA 3"].pending == ("document_printability",)
 
 
 def test_a_switched_off_section_is_counted_as_omitted_rather_than_dropped() -> None:
