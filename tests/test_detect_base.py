@@ -5,8 +5,9 @@ detector that quietly finds nothing because it broke, handed to a designer as a 
 wrong. So the assertions below are mostly about *refusals* — the paths on which the framework
 declines to produce a result rather than producing a reassuring one.
 
-Item 21 builds the guard that fires this deliberately across every registered detector and proves
-the guard itself can fail. What is here is the interface's own behaviour.
+``tests/test_detector_integrity.py`` is the guard that fires this deliberately across every
+registered detector and proves the guard itself can fail. What is here is the interface's own
+behaviour.
 """
 
 from __future__ import annotations
@@ -39,7 +40,7 @@ from sightline.model import ArtifactKind, CourseDocument, CourseInfo
 
 # Defining a detector registers it. These two exist only for this module, so they are defined
 # inside a snapshot that puts the registry back on the way out — the classes stay usable, the
-# registry never hears about them, and item 21's coverage guard is never asked to account for a
+# registry never hears about them, and the coverage guard is never asked to account for a
 # detector nobody ships.
 with registry_snapshot():
 
@@ -74,7 +75,7 @@ with registry_snapshot():
 @pytest.fixture(autouse=True)
 def _keep_the_registry_clean() -> Iterable[None]:
     """The tests below define detectors of their own. Nothing here may leak into
-    :func:`detectors`, which every other suite and item 21's coverage guard read."""
+    :func:`detectors`, which every other suite and the coverage guard read."""
     with registry_snapshot():
         yield
 

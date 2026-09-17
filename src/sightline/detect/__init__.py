@@ -6,8 +6,9 @@ emits a judgement, and it never names a rubric criterion: rubric packs project f
 (SPEC §04), so one ``link_text`` detector fires once and every pack renders it wherever its own
 mapping says.
 
-Importing this package registers every detector it ships. ``registry()`` is the list, and item 21's
-integrity guard walks it.
+Importing this package registers every detector it ships. ``registry()`` is the list, and the
+integrity guard in :mod:`sightline.detect.integrity` walks it: a registered detector with no fixture
+test behind it fails the build by name.
 """
 
 from .accessibility import (

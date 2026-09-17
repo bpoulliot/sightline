@@ -5,7 +5,7 @@ Canonical for item status. `docs/SPEC.md` is canonical for design.
 Labels: **READY** · **NEEDS DISCUSSION** · **NEEDS MEASUREMENT** · **BLOCKED**.
 Nothing unready enters the queue. One item per conversation, one PR per item.
 
-Queue lives at `~/docker/overnight-sightline/`. Next free item number: **27**.
+Queue lives at `~/docker/overnight-sightline/`. Next free item number: **28**.
 
 ---
 
@@ -34,12 +34,13 @@ Queue lives at `~/docker/overnight-sightline/`. Next free item number: **27**.
 | 18 | Escalation adapter | 3 | **BLOCKED** — ChatGPT Edu API access | — |
 | 19 | Uploaded-rubric mapping screen | 3 | **SUPERSEDED by 22** | — |
 | 20 | Multi-course comparison view | 3 | **DECIDED — not building it** | see 25 |
-| 21 | Detector integrity guard | 0 | READY | queued 05 |
+| 21 | Detector integrity guard | 0 | READY | **DONE** — PR #8 |
 | 22 | Model-proposed bindings, human-confirmed | 3 | READY | blocked by 09/10 in code |
 | 23 | Canvas-requested content export | 1 | READY | **DONE** — PR #6 |
 | 24 | Agreement and near-boundary transparency | 2 | READY | staged 16 |
 | 25 | Returned-review ingestion | 3 | **BLOCKED** — needs reviews delivered and returned | — |
 | 26 | Wire document bytes from the export to the detectors | 1 | READY | queued 99 |
+| 27 | One detector's crash must not take the whole review with it | 1 | READY | queued 99a |
 
 ---
 
@@ -65,7 +66,7 @@ command runs verbatim (490 tests, clean lint and format, container healthy).
 ```
 03a-sightline-item23-content-export-request.md  # DONE — PR #6
 04-sightline-item06-detector-framework.md       # DONE — PR #7
-05-sightline-item21-detector-integrity-guard.md
+05-sightline-item21-detector-integrity-guard.md  # DONE — PR #8
 05a-sightline-item04-rubric-pack-format.md       # clears item 08's stop; unblocks 05 and 13
 05b-sightline-item05-rubric-packs.md             # the two packs, straight after the format
 06-sightline-item07-canvas-structure-detectors.md
@@ -373,6 +374,19 @@ default `/24` collides.
 
 ## Notes carried forward
 
+**27 · FILED 2026-09-17 by item 21's session.** `run_detectors` catches `NothingExamined` and
+nothing else, so a detector that raises anything unexpected — a `ValueError` out of a parser handed
+markup it did not anticipate — **aborts the entire review**. Measured, not theorised: a probe
+detector raising `ValueError` over a one-page course took the other ten down with it and
+`run_detectors` produced no report at all. The module's own docstring says a detector that could
+not run must never become "a detector quietly missing from the list"; an unexpected exception makes
+*every* detector missing from the list. The vocabulary to report it already exists —
+`ResultState.NOT_EXAMINED` with a `not_examined_because`, which `DetectorResult.clean` already
+treats as not-a-pass and which the CLI already exits 1 over — so the fix keeps the failure loud
+while the rest of the review survives. Filed sorting **after** every pending item: it is a crash
+rather than silent wrongness, and nothing queued is blocked on it, though item 17's batch runner
+would lose a whole course to one odd page.
+
 **26 · FILED 2026-09-17 by item 06's session.** `ExportFileSource` exists and the detectors that
 read document bytes take one, but **nothing can build one**: `CourseAcquisition.acquire` returns
 `AcquisitionResult(document, signature, from_cache, entry)` and the `UnpackedExport` is a local
@@ -401,7 +415,7 @@ producing wrong output today, and item 21 is sequenced immediately after item 06
   explains nothing and raises `NothingExamined`. `DetectorResult.clean` is true only when a
   detector ran, found nothing, and had nothing left it could not read. **Item 21 fires this
   deliberately** — `registry_snapshot()` exists so a test can define a sabotaged detector without
-  leaving it in the registry.
+  leaving it in the registry, and `tests/test_detector_integrity.py` does exactly that.
 - **`Undetermined` is a first-class record beside the findings.** A PDF whose bytes were never
   downloaded is not an accessible PDF and is not an inaccessible one. Reporting it as either is a
   fabrication and reporting it as silence is the failure in SPEC §11.
@@ -431,6 +445,36 @@ producing wrong output today, and item 21 is sequenced immediately after item 06
 - **`python -m sightline.detect --bundle examples/sample-course` exits 1** when any detector could
   not run. A gap in the review is not a clean course, and a script reading the exit code has to be
   told so.
+
+**Item 21 — what later items inherit. Every item that adds a detector is subject to this.**
+
+- **A detector with no fixture test fails the build, by name.** `tests/test_detector_integrity.py`
+  is the guard and CI runs it as a step of its own. Adding a detector without a test is not a
+  warning and not a review comment; it is a red build naming the id.
+- **Coverage is observed, never read off the source.** `tests/detector_ledger.py` calls the suite's
+  detector tests with `Detector.run` instrumented and records the ids that came through it. A
+  detector a test *imports* and never runs does not count.
+- **A registry sweep is credited to nobody, and this rule is the item's finding.** The first version
+  of the guard counted every observed run. A drill — a detector added to the shipping registry with
+  no test, on purpose — came back **covered**, because `test_detect_base.py` iterates the registry
+  and runs everything in it, so every detector added after it was born with a test nobody wrote.
+  The guard passed on precisely the thing it exists to catch and only the drill said so. A test that
+  ran *every* registered detector is now credited to none of them. **Do not add a second
+  registry-sweeping test that asserts per-detector behaviour** — write it against named detectors,
+  or it silently stops counting.
+- **The harness calls fixture-free test functions.** A test that asks for a pytest fixture cannot be
+  called outside pytest and is skipped by the ledger, so a detector whose only test takes a fixture
+  reads as **uncovered** and fails the build. Give every detector at least one test that takes no
+  fixture. The direction is deliberate: the measurement fails loudly rather than assuming.
+- **The invariant is checked across the whole registry, not spot-checked.**
+  `sightline.detect.integrity.invariant()` runs every registered detector against an empty course
+  and distinguishes three outcomes: refused (the only pass), *returned a result* (a fabricated
+  count), and crashed. Both failing outcomes were demonstrated by sabotaging the real
+  `Survey.examined` in `src/`, not only in a fixture.
+- **The guard reports counts, like everything else here.** `./scripts/dev.sh pytest
+  tests/test_detector_integrity.py -q -s` prints how many detectors are registered, how many are
+  covered and by how many tests. `-s` is load-bearing: a guard whose whole output is a pass count is
+  the opaque green this item was written after.
 
 **Item 03 — what later items inherit.**
 

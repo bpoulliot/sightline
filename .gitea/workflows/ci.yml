@@ -55,6 +55,12 @@ jobs:
         run: uv sync --frozen --extra dev --python 3.12
       - name: pytest
         run: uv run pytest -q
+      # Run again, alone, for the same reason lint and format are separate jobs: a guard folded
+      # into a hundred other results is a guard nobody reads. `-s` prints the counts it measured,
+      # so the log says how many detectors are registered and how many have a fixture test behind
+      # them rather than saying "passed". A detector added with no test fails here by name.
+      - name: Detector integrity guard
+        run: uv run pytest tests/test_detector_integrity.py -q -s
 
   # Not decoration on a public repository. A secret committed once is a secret burned, and git
   # history keeps it after a later deletion — hence the full-depth fetch.
