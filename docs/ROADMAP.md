@@ -5,7 +5,7 @@ Canonical for item status. `docs/SPEC.md` is canonical for design.
 Labels: **READY** · **NEEDS DISCUSSION** · **NEEDS MEASUREMENT** · **BLOCKED**.
 Nothing unready enters the queue. One item per conversation, one PR per item.
 
-Queue lives at `~/docker/overnight-sightline/`. Next free item number: **26**.
+Queue lives at `~/docker/overnight-sightline/`. Next free item number: **27**.
 
 ---
 
@@ -18,7 +18,7 @@ Queue lives at `~/docker/overnight-sightline/`. Next free item number: **26**.
 | 03 | Acquisition and normalization | 0 | READY | **DONE** — PR #3 |
 | 04 | Rubric pack format + capability tags | 0 | READY | queued 05a |
 | 05 | Ship the two rubric packs | 0 | READY | queued 05b |
-| 06 | Detector framework + accessibility cluster | 0 | READY | queued 04 |
+| 06 | Detector framework + accessibility cluster | 0 | READY | **DONE** — PR #PRNUM |
 | 07 | Canvas structure detectors D01–D20 | 1 | READY | queued 06 |
 | 08 | Mobile detectors + optional-section flag | 1 | READY | queued 07 |
 | 09 | Ollama client, capability filter, model picker | 1 | READY | queued 08 |
@@ -39,6 +39,7 @@ Queue lives at `~/docker/overnight-sightline/`. Next free item number: **26**.
 | 23 | Canvas-requested content export | 1 | READY | **DONE** — PR #6 |
 | 24 | Agreement and near-boundary transparency | 2 | READY | staged 16 |
 | 25 | Returned-review ingestion | 3 | **BLOCKED** — needs reviews delivered and returned | — |
+| 26 | Wire document bytes from the export to the detectors | 1 | READY | queued 99 |
 
 ---
 
@@ -63,7 +64,7 @@ command runs verbatim (490 tests, clean lint and format, container healthy).
 
 ```
 03a-sightline-item23-content-export-request.md  # DONE — PR #6
-04-sightline-item06-detector-framework.md
+04-sightline-item06-detector-framework.md       # DONE — PR #PRNUM
 05-sightline-item21-detector-integrity-guard.md
 05a-sightline-item04-rubric-pack-format.md       # clears item 08's stop; unblocks 05 and 13
 05b-sightline-item05-rubric-packs.md             # the two packs, straight after the format
@@ -371,6 +372,65 @@ default `/24` collides.
   settled; a later move toward stock OSCQR 3.1 / 4.0 is a pack change, not a code change.
 
 ## Notes carried forward
+
+**26 · FILED 2026-09-17 by item 06's session.** `ExportFileSource` exists and the detectors that
+read document bytes take one, but **nothing can build one**: `CourseAcquisition.acquire` returns
+`AcquisitionResult(document, signature, from_cache, entry)` and the `UnpackedExport` is a local
+inside the method, so the unpacked export's directory is unreachable from outside. Two consequences
+and the second is the quiet one. D30 and D28's document half can never fire on a real course — they
+report "the bytes were not acquired" for every attachment even when an export was downloaded
+successfully. And `CourseFile.local_path`'s docstring says it is *relative to the data root*, while
+`acquire/normalize.py` sets it to the export-relative href (`web_resources/…`); the two disagree
+and whoever wires this first will resolve against the wrong root. Filed sorting **after** every
+pending item rather than jumping ahead: nothing calls stage 3 in a pipeline yet, so nothing is
+producing wrong output today, and item 21 is sequenced immediately after item 06 on purpose.
+
+**Item 06 — what later items inherit.**
+
+- **`sightline.detect` is the detector contract.** A detector declares `id`, a plain-language
+  `title`, a `tier` and the acquisition `collections` it reads, and implements one method:
+  `examine(survey)`. `Detector.run` is **final** — a subclass that overrides it raises `TypeError`
+  at class-definition time, because the examined count is taken there. Defining a subclass
+  registers it; `registry()` is the list and there is no second list to forget.
+- **A detector never touches the document.** Everything it can reach comes from the `Survey` it is
+  handed, and the survey counts every artifact it gives out. That is what makes the under-detection
+  invariant structural rather than a rule each new detector has to remember.
+- **Zero examined resolves three ways and none of them is a pass.** A collection acquisition could
+  not read is reported with its remedy; every declared collection recorded `empty` is a course that
+  genuinely has none; a collection recorded `ok` paired with a detector that opened none of it
+  explains nothing and raises `NothingExamined`. `DetectorResult.clean` is true only when a
+  detector ran, found nothing, and had nothing left it could not read. **Item 21 fires this
+  deliberately** — `registry_snapshot()` exists so a test can define a sabotaged detector without
+  leaving it in the registry.
+- **`Undetermined` is a first-class record beside the findings.** A PDF whose bytes were never
+  downloaded is not an accessible PDF and is not an inaccessible one. Reporting it as either is a
+  fabrication and reporting it as silence is the failure in SPEC §11.
+- **Detectors do not name criteria, per the item 04 decision.** The item 06 prompt listed a
+  criterion mapping as a finding field; the later decision recorded in this file's corrections log
+  supersedes it, and SPEC §04 agrees — rubric packs project findings onto rows. `Finding` carries
+  `detector`, `code`, `severity`, `tier`, `location`, `observed`, `evidence`, `examined` and a
+  free-form `context`, and `tests/test_detect_base.py` fails the build if a detector's title ever
+  names a category code. **Item 04 backfills `capability_tag`**, which was deliberately left to it
+  rather than invented here.
+- **`evidence` is verbatim and `observed` is not.** `html_scan.verbatim()` truncates only;
+  `excerpt()` collapses whitespace and is for measured values. A quote that was silently tidied up
+  cannot be found by searching the page, and the whole design rests on a finding being falsifiable
+  in seconds.
+- **PDF, DOCX and PPTX are read with the standard library** — `zipfile` plus `defusedxml`, and a
+  structural probe over a PDF's decompressed streams. No new dependency. The reason that decided it
+  is licensing: this repository is MIT and the PDF library these tools reach for first is AGPL.
+  The probe answers two questions (is there a tag tree, is there a text layer) and reports
+  *unreadable* for an encrypted file or a filter it does not implement, never *untagged*.
+- **D26 and D29 are tier B and are computed by a parser.** The tier governs how a finding is worded
+  and whether a rating may be pre-selected, not who computed it; a parser that quotes cannot invent
+  the quote, which is a stricter form of the same contract. Item 10 may add model corroboration
+  without changing the tier.
+- **`examples/sample-course/defects.json` is now a live contract**, not only a marker check.
+  `tests/test_detect_sample_course.py` asserts every `defect` row fires, every `clean` row stays
+  quiet, and every `not_covered` row comes back with an `Undetermined` record rather than clean.
+- **`python -m sightline.detect --bundle examples/sample-course` exits 1** when any detector could
+  not run. A gap in the review is not a clean course, and a script reading the exit code has to be
+  told so.
 
 **Item 03 — what later items inherit.**
 

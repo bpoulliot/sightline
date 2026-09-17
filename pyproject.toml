@@ -49,7 +49,7 @@ select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM"]
 # tests/canvas_recordings.py is the suite's own fixture harness, imported by test modules the way
 # the package is. Without this, isort files it under third-party and the grouping flips depending
 # on which other imports a test happens to have.
-known-first-party = ["sightline", "canvas_recordings"]
+known-first-party = ["sightline", "canvas_recordings", "detector_fixtures"]
 
 [tool.black]
 line-length = 100
