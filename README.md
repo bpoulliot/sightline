@@ -540,6 +540,80 @@ token counts that absence is logged as `tokens_reported: false` rather than omit
 decoration: an earlier local-AI pipeline on this network died from 48-way concurrency against
 capacity that could not sustain it, and it died *silently*.
 
+## The extraction layer
+
+Ten model-backed extractors, `E01`–`E10` (SPEC §05). They locate and quote; they never rate, never
+summarise and never judge. Each returns one fixed JSON shape — a list of findings carrying a
+`quote` and a `location`, and nothing else — and **every quote is string-matched against the source
+document before it is accepted**. A quote that does not match is discarded and logged, never
+rendered.
+
+```sh
+python -m sightline.extract --bundle examples/sample-course --dry-run
+python -m sightline.extract --bundle examples/sample-course --model gemma4:e4b
+```
+
+`--dry-run` calls nothing and needs no model host. It prints the passages each extractor would send
+and the first prompt in full, which is the only way to read what a model is actually shown before
+spending an hour of a local GPU finding out.
+
+### One document per call, and the location is computed
+
+An extractor is sent one artifact at a time and never asks the model which page a sentence came
+from, so the model cannot invent an artifact it was never given. The schema does require it to say
+where it found each quote — and **that string is never rendered**. Three models on the target host
+answered that field with `"Course policies (page)"`, `"page"` and `"Week 2 overview"` for the same
+question about the same page: it carries no consistent meaning, so believing it would be inventing
+precision. What is rendered is computed instead — the artifact the harness sent, the source line of
+the block the verified quote was found in, and the heading above that block.
+
+A page longer than the word budget is **split, never truncated**. Truncating it would put the
+passage that answers the criterion in the half nobody sent, and the model would correctly return
+nothing.
+
+### What verification does and does not catch
+
+It catches invention. Normalization folds entities, typography, whitespace and case — two spellings
+of the same characters — and nothing else: no edit distance, no token overlap, no ellipsis splice.
+`three assignments` does not match `four assignments`, and `may` does not match `must`. What is kept
+is the **source's own text** at the match, sliced out of the document, so a model that straightened
+a curly apostrophe does not get its version rendered.
+
+It does not catch irrelevance. A quote that is really on the page but has nothing to do with the
+question is verified and shown. Measured on `llama3.1:8b` over the sample course, E09 verified 16
+quotes and discarded 1, and only about four of the sixteen stated a policy about grades or late
+work — the rest were real sentences about something else. That is the design working rather than
+failing: a reviewer reads a quote with its location and dismisses it in seconds, which is exactly
+the falsifiability SPEC §01 asks for, and it is why nothing here is allowed to skip straight to a
+rating.
+
+### Four outcomes, kept apart
+
+| Outcome | What it means |
+|---|---|
+| `no evidence found` | Every passage was sent, answered and verified, and nothing bears on the question. A complete answer. |
+| `nothing was examined` | There was nothing to send, and acquisition says why. Never a pass. |
+| `none carried any text` | Artifacts were opened and every one was empty. Not the same as finding nothing in them. |
+| `could not be read` | A call failed, or a response violated the schema. **Never** worded as "no evidence found". |
+
+A schema violation is rejected rather than coerced. A response carrying a `rating` key is not a
+response with a key to drop — it is a model doing something other than what it was asked, and
+quietly deleting the key would hide that. Nothing is retried: a second sample at the same
+temperature is a second answer to the same question, and choosing between them is the redundancy
+SPEC §01 rules out. Item 11's 3× router reports the disagreement instead.
+
+### The verb table judges, not the model
+
+E01 is the worked example of SPEC §01 and the pattern for every subjective criterion. The model
+extracts the sentence stating what a learner must produce; `sightline.extract.bloom` takes the task
+verb from the **verified quote** in code and maps it against a small, readable table; the
+distribution is arithmetic. The model extracted, a lookup table judged, a human decides. A verb the
+table does not carry is reported as *no table verb* and never guessed at — and a distribution is
+not a score: a course whose activities sit at *remember* is not a worse course.
+
+Tier C extractors (E05, E06, E07) assemble the same verified quotes plus the counts describing
+them, and draft a **question** for the reviewer. They never pre-select an answer to it.
+
 ## Canvas token scopes
 
 So an institution can issue a least-privilege token rather than an administrative one, here is
@@ -774,6 +848,7 @@ src/sightline/   the application
   acquire/       acquisition and normalization: the API reader, the fetch/unzip layer, the cache
   detect/        the detector framework and the accessibility cluster D21-D30
   llm/           the Ollama client, the capability filter, and the curated model manifest
+  extract/       the ten model-backed extractors, the response schema, and quote verification
   rubric/        the pack format, its JSON Schema, the importer, the mapping file, the projection
   capabilities.yaml  the capability-tag vocabulary: the one thing detectors and packs share
   model.py       the normalized document model every detector reads

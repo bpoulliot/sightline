@@ -103,6 +103,10 @@ class CoverageLedger:
     tests_called: int = 0
     #: Test functions the harness could not call because they ask for a pytest fixture.
     tests_needing_fixtures: int = 0
+    #: Test functions the harness could not call because they are coroutines and there is no
+    #: event loop here. Counted rather than called: calling one produces a coroutine object,
+    #: observes nothing, and warns — an observation that looks like it happened and did not.
+    tests_awaiting_a_loop: int = 0
     #: Tests that raised while being observed, as ``module.py::function: ExceptionType``. Not a
     #: failure here — the suite proper owns whether a test passes — but recorded, because a test
     #: that raised before reaching its detector is a hole in the observation and not a silence.
@@ -150,6 +154,11 @@ class CoverageReport:
             f"{len(self.ledger.modules_scanned)} module(s): "
             f"{', '.join(self.ledger.modules_scanned) or 'none'}.",
         ]
+        if self.ledger.tests_awaiting_a_loop:
+            lines.append(
+                f"  {self.ledger.tests_awaiting_a_loop} async test(s) were not called here; "
+                "a detector whose only test is one of those reads as uncovered."
+            )
         if self.ledger.sweeps:
             lines.append(
                 f"  {len(self.ledger.sweeps)} registry sweep(s) credited to no detector: "

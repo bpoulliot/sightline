@@ -541,6 +541,7 @@ class OllamaClient:
         context_tokens: int | None = None,
         temperature: float = 0.0,
         options: Mapping[str, Any] | None = None,
+        response_format: Mapping[str, Any] | str | None = None,
         require_usable: bool = True,
     ) -> ChatResult:
         """One non-streaming chat completion, logged with its latency and token counts.
@@ -552,6 +553,14 @@ class OllamaClient:
         ``model`` may be a :class:`ModelCard` or a name. A name costs one extra ``/api/show``,
         because the thinking pin cannot be resolved without the model's capabilities and guessing
         it produces an HTTP 400 from the host.
+
+        ``response_format`` goes into Ollama's top-level ``format`` field — ``"json"``, or a JSON
+        schema the host constrains generation to. It is a *top-level* field and not one of
+        ``options``; put it in ``options`` and the host accepts the request and ignores it, which
+        is the shape of bug that is found six weeks later. Measured working on the target host with
+        the extraction schema of :mod:`sightline.extract.schema`. **It does not remove the need to
+        validate the response**: a constraint the host promises to apply is not a constraint this
+        client has checked.
         """
         card = model if isinstance(model, ModelCard) else await self.card(model)
         if require_usable and not card.usable:
@@ -573,6 +582,10 @@ class OllamaClient:
         }
         if think is not None:
             payload["think"] = think
+        if response_format is not None:
+            payload["format"] = (
+                response_format if isinstance(response_format, str) else dict(response_format)
+            )
 
         with model_call(
             operation,
@@ -581,6 +594,7 @@ class OllamaClient:
             thinking=thinking.value,
             think_sent=think,
             context_tokens=window,
+            format_constrained=response_format is not None,
         ) as record:
             body = await self._request("POST", "/api/chat", payload=payload)
             if not isinstance(body, Mapping):
