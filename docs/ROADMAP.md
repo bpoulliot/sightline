@@ -19,7 +19,7 @@ Queue lives at `~/docker/overnight-sightline/`. Next free item number: **30**.
 | 04 | Rubric pack format + capability tags | 0 | READY | **DONE** — PR #9 |
 | 05 | Ship the two rubric packs | 0 | READY | **DONE** — PR #10 |
 | 06 | Detector framework + accessibility cluster | 0 | READY | **DONE** — PR #7 |
-| 07 | Canvas structure detectors D01–D20 | 1 | READY | **DONE** — PR #PENDING |
+| 07 | Canvas structure detectors D01–D20 | 1 | READY | **DONE** — PR #11 |
 | 08 | Mobile detectors + optional-section flag | 1 | READY | queued 07 |
 | 09 | Ollama client, capability filter, model picker | 1 | READY | queued 08 |
 | 10 | Extraction layer with verified quotes | 1 | READY | queued 09 |
@@ -71,7 +71,7 @@ command runs verbatim (490 tests, clean lint and format, container healthy).
 05-sightline-item21-detector-integrity-guard.md  # DONE — PR #8
 05a-sightline-item04-rubric-pack-format.md       # DONE — PR #9. Item 08's stop is cleared.
 05b-sightline-item05-rubric-packs.md             # DONE — PR #10. 68 + 18 rows, no new reader.
-06-sightline-item07-canvas-structure-detectors.md   # DONE — PR #PENDING
+06-sightline-item07-canvas-structure-detectors.md   # DONE — PR #11
 07a-sightline-item29-scan-text-block-seam.md         # filed by item 07's session
 07-sightline-item08-mobile-detectors.md          # pack flag needs item 04
 08-sightline-item09-ollama-client.md
@@ -377,7 +377,7 @@ default `/24` collides.
 
 ## Notes carried forward
 
-**07 · DONE 2026-09-17 (PR #PENDING). The Canvas structure cluster D01–D20, and five things it
+**07 · DONE 2026-09-17 (PR #11). The Canvas structure cluster D01–D20, and five things it
 established that were not known before it ran.**
 
 - **A structure detector's interesting answer is an absence, and an absence needs a location.**
