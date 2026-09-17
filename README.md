@@ -278,6 +278,39 @@ D26 and D29 look for signals a person has to confirm. They locate and quote a pa
 there; SPEC §02 puts them at tier B for that, and a parser that quotes is a stricter form of the
 same contract than a model that quotes, because a parser cannot invent the quote.
 
+### The mobile cluster, D39–D45
+
+Nearly free: every one of these rides a parse the clusters above already perform — the embeds
+acquisition extracted once, the same HTML scan D21–D30 walk, the file list, the module structure.
+No second traversal was added for any of them.
+
+| | |
+|---|---|
+| D39 | an embedded player with no ordinary link to the same address beside it |
+| D40 | module items and page content indented more levels deep than a narrow screen shows, and tables nested inside other tables |
+| D41 | images floated left or right with text running alongside them |
+| D42 | widths pinned to a number of pixels rather than declared as a proportion |
+| D43 | embedded content that names a plugin technology — Flash, Java, Silverlight, a platform-specific player |
+| D44 | attachments in a format a phone opens only with another application, or cannot open at all, counted against the ones it opens directly |
+| D45 | every place the course sends a learner outside Canvas — tier C, recorded as a question rather than as a finding |
+
+**A rubric pack decides whether any of this is reported.** A section may declare itself `optional`
+and a pack may then switch it off; the rows are reported as *omitted* rather than disappearing, and
+the detectors run either way. That is the projection principle at work: switching a block off
+changes what is rendered and nothing about what was examined. See
+[`docs/RUBRIC-PACKS.md`](docs/RUBRIC-PACKS.md).
+
+**D40 and D24 share a capability on purpose, and never name the same element.** Layout tables are
+D24's; indentation is D40's; a table nested inside another is reported by D24 on the outer table
+and by D40 on the inner one. A row bound to that capability receives from both and their effort
+sums, so an overlap would be a double charge rather than a duplicate line.
+
+**D45 emits no findings at all, and that is what tier C means here.** The course names the tool;
+whether an app for it is published on both mobile platforms is answered by two app stores and by no
+course artifact. So each one is recorded as something opened and not readable, carrying the context
+and the question, with no rating pre-selected. Whether a course has been *tested* on real handsets
+is tier D — not determinable from course artifacts — and has no detector by design.
+
 ### Checking detector integrity
 
 The invariant above is only worth what the guard over it is worth, and **a guard that has never
@@ -291,18 +324,21 @@ command prints what it measured rather than a word like *ok*:
 `-s` is not decoration. Without it the entire output is one line saying how many tests passed,
 which is the opaque green this check exists because of — on this network a 31-suite JS test set
 gated nothing for months because the obvious one-line runner pointed at a directory, printed one
-error and exited 0. With `-s` the command prints what it measured, which with the D01–D30
-detectors in the registry reads:
+error and exited 0. With `-s` the command prints what it measured, which with the D01–D30 and
+D39–D45 detectors in the registry reads:
 
 ```
-30 detector(s) registered; 30 covered by 145 fixture test(s); 0 uncovered.
-Observed by calling 382 test function(s) across 16 module(s): …
+37 detector(s) registered; 37 covered by 238 fixture test(s); 0 uncovered.
+Observed by calling 436 test function(s) across 17 module(s): …
   1 registry sweep(s) credited to no detector: …
   D21: 5 test(s)
   …
-The zero-examined invariant holds for 30 of 30 registered detector(s).
-30 detector(s) declare 30 capability tag(s); 0 declaration(s) will not resolve; 16 vocabulary tag(s) have no detector yet.
+The zero-examined invariant holds for 37 of 37 registered detector(s).
+37 detector(s) declare 36 capability tag(s); 0 declaration(s) will not resolve; 10 vocabulary tag(s) have no detector yet.
 ```
+
+Thirty-seven detectors declare **thirty-six** tags rather than thirty-seven: D24 and D40 share one
+deliberately, which is the many-to-one direction the projection is built for.
 
 Four guards, and each one is demonstrated failing in the same file, on purpose:
 

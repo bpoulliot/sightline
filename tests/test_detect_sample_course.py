@@ -22,9 +22,11 @@ from sightline.acquire import load_bundle
 from sightline.detect import DetectionReport, ResultState, registry, run_detectors
 from sightline.model import CourseDocument
 
-#: The detectors shipped so far — the accessibility cluster of item 06 and the Canvas structure
-#: cluster of item 07. Rows naming anything else are a later item's contract.
-SHIPPED = tuple(f"D{number:02d}" for number in (*range(1, 21), *range(21, 31)))
+#: The detectors shipped so far — the accessibility cluster of item 06, the Canvas structure
+#: cluster of item 07 and the mobile cluster of item 08. Rows naming anything else are a later
+#: item's contract. D39-D45 is not a range with a hole in it: SPEC §05 assigns D31-D38 and D46-D47
+#: to the content cluster, which is not built yet.
+SHIPPED = tuple(f"D{number:02d}" for number in (*range(1, 31), *range(39, 46)))
 
 
 @pytest.fixture

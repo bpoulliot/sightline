@@ -301,6 +301,20 @@ largely undetectable.
 | D45 | Required app platform availability | MOB 6 | C |
 | — | Tested on multiple mobile devices | MOB 5 | D |
 
+**How D40's overlap with D24 was resolved, item 08.** MOB 2 reads "the course avoids the use of
+tables and multiple levels of indents", and the *tables* half is already computed by D24, whose
+criteria column above is `ACD 6 · MOB 2`. Both detectors declare the same `table_semantics`
+capability, so a row bound to it receives from both and their effort sums — which makes an overlap
+a double charge rather than a duplicate line. D40 therefore computes the **indent** half, from the
+module items' own `indent` field and from markup nesting, plus the one table fact D24 structurally
+cannot reach: a table *inside* another table, reported on the inner table where D24 reports the
+outer one. Neither detector names the same element twice.
+
+**D45 emits no findings.** The course names the tool; whether an app for it is published on both
+platforms is answered by two app stores and by no course artifact. Each place the course sends a
+learner outside Canvas is recorded as something opened and not readable, carrying the context and
+the question, which is what tier C asks for and what keeps a rating from being pre-selected.
+
 ### Model-backed extraction (item 10)
 
 Each returns JSON conforming to a fixed schema: a list of findings, each with `quote` and

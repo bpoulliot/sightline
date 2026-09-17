@@ -234,6 +234,7 @@ def module_item(
     module_id: str,
     item_type: str = "Page",
     position: int = 1,
+    indent: int = 0,
     target_id: str | None = None,
     external_url: str | None = None,
 ) -> ModuleItem:
@@ -244,6 +245,7 @@ def module_item(
         canvas_id=canvas_id,
         module_id=module_id,
         position=position,
+        indent=indent,
         item_type=item_type,
         target_id=target_id,
         external_url=external_url,

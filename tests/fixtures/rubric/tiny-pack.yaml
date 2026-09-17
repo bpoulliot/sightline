@@ -162,10 +162,15 @@ criteria:
 
   - code: SML 1
     section: SML
-    text: Layout widths are proportional rather than fixed.
+    text: Content is broken into short sections rather than run together on one long page.
     tier: A
     priority: Worth doing
-    bindings: [fixed_width_layout]
+    # A SECOND unimplemented tag, so that the report's "awaiting a detector: a, b" line is rendered
+    # with more than one name in it. The same rule as REA 3 applies: the tag has to be one nothing
+    # implements, and which one that is moves as detectors land. This row bound `fixed_width_layout`
+    # until item 08 shipped D42. If it ever reads as covered, pick another unimplemented tag and
+    # write a criterion that honestly means it — never widen the assertions.
+    bindings: [content_chunking]
     source_ids:
       printed_as: "9"
 

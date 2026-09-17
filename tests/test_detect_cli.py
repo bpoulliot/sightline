@@ -11,7 +11,13 @@ from pathlib import Path
 
 import pytest
 
+from sightline.detect import registry
 from sightline.detect.__main__ import build_parser, main
+
+#: Read from the registry rather than written down. A number typed here is one a new detector
+#: silently falsifies, and the thing worth asserting is that the command ran *every* detector the
+#: build ships and left none of them out of the headline.
+SHIPPED = len(registry())
 
 
 def test_the_documented_command_runs_against_the_sample_course(
@@ -20,7 +26,7 @@ def test_the_documented_command_runs_against_the_sample_course(
     code = main(["--bundle", str(repo_root / "examples" / "sample-course")])
     out = capsys.readouterr().out
     assert code == 0
-    assert out.startswith("30 of 30 detector(s) examined the course")
+    assert out.startswith(f"{SHIPPED} of {SHIPPED} detector(s) examined the course")
     assert "alt_missing" in out
     assert "https://canvas.example.edu/courses/4410/pages/start-here" in out
 
@@ -53,7 +59,7 @@ def test_json_output_is_the_whole_report(
     code = main(["--bundle", str(repo_root / "examples" / "sample-course"), "--json"])
     payload = json.loads(capsys.readouterr().out)
     assert code == 0
-    assert len(payload["results"]) == 30
+    assert len(payload["results"]) == SHIPPED
     assert all(result["examined"] > 0 for result in payload["results"])
 
 
