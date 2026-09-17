@@ -23,7 +23,7 @@ Queue lives at `~/docker/overnight-sightline/`. Next free item number: **33**.
 | 08 | Mobile detectors + optional-section flag | 1 | READY | **DONE** — PR #12 |
 | 09 | Ollama client, capability filter, model picker | 1 | READY | **DONE** — PR #14 |
 | 10 | Extraction layer with verified quotes | 1 | READY | **DONE** — PR #15 |
-| 11 | Three-run disagreement router | 1 | READY | queued 10 |
+| 11 | Three-run disagreement router | 1 | READY | **DONE** — PR #17 |
 | 12a | Effort model — ship it | 1 | READY | queued 11a |
 | 12b | Effort model — fit the costs | 1 | **BLOCKED** — item 06/07/08 detectors have all landed; unblocked in code, still needs the calibration corpus | — |
 | 13 | XLSX writer | 2 | READY | staged 13 |
@@ -80,7 +80,7 @@ command runs verbatim (490 tests, clean lint and format, container healthy).
 08-sightline-item09-ollama-client.md              # DONE — PR #14. Three host behaviours measured.
 09-sightline-item10-extraction-layer.md          # DONE — PR #15. 10 extractors, quotes verified.
 09a-sightline-item32-dotenv-leaks-into-tests.md  # DONE — PR #16. Two holes, not one.
-10-sightline-item11-disagreement-router.md
+10-sightline-item11-disagreement-router.md      # DONE — PR #17. Union, not intersection.
 11-sightline-item17-batch-runner.md
 11a-sightline-item12a-effort-model.md            # LAST in batch 2, before anything renders a band
 ```

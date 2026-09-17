@@ -430,6 +430,46 @@ say what a correct implementation of it has to do, and item 10 depends on all th
   thinking model with the pin off therefore reads prose reasoning. Item 10 chooses the pin per
   call site with this in front of it; `ChatResult` keeps the two fields apart either way.
 
+### The 3× router, built 2026-09-17 (item 11)
+
+Each extraction runs three times and the runs are compared **on the extracted spans, after
+normalization** — not on prose, not on a count of findings, and never on a rating. A subject whose
+runs returned different spans is marked *needs attention*.
+
+- **Agreement is not marked.** Not "confident", not `agreed: true`, not a run count beside a quote.
+  A subject whose runs agreed carries exactly what one run produced. The zero-variance failure in
+  the section above is the reason: three identical confident answers is what a mildly agreeable
+  model returns on a weak prompt, so a marker for it would be strongest exactly where it is most
+  wrong.
+- **The evidence downstream is the union, never the intersection.** Every span was string-matched
+  against the source before acceptance, so a span one run returned is a passage that demonstrably
+  exists. Filtering by how many runs agreed would be variance used as a truth signal, which is the
+  thing the router exists not to do.
+- **Three run outcomes per span, kept apart**: returned, read-and-not-returned, and *the artifact
+  was unreadable in that run*. The third is not a disagreement — a run that could not read a page
+  did not fail to find a sentence in it, and counting it as one reports a single failure twice and
+  as the wrong kind of thing.
+- **A span's identity is its position as well as its text.** One sentence can appear twice in one
+  artifact — a policy restated under two headings is ordinary in a syllabus — and extraction
+  verifies and locates each occurrence separately, so one run legitimately returns two quotes of
+  the same text. Keyed on text alone the union keeps the first and drops the second: a verified
+  quote, with a location a reviewer could have opened, lost to the comparison rather than to any
+  filter. The position is safe to key on because the *harness* computes it and not the model; the
+  model's own account of where it looked is kept apart and never read here.
+- **The counts and the Tier C question are recomputed over the union**, not taken from a run. A
+  single run's summary describes that run's evidence, so printing it beside the union's quotes
+  would put a count next to a list it does not count — a machine-authored line a reviewer
+  falsifies by counting what is under it. Both are pure functions of the evidence and neither goes
+  near a model, so this is arithmetic and not a second opinion. Three runs of a Tier C criterion
+  are still three extractions and none of them is a rating.
+- **Cost is linear and is not amortized.** Concurrency is 1, so three runs take three times as
+  long. Measured over the synthetic sample course on `llama3.1:8b`: **127 model calls a pass, 381
+  for three runs**. That is the number a per-extractor selection UI would exist to reduce, and it
+  is why the router is asked for by `--runs` rather than being the default.
+- **The disagreement set is recorded as a document** — per flagged subject, the extractor id or the
+  whole rubric-row request, plus exactly the artifacts that differed — so escalation re-runs that
+  subset rather than the course.
+
 ### Escalation
 
 An OpenAI-compatible adapter lets a higher-capability model re-run *only the disagreement set* from
