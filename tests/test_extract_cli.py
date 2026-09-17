@@ -13,22 +13,15 @@ from pathlib import Path
 import pytest
 
 import ollama_recordings as recordings
-from sightline.config import Settings
 from sightline.extract.__main__ import build_parser, main
 from sightline.llm.client import OllamaClient
 
 MODEL = "llama3.1:8b"
 
-
-@pytest.fixture(autouse=True)
-def _settings_without_a_dotenv(monkeypatch: pytest.MonkeyPatch, settings: Settings) -> None:
-    """The command reads settings, and settings read ``.env`` — including a developer's real one.
-
-    Without this the "no model host is configured" test finds the host in the repository's own
-    ``.env`` and makes fifteen calls to it. Roadmap item 32 is the general fix; this pins the one
-    module under test in the meantime.
-    """
-    monkeypatch.setattr("sightline.extract.__main__.get_settings", lambda: settings)
+# This module used to pin ``get_settings`` to a dotenv-free Settings of its own, because the
+# "no model host is configured" test below otherwise found the endpoint in the repository's real
+# ``.env`` and made fifteen calls to it. Roadmap item 32 moved that isolation into
+# ``conftest.py``, where it covers every module rather than the one that noticed.
 
 
 @pytest.fixture
