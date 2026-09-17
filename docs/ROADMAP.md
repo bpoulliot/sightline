@@ -440,6 +440,20 @@ string match that stands between a model and a fabricated quote.**
   draft a question and never answer it, asserted by a lint over every shipped string; a second
   guard reads SPEC §05's own table out of `docs/SPEC.md` and checks the registered tiers against
   it, so the inventory and the spec cannot drift apart silently.
+- **Both models were run end to end against the live host, and they fail in opposite directions.**
+  `gemma4:e4b` on E01 over the sample course: 15 of 15 passages answered, **5 quotes verified, 0
+  discarded, 0 failures**, 316 s and 5 603 tokens for one extractor over fifteen short pages — and
+  every quote was genuinely a statement of what a learner must do. `llama3.1:8b` on E09 answered in
+  a quarter of the time and returned nearly four times as much, most of it real sentences about
+  something else. Precision is a property of the model, not of the harness; **the harness's job is
+  to make every quote checkable**, and item 11's router is where the disagreement between them
+  becomes information.
+- **Four of E01's five verified sentences carried no verb the Bloom table knows** — *Read*,
+  *Watch*, *Post*, *reply* — and were reported as *no table verb* rather than forced into a level.
+  That is the designed behaviour and it is visible in the output, but it is also a measurement
+  worth carrying: on this course the table classified one statement in five. Whether the table
+  needs activity verbs beside cognitive ones is a question for item 12's calibration, and it is not
+  answered by adding *read* to a level it does not belong to.
 - **`answer_request()` implements the routing contract** and is the only thing in the layer that
   knows a criterion exists — because the row hands over its own text. It costs one call per passage
   per row, which is the honest price of an instrument Sightline ships no mapping for, and it is why
