@@ -41,6 +41,7 @@ from ..llm.client import OllamaClient
 from ..llm.errors import ModelHostError
 from ..logging import configure_logging
 from ..model import CourseDocument
+from ..paths import DataPathError
 from .base import Evidence, prompt_for, registry
 from .base import extractors as registered_extractors
 from .passages import WORD_BUDGET
@@ -272,6 +273,21 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 2
 
+    if args.save_disagreements:
+        # The write itself happens after every model call has been paid for. Proving the
+        # destination now is what keeps a mistyped data root from costing a whole run: the
+        # measured three-run pass over the sample course is 381 calls and 48 minutes, and it
+        # ended in a traceback about `mkdir` until this check existed.
+        try:
+            settings.paths.ensure_writable()
+        except DataPathError as exc:
+            print(
+                f"--save-disagreements has nowhere to write: {exc}\n"
+                "Point SIGHTLINE_DATA_DIR at a writable directory, or drop the flag.",
+                file=sys.stderr,
+            )
+            return 2
+
     try:
         report = asyncio.run(
             _run(
@@ -295,7 +311,18 @@ def main(argv: list[str] | None = None) -> int:
         print(describe(report, document))
 
     if args.save_disagreements and isinstance(report, RouterReport):
-        written = _save_disagreements(report)
+        # Checked before the run, and checked again here by doing it: a root that was writable an
+        # hour ago can be full, unmounted or read-only now. The report is already on stdout, so
+        # what is lost is the saved subset and not the runs — the message says which.
+        try:
+            written = _save_disagreements(report)
+        except (DataPathError, OSError) as exc:
+            print(
+                f"the runs finished and are above; the disagreement set could not be "
+                f"written: {exc}",
+                file=sys.stderr,
+            )
+            return 1
         print(f"disagreement set written to {written}", file=sys.stderr)
 
     # A gap in the review is not a clean course. An extractor that could not run, or a passage

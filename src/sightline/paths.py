@@ -34,6 +34,11 @@ KEY_FILENAME = "credentials.key"
 #: between an obvious failure and a cache that quietly serves half a course export.
 PARTIAL_SUFFIX = ".partial"
 
+#: The file :meth:`DataPaths.ensure_writable` creates and removes to prove the root is writable.
+#: It wears :data:`PARTIAL_SUFFIX` so that a process killed between the create and the unlink
+#: leaves behind something :meth:`DataPaths.discard_partials` already knows how to clean up.
+PROBE_FILENAME = f"writability-probe{PARTIAL_SUFFIX}"
+
 #: Permissions for ``secrets/`` and for anything in it. The key is the only thing standing between
 #: a copied run store and a plaintext Canvas token, so it is owner-only.
 SECRET_DIR_MODE = 0o700
@@ -46,6 +51,10 @@ class DataPathError(ValueError):
 
 class DataPathEscape(DataPathError):
     """A requested path resolved outside the configured data root."""
+
+
+class DataPathUnwritable(DataPathError):
+    """The data root cannot be created, or cannot be written to once it exists."""
 
 
 @dataclass(frozen=True)
@@ -71,6 +80,36 @@ class DataPaths:
         for name in SUBDIRECTORIES:
             (self.root / name).mkdir(parents=True, exist_ok=True)
         (self.root / "secrets").chmod(SECRET_DIR_MODE)
+        return self
+
+    def ensure_writable(self) -> DataPaths:
+        """:meth:`ensure`, plus proof that a file can actually be created inside the root.
+
+        For a command that spends real time before it writes anything. A run that will save its
+        result at the end should learn in its first second that it has nowhere to save it, rather
+        than after an hour of model calls — that is the difference between a refusal and an hour
+        thrown away. Raised as :class:`DataPathUnwritable` rather than the bare ``OSError`` so a
+        caller can say which *setting* is wrong instead of printing a traceback about ``mkdir``.
+
+        The proof is a real file, created and removed. ``os.access`` would answer from the
+        permission bits alone, and the configurations this exists to catch — a read-only mount, a
+        container path that is not mounted on the host, a root owned by another uid — are exactly
+        where the bits and the outcome disagree. The probe is not opened with ``O_EXCL``: one left
+        by a killed process would then fail every later check, and clobbering our own reserved
+        name is what the check is for anyway.
+        """
+        try:
+            self.ensure()
+        except OSError as exc:
+            raise DataPathUnwritable(f"{self.root}: {exc.strerror or exc}") from exc
+
+        probe = self.resolve("runs", PROBE_FILENAME)
+        try:
+            descriptor = os.open(probe, os.O_WRONLY | os.O_CREAT)
+            os.close(descriptor)
+            os.unlink(probe)
+        except OSError as exc:
+            raise DataPathUnwritable(f"{probe.parent}: {exc.strerror or exc}") from exc
         return self
 
     # -- the gate ----------------------------------------------------------------------------

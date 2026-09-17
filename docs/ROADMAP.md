@@ -413,6 +413,16 @@ rather than once.**
 - **The figures were re-measured before the merge rather than carried over from the session that
   wrote them.** The first pass belonged to an attempt that ran out of session before it could
   publish; every number above was recomputed from the second run's own JSON.
+- **The re-measurement found a defect nothing in the suite could: `--save-disagreements` checked
+  its destination only after the run.** The confirming pass spent all 381 calls and 48 minutes and
+  then died with an uncaught `PermissionError` about `mkdir`, because it had been pointed at a data
+  root that exists inside the container and not on the host. The result survived by luck — the JSON
+  had already gone to stdout. Fixed in **PR #18**: `DataPaths.ensure_writable()` proves the root by
+  creating and removing a file *before* the first call is made, and the write at the end is now
+  handled rather than raised, because a root that was writable an hour ago can be full by now. The
+  proof is a real file and not `os.access`, since the configurations worth catching — a read-only
+  mount, an unmounted container path — are exactly where the permission bits and the outcome
+  disagree.
 
 **10 · DONE 2026-09-17 (PR #15). The extraction layer: ten extractors, one schema, and the
 string match that stands between a model and a fabricated quote.**

@@ -261,6 +261,65 @@ def test_saving_the_disagreement_set_needs_more_than_one_run(
     assert "one run has nothing to disagree with" in capsys.readouterr().err
 
 
+def test_a_data_root_it_cannot_write_to_is_refused_before_a_single_call(
+    sample: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The saved subset is written after every model call, so the check belongs before them.
+
+    This cost a real run: a three-run pass over the sample course spent 381 calls and 48 minutes
+    and then died with a ``PermissionError`` about ``mkdir``, because the data root it had been
+    given exists inside the container and not on the host. The assertion that matters is
+    ``host.calls == []`` — the exit code alone would pass just as well if the refusal arrived an
+    hour late.
+    """
+    blocker = tmp_path / "not-a-directory"
+    blocker.write_text("a file where a directory was expected", encoding="utf-8")
+    monkeypatch.setenv("SIGHTLINE_DATA_DIR", str(blocker / "data"))
+
+    host = recordings.only([MODEL])
+    host.chat_responses = _run_answers(_quote(LATE), NOTHING, _quote(LATE))
+
+    assert _routed(host, sample, monkeypatch, "--save-disagreements") == 2
+    assert host.calls == []
+
+    err = capsys.readouterr().err
+    assert "--save-disagreements has nowhere to write" in err
+    assert str(blocker / "data") in err
+    assert "SIGHTLINE_DATA_DIR" in err
+
+
+def test_a_write_that_fails_after_the_runs_keeps_the_runs_and_says_what_was_lost(
+    sample: str,
+    data_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A root writable at the start can be full, unmounted or read-only by the end.
+
+    The pre-flight cannot promise otherwise, so the late failure is handled rather than raised: the
+    quotes stay on stdout where the reviewer can read them, and the exit code stops a script
+    treating the subset as saved.
+    """
+    monkeypatch.setenv("SIGHTLINE_DATA_DIR", str(data_root))
+
+    def full_disk(report: object) -> Path:
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr("sightline.extract.__main__._save_disagreements", full_disk)
+    host = recordings.only([MODEL])
+    host.chat_responses = _run_answers(_quote(LATE), NOTHING, _quote(LATE))
+
+    assert _routed(host, sample, monkeypatch, "--save-disagreements") == 1
+
+    captured = capsys.readouterr()
+    assert LATE in captured.out
+    assert "the disagreement set could not be written" in captured.err
+    assert "No space left on device" in captured.err
+
+
 def test_the_disagreement_set_is_written_inside_the_data_root(
     sample: str,
     data_root: Path,

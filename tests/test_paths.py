@@ -18,7 +18,15 @@ from pathlib import Path
 
 import pytest
 
-from sightline.paths import SUBDIRECTORIES, DataPathError, DataPathEscape, DataPaths
+from sightline.paths import (
+    PARTIAL_SUFFIX,
+    PROBE_FILENAME,
+    SUBDIRECTORIES,
+    DataPathError,
+    DataPathEscape,
+    DataPaths,
+    DataPathUnwritable,
+)
 
 ESCAPE_ATTEMPTS = [
     "..",
@@ -58,6 +66,51 @@ def test_ensure_is_idempotent(paths: DataPaths) -> None:
     paths.ensure()
     paths.ensure()
     assert paths.root.is_dir()
+
+
+def test_ensure_writable_creates_the_root_and_leaves_no_probe_behind(data_root: Path) -> None:
+    assert DataPaths.from_setting(data_root).ensure_writable().root == data_root
+    for name in SUBDIRECTORIES:
+        assert (data_root / name).is_dir()
+    assert list(data_root.rglob(f"*{PARTIAL_SUFFIX}")) == []
+
+
+def test_ensure_writable_is_idempotent(paths: DataPaths) -> None:
+    paths.ensure_writable()
+    paths.ensure_writable()
+    assert list(paths.root.rglob(f"*{PARTIAL_SUFFIX}")) == []
+
+
+def test_a_root_that_cannot_be_created_is_refused_by_name(tmp_path: Path) -> None:
+    """The message names the path, because the setting is what the reader has to change.
+
+    The root is placed under a regular file rather than under a directory with the write bit off.
+    Both are real failures, but only this one fails for **every** uid: the dev image runs the suite
+    as root, and a permission-bit fixture would skip exactly where the guard needs proving.
+    """
+    blocker = tmp_path / "not-a-directory"
+    blocker.write_text("a file where a directory was expected", encoding="utf-8")
+
+    paths = DataPaths.from_setting(blocker / "data")
+    with pytest.raises(DataPathUnwritable) as raised:
+        paths.ensure_writable()
+    assert str(blocker / "data") in str(raised.value)
+
+
+def test_a_root_that_exists_but_refuses_a_file_is_caught(data_root: Path) -> None:
+    """``ensure`` alone passes here: the directories are all present and the right shape.
+
+    This is the case a ``mkdir`` check and ``os.access`` both miss — the tree exists, and creating
+    a file in it still fails. Only writing one finds that out, which is why the probe is a real
+    file. A directory standing where the probe belongs reproduces it for any uid.
+    """
+    paths = DataPaths.from_setting(data_root).ensure()
+    runs = data_root / "runs"
+    (runs / PROBE_FILENAME).mkdir()
+
+    with pytest.raises(DataPathUnwritable) as raised:
+        paths.ensure_writable()
+    assert str(runs) in str(raised.value)
 
 
 @pytest.mark.parametrize("attempt", ESCAPE_ATTEMPTS)
