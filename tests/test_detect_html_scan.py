@@ -1,11 +1,18 @@
 """The shared HTML scan — the parse every content detector reads.
 
-Two of these are about traps rather than features. Course HTML is malformed in every interesting
-way, and the failures that follow from that are silent: a parser that loses the second half of a
-page reports fewer images, not an error.
+Several of these are about traps rather than features. Course HTML is malformed in every
+interesting way, and the failures that follow from that are silent: a parser that loses the second
+half of a page reports fewer images, not an error, and a scan that joins two text runs with nothing
+between them reports a course that has a schedule as having none.
+
+The seam tests come in pairs on purpose. A separator at every tag would fix the first half and
+break ``<em>un</em>likely``; no separator anywhere is what shipped. Both directions are asserted,
+so neither can be traded for the other.
 """
 
 from __future__ import annotations
+
+import re
 
 from sightline.detect.html_scan import excerpt, heading_level, normalize_space, scan, tag_counts
 
@@ -41,6 +48,45 @@ def test_an_element_carries_its_own_text_and_its_descendants_text() -> None:
     assert paragraph.text == "Before bold after"
     assert paragraph.own_text == "Before after"
     assert page.children(paragraph)[0].text == "bold"
+
+
+def test_a_block_seam_separates_two_words_and_a_word_boundary_finds_them() -> None:
+    """The case that produced the wrong answer. D04 matched ``\\bschedule\\b`` against a syllabus
+    whose heading sat directly against its first paragraph, read back ``Course scheduleWeek 1``,
+    and reported a course that has a schedule as having none — wrong output, no error."""
+    page = scan("<h2>Course schedule</h2><p>Week 1</p>")
+    assert page.text == "Course schedule Week 1"
+    assert re.search(r"\bschedule\b", page.text)
+    assert page.words == 4
+
+
+def test_an_inline_seam_does_not_separate_one_word_into_two() -> None:
+    """The other direction, and the reason the rule is a list of tags rather than "always a
+    space". A browser renders these as one word, so a word count says one and a word-boundary
+    regex for the halves finds neither."""
+    page = scan("<em>un</em>likely")
+    assert page.text == "unlikely"
+    assert page.words == 1
+    assert not re.search(r"\bun\b", page.text)
+    # The span soup a word processor pastes into Canvas, which splits words mid-syllable.
+    assert scan("<span>Sch</span><span>edule</span>").text == "Schedule"
+
+
+def test_a_word_count_counts_the_words_a_reader_sees() -> None:
+    assert scan("<ul><li>One</li><li>Two</li></ul>").words == 2
+    assert scan("a<br>b").words == 2
+    assert scan("<table><tr><td>A</td><td>B</td></tr></table>").words == 2
+    # A tag the rule has never heard of separates: fusing invents a word that matches nothing.
+    assert scan("<x-widget>A</x-widget>B").words == 2
+
+
+def test_own_text_is_separated_at_a_block_seam_and_not_at_an_inline_one() -> None:
+    div = scan("<div>a<p>b</p>c</div>").of("div")[0]
+    assert div.own_text == "a c"
+    assert div.text == "a b c"
+    paragraph = scan("<p>Rea<em>d</em>ing</p>").of("p")[0]
+    assert paragraph.own_text == "Reaing"
+    assert paragraph.text == "Reading"
 
 
 def test_an_element_quotes_the_markup_as_written_and_the_line_it_was_on() -> None:

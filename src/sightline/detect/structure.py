@@ -50,7 +50,7 @@ from ..model import (
 )
 from .base import Detector, Finding, Severity, Survey, Tier
 from .documents import inspect_pdf
-from .html_scan import HEADING_TAGS, excerpt, scan, verbatim
+from .html_scan import HEADING_TAGS, INLINE_TAGS, excerpt, scan, verbatim
 from .links import LinkState
 
 # ---------------------------------------------------------------------------------------------
@@ -76,25 +76,49 @@ class Link:
 
 #: A ``<script>`` or ``<style>`` block, whose contents are not prose whatever they look like.
 _SCRIPTISH = re.compile(r"<(script|style)\b.*?</\1\s*>", re.IGNORECASE | re.DOTALL)
-#: Any tag. Replaced with a space rather than removed — see :func:`plain_text`.
-_ANY_TAG = re.compile(r"<[^>]*>")
+#: Any tag, with its name captured where it has one. Replaced by :func:`_seam` rather than removed.
+_ANY_TAG = re.compile(r"</?([a-zA-Z][^\s/>]*)?[^>]*>")
+
+
+def _seam(match: re.Match[str]) -> str:
+    """What one tag leaves behind: a space where the page breaks, nothing where it does not."""
+    if match.group(0).startswith("<!"):
+        # A comment or a doctype renders as nothing at all, so it separates nothing either.
+        return ""
+    name = match.group(1)
+    return "" if name and name.lower() in INLINE_TAGS else " "
 
 
 def plain_text(html: str | None) -> str:
-    """The prose of a body, with one space where each tag was.
+    r"""The prose of a body, read the way the page renders it, without building a tree.
 
-    **Not** ``scan(html).text``, and the difference is load-bearing here. That joins its text runs
-    with nothing between them, so ``<h2>Course schedule</h2><p>Week 1</p>`` reads back as
-    ``Course scheduleWeek 1`` — two words fused at the block seam. Every detector in this module
-    matches vocabulary with word boundaries, and a ``\bschedule\b`` that fails at the seam is a
-    course reported as having no schedule when it has one: wrong output, no error.
+    The seam rule is :data:`~sightline.detect.html_scan.INLINE_TAGS` and it is imported rather than
+    restated: a space goes where the rendered page breaks one run of text from the next, and
+    nothing goes where a tag falls inside a word. So ``<h2>Course schedule</h2><p>Week 1</p>``
+    reads ``Course schedule Week 1`` — every detector in this module matches vocabulary with word
+    boundaries, and a ``\bschedule\b`` that fails at a block seam is a course reported as having no
+    schedule when it has one — while the span soup a word processor pastes into Canvas,
+    ``<span>Sch</span><span>edule</span>``, reads ``Schedule`` and matches the same regex. Both
+    directions are the same defect (SPEC §11); item 29 fixed them together.
+
+    **What this does that** :func:`~sightline.detect.html_scan.scan` **does not is no longer
+    anything — it only does it without a parse.** The two now agree on every seam, on entities, and
+    on dropping script and style contents, checked case by case against the scanner. Two things the
+    scanner still reads better, both because this is a regex and not a parser: a ``>`` inside a
+    quoted attribute value ends a tag here and does not there, and an *unclosed* ``<script>`` leaves
+    its code in the prose here and is dropped there. Neither is a seam; both are why the scanner is
+    the one to reach for when a detector needs the tree anyway.
+
+    What keeps this function is the parse it avoids. The twenty detectors here read prose and never
+    touch the tree, and routing them through the scanner would add a parse per body per detector —
+    roadmap item 30's measurement to take, not this function's to pre-empt.
 
     Script and style blocks go first, because their contents are not prose however much CSS looks
     like words when the tags come off.
     """
     if not html:
         return ""
-    stripped = _ANY_TAG.sub(" ", _SCRIPTISH.sub(" ", html))
+    stripped = _ANY_TAG.sub(_seam, _SCRIPTISH.sub(" ", html))
     return " ".join(unescape(stripped).split())
 
 

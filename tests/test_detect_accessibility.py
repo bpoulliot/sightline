@@ -40,6 +40,7 @@ from sightline.detect import (
     Tier,
     TypeSizeAndFamily,
 )
+from sightline.detect.html_scan import scan
 
 
 def run(detector: Detector, document: object, files: object = None) -> DetectorResult:
@@ -369,6 +370,17 @@ def test_d26_leaves_a_whole_paragraph_in_one_colour_alone() -> None:
     assert codes(run(ColourAsSoleCarrier(), one_page(body))) == []
 
 
+def test_d26_reads_an_instruction_that_ends_at_a_block_seam() -> None:
+    """What the seam cost D26, measured rather than assumed. The scan used to join two table cells
+    with nothing between them, so this page read ``...marked in redDue this week`` and
+    ``\\bred\\b`` did not match: a page that tells a learner to look for a colour, reported as
+    saying nothing about colour at all."""
+    body = "<table><tr><td>Items marked in red</td><td>Due this week</td></tr></table>"
+    result = run(ColourAsSoleCarrier(), one_page(body))
+    assert codes(result) == ["instructions_refer_to_a_colour"]
+    assert result.findings[0].observed == '"marked in red"'
+
+
 def test_d26_never_pre_rates_anything_it_quotes() -> None:
     body = "<p>The red items are required.</p>"
     result = run(ColourAsSoleCarrier(), one_page(body))
@@ -525,6 +537,33 @@ def test_d29_reports_a_page_carrying_more_picture_than_prose() -> None:
     result = run(TextRenderedAsImage(), one_page(body))
     assert codes(result) == ["page_carries_more_picture_than_prose"]
     assert result.findings[0].context == {"images": 3, "words": 1}
+
+
+#: Thirty words in each of two paragraphs, written with no whitespace at the seam between them —
+#: the shape a WYSIWYG editor produces. The scan used to read 59 words here and now reads 60, which
+#: is the number a reader counts.
+SIXTY_WORDS_ACROSS_A_SEAM = (
+    "<p>" + " ".join(["word"] * 30) + "</p><p>" + " ".join(["word"] * 30) + "</p>"
+)
+TWO_FIGURES = "".join(
+    f'<img src="/courses/4410/files/60{index:02d}/preview" alt="A figure">' for index in range(2)
+)
+
+
+def test_d29_counts_the_words_a_reader_counts_across_a_block_seam() -> None:
+    """The density rule is ``words < 30 x images``, so two images make 60 the boundary. The fused
+    count was 59 and fired; the true count is 60 and does not. The threshold is not re-fitted —
+    it means what it always meant, and it is now applied to the right number."""
+    page = scan(SIXTY_WORDS_ACROSS_A_SEAM)
+    assert page.words == 60
+    result = run(TextRenderedAsImage(), one_page(SIXTY_WORDS_ACROSS_A_SEAM + TWO_FIGURES))
+    assert result.clean is True
+
+    one_word_shorter = SIXTY_WORDS_ACROSS_A_SEAM.replace("<p>word ", "<p>", 1)
+    assert scan(one_word_shorter).words == 59
+    fired = run(TextRenderedAsImage(), one_page(one_word_shorter + TWO_FIGURES))
+    assert codes(fired) == ["page_carries_more_picture_than_prose"]
+    assert fired.findings[0].context == {"images": 2, "words": 59}
 
 
 def test_d29_sends_no_image_to_a_model_and_says_so() -> None:

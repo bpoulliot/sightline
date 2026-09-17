@@ -38,6 +38,7 @@ from detector_fixtures import (
     tab,
 )
 from sightline.detect.base import NothingExamined, ResultState, Severity, Tier
+from sightline.detect.html_scan import scan
 from sightline.detect.links import LinkCheck, LinkState
 from sightline.detect.sources import MappingFileSource
 from sightline.detect.structure import (
@@ -128,14 +129,39 @@ def test_a_course_relative_link_is_not_external() -> None:
     assert external("mailto:nobody@example.edu") is False
 
 
-def test_prose_is_read_with_a_space_where_each_tag_was() -> None:
-    """The trap this helper exists for: ``Scan.text`` fuses two block elements into one word, and
-    every vocabulary match in this module is written with word boundaries. A course whose schedule
-    heading sits against its first row would read as having no schedule at all."""
-    assert plain_text("<h2>Course schedule</h2><p>Week 1</p>") == "Course schedule Week 1"
-    assert plain_text("<style>p{color:red}</style><p>Text</p>") == "Text"
-    assert plain_text("<p>Caf&eacute;</p>") == "Café"
+#: Bodies where the seam rule decides the answer. Both helpers are asserted against the same list,
+#: because the rule is meant to be one rule with two implementations rather than two rules.
+SEAM_CASES = (
+    ("<h2>Course schedule</h2><p>Week 1</p>", "Course schedule Week 1"),
+    ("<em>un</em>likely", "unlikely"),
+    ("<span>Sch</span><span>edule</span>", "Schedule"),
+    ("<table><tr><td>Week 1</td><td>Reading</td></tr></table>", "Week 1 Reading"),
+    ("a<br>b", "a b"),
+    ("<p>Due <strong>Friday</strong>.</p>", "Due Friday."),
+    ("a<!--an editor's leftover-->b", "ab"),
+    ("<style>p{color:red}</style><p>Text</p>", "Text"),
+    ("<p>Caf&eacute;</p>", "Café"),
+    ("", ""),
+)
+
+
+def test_prose_is_read_the_way_the_page_renders_it() -> None:
+    """The trap this helper exists for, in both directions. A course whose schedule heading sits
+    directly against its first row read as ``Course scheduleWeek 1`` and reported as having no
+    schedule at all; a space at *every* tag instead would read ``<em>un</em>likely`` as two words
+    and match ``\\bun\\b``. Every vocabulary match in this module is written with word boundaries,
+    so both halves are wrong output with no error."""
+    for html, expected in SEAM_CASES:
+        assert plain_text(html) == expected, html
     assert plain_text(None) == ""
+
+
+def test_the_seam_rule_is_one_rule_and_the_scanner_agrees_with_it() -> None:
+    """``plain_text`` reads the string and ``scan`` reads the tree, and they are separate code
+    because item 30 has not measured what a parse per body costs yet. They are not allowed to be
+    separate *rules*: a detector's answer must not depend on which helper it happened to call."""
+    for html, expected in SEAM_CASES:
+        assert scan(html).text == expected, html
 
 
 def test_a_week_number_is_not_a_date_and_a_month_and_day_is() -> None:

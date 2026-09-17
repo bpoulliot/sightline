@@ -18,6 +18,13 @@ contain ``<`` that is not markup.
 **An element is located, not just found.** Every :class:`Element` carries the literal start tag as
 written and the line it was written on, because a finding has to quote something a reviewer can
 search the page for.
+
+**Text runs are joined the way the page reads, not the way the markup concatenates.** The scan used
+to build its text with ``"".join(...)``, so ``<h2>Course schedule</h2><p>Week 1</p>`` read back as
+``Course scheduleWeek 1``: a word-boundary regex failed at the seam and a word count was short by
+one per seam. D04 reported a course that has a schedule as having none — wrong output, no error.
+The rule now is :data:`INLINE_TAGS` and it is stated once, here: a separator is written wherever the
+rendered page would break one run of text from the next, and nowhere else.
 """
 
 from __future__ import annotations
@@ -52,6 +59,59 @@ VOID_TAGS = frozenset(
 #: carrying a stylesheet does not read as a page carrying text.
 _NON_PROSE = frozenset({"script", "style"})
 
+#: Tags whose boundaries fall *inside* a run of text rather than between two runs. A browser renders
+#: ``<em>un</em>likely`` as the single word "unlikely", so no separator is written where one of
+#: these opens or closes, and a word count over the text counts one word there.
+#:
+#: Everything not in this set breaks the run and takes a separator: every block element, ``<br>``,
+#: a replaced object like ``<img>`` or a form control that a reader sees as a thing between two
+#: pieces of text, and any tag this set has never heard of. Unknown tags separate deliberately —
+#: fusing two words invents a third word that matches nothing and is invisible (SPEC §11), while
+#: separating two words that a browser would have run together leaves both of them findable.
+#:
+#: This is the text-level semantics of HTML plus the presentational tags a decade of course content
+#: is written in; it is not a guess about which CSS ``display`` a course's stylesheet sets.
+INLINE_TAGS = frozenset(
+    {
+        "a",
+        "abbr",
+        "acronym",
+        "b",
+        "bdi",
+        "bdo",
+        "big",
+        "cite",
+        "code",
+        "data",
+        "del",
+        "dfn",
+        "em",
+        "font",
+        "i",
+        "ins",
+        "kbd",
+        "mark",
+        "nobr",
+        "q",
+        "rp",
+        "rt",
+        "ruby",
+        "s",
+        "samp",
+        "small",
+        "span",
+        "strike",
+        "strong",
+        "sub",
+        "sup",
+        "time",
+        "tt",
+        "u",
+        "var",
+        "wbr",
+    }
+)
+
 HEADING_TAGS: tuple[str, ...] = ("h1", "h2", "h3", "h4", "h5", "h6")
 
 #: Elements that render text in bold or italic. ``b`` and ``i`` are presentational and ``strong``
@@ -81,9 +141,11 @@ class Element:
     #: Ancestor tag names, outermost first.
     ancestor_tags: tuple[str, ...]
     child_ordinals: tuple[int, ...]
-    #: Text belonging to this element and everything inside it, whitespace-normalized.
+    #: Text belonging to this element and everything inside it, whitespace-normalized, with a
+    #: separator at every seam that is not an :data:`INLINE_TAGS` one.
     text: str
-    #: Text written directly inside this element, excluding any nested element's text.
+    #: Text written directly inside this element, excluding any nested element's text. Separated by
+    #: the same rule, so ``<div>a<p>b</p>c</div>`` owns ``a c`` and not ``ac``.
     own_text: str
 
     @property
@@ -112,7 +174,10 @@ class Scan:
     elements: tuple[Element, ...]
     #: The contents of every ``<style>`` block, in document order.
     stylesheets: tuple[str, ...]
-    #: Prose text of the whole body, whitespace-normalized.
+    #: Prose text of the whole body, whitespace-normalized, read the way the page renders:
+    #: separated at every seam that is not an :data:`INLINE_TAGS` one. ``<h2>Course
+    #: schedule</h2><p>Week 1</p>`` reads ``Course schedule Week 1``, and ``<em>un</em>likely``
+    #: reads ``unlikely``. Anything matching vocabulary with ``\b`` depends on both halves.
     text: str
     #: Text runs that sit outside any anchor, each with the line it started on. What D23 reads to
     #: find a URL written out as prose, which Canvas turns into a link when it renders.
@@ -168,6 +233,8 @@ class _TreeParser(HTMLParser):
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         lowered = tag.lower()
+        if lowered not in INLINE_TAGS:
+            self._seam()
         node = _Node(
             tag=lowered,
             attrs={name.lower(): (value if value is not None else "") for name, value in attrs},
@@ -189,7 +256,10 @@ class _TreeParser(HTMLParser):
             self._close(tag.lower())
 
     def handle_endtag(self, tag: str) -> None:
-        self._close(tag.lower())
+        lowered = tag.lower()
+        if lowered not in INLINE_TAGS:
+            self._seam()
+        self._close(lowered)
 
     def _close(self, tag: str) -> None:
         # Leniently: an end tag with no matching open tag is discarded rather than unwinding the
@@ -200,6 +270,23 @@ class _TreeParser(HTMLParser):
                 return
 
     # -- text ------------------------------------------------------------------------------
+
+    def _seam(self) -> None:
+        """Write a separator into every text stream that is open at a rendered break.
+
+        Into the innermost open element's own text as well as into every ancestor's, because
+        ``own_text`` fuses at a seam exactly as the body text does: ``<div>a<p>b</p>c</div>`` owns
+        ``a`` and ``c`` with nothing between them. A separator written where there is no text yet,
+        or where no text follows, is removed by :func:`normalize_space` at the end of the parse.
+
+        Not into :attr:`unlinked`, which keeps its runs apart already and stamps each with the line
+        it started on — a separator there would be a run with no text and no line of its own.
+        """
+        if self._open:
+            self.nodes[self._open[-1]].own.append(" ")
+        for ordinal in self._open:
+            self.nodes[ordinal].all_text.append(" ")
+        self.text_parts.append(" ")
 
     def handle_data(self, data: str) -> None:
         if self._open and self.nodes[self._open[-1]].tag == "style":
@@ -302,6 +389,7 @@ def tag_counts(page: Scan, tags: Sequence[str]) -> dict[str, int]:
 __all__ = [
     "EMPHASIS_TAGS",
     "HEADING_TAGS",
+    "INLINE_TAGS",
     "VOID_TAGS",
     "Element",
     "Scan",
