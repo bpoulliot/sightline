@@ -4,6 +4,14 @@ Two things matter here and they are both about isolation. Tests never read the d
 ``.env`` — a suite that picks up a real Canvas URL is a suite that can leak one into an assertion
 message. And every test gets its own data root under ``tmp_path``, well outside the repository, so
 the containment guarantees are exercised against a root that is not the default.
+
+The first of those is two separate leaks and used to be one. Settings arrive from the environment
+*and* from a file, and ``_isolated_environment`` originally cleared only the environment while its
+docstring promised both — so any test reaching :func:`sightline.config.get_settings` read the
+repository's own ``.env``, because ``env_file=".env"`` resolves against the working directory and
+the suite runs at the repository root. It was invisible: CI has no such file, so the guarantee
+held exactly where nothing was at stake and failed exactly where the secret lives. Roadmap item 32.
+``tests/test_env_isolation.py`` fires both halves rather than trusting this paragraph.
 """
 
 from __future__ import annotations
@@ -17,9 +25,14 @@ from sightline.canvas.exports import CEILING_SECONDS, PollPacing
 from sightline.config import Settings, reset_settings_cache
 from sightline.paths import DataPaths
 from sightline.redaction import clear_registry
+from sightline.rubric.shipped import PACKS_DIR_ENV
 
-#: Every environment variable the settings model reads. Cleared so the host environment cannot
-#: change a test result.
+#: Every environment variable :class:`sightline.config.Settings` reads. Cleared so the host
+#: environment cannot change a test result.
+#:
+#: The list is hand-maintained and therefore has to be checked rather than trusted:
+#: ``tests/test_env_isolation.py`` reads the validation aliases off the model and fails if one is
+#: missing here. Adding a setting without adding it here is otherwise invisible.
 SETTING_ENV_VARS = (
     "CANVAS_BASE_URL",
     "CANVAS_API_TOKEN",
@@ -39,11 +52,38 @@ SETTING_ENV_VARS = (
     "SIGHTLINE_LOG_FORMAT",
 )
 
+#: Environment variables read outside the settings model, which the list above therefore cannot
+#: find. Only one so far: :mod:`sightline.rubric.shipped` reads its packs directory straight from
+#: the environment because locating a data file is not a deployment setting. Left in place, an
+#: exported ``SIGHTLINE_RUBRIC_PACKS_DIR`` pointed anywhere else fails 43 tests — measured, not
+#: supposed. Loud rather than silent, unlike the ``.env`` leak, but the same defect: the host
+#: changing a test result.
+OTHER_ENV_VARS = (PACKS_DIR_ENV,)
+
+#: Everything the autouse fixture clears.
+ISOLATED_ENV_VARS = SETTING_ENV_VARS + OTHER_ENV_VARS
+
 
 @pytest.fixture(autouse=True)
 def _isolated_environment(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    for name in SETTING_ENV_VARS:
+    """Neither the environment nor a ``.env`` file may change a test result.
+
+    The file half is done on the class rather than at any call site, because the call sites are
+    the point: ``Settings()`` is constructed by the app factory and by every ``python -m`` entry
+    point, and a guard that each of those has to opt into is a guard the next module forgets.
+    Neutralising ``env_file`` here covers ``Settings()`` wherever it is built, including inside
+    code under test. Nothing else in the config is disturbed.
+
+    Changing the working directory instead is the obvious alternative and is worse: the suite
+    resolves ``examples/sample-course`` and ``docs/`` from the repository root, so a chdir here
+    would break paths that have nothing to do with configuration.
+
+    Production is untouched — reading ``.env`` is what :mod:`sightline.config` is for. The defect
+    was only ever this harness's claim about what it isolates.
+    """
+    for name in ISOLATED_ENV_VARS:
         monkeypatch.delenv(name, raising=False)
+    monkeypatch.setattr(Settings, "model_config", {**Settings.model_config, "env_file": None})
     clear_registry()
     reset_settings_cache()
     yield
