@@ -338,6 +338,36 @@ expected answer.**
 | E13 | Learner contribution of outside resources | ENIN 10 | C |
 | E14 | Multiple means of demonstrating achievement | ASFE 3 | C |
 
+**E01–E10 are built (item 10); E11–E14 are not.** The criteria column is documentation of the
+reference pack, not a property of an extractor: an extractor names no criterion and declares no
+capability tag, and reaches a row through the routing contract in `sightline.rubric.routing`.
+
+#### How extraction works, as built
+
+- **One artifact per call.** The model is sent one page, one assignment, one syllabus, and is never
+  asked which page a sentence came from. A page over the word budget is **split, never truncated**.
+- **The location is computed, not believed.** The schema requires the model to say where it looked,
+  and that string is never rendered. Asked the same question about the same page, three models on
+  the target host answered `"Course policies (page)"`, `"page"` and `"Week 2 overview"`. What is
+  rendered is the artifact the harness sent, the source line of the block the verified quote landed
+  in, and the heading above it.
+- **Every quote is string-matched against the document before acceptance**, and what is kept is the
+  *source's* text at the match rather than the model's string. Normalization folds entities,
+  typography, whitespace and case. Nothing approximate: a changed number, a dropped word or an
+  ellipsis splice is discarded and logged.
+- **Verification catches invention, not irrelevance.** A quote that is on the page but bears on
+  nothing is verified and shown, with its location, for a reviewer to dismiss in seconds. That is
+  the falsifiability §01 asks for, and it is why no extractor may skip to a rating.
+- **Four outcomes are kept apart**: *no evidence found* (sent, answered, verified, nothing bears on
+  it), *nothing was examined*, *nothing carried any text*, and *could not be read*. The last is
+  never worded as the first.
+- **The thinking pin is on where the model reports the capability**, because with it off a thinking
+  model's reasoning arrives inside `message.content` — which is what the extractor parses. The
+  response schema also goes to the host in `format`, which constrains generation; the response is
+  validated regardless, since a constraint the host promises is not a constraint this code checked.
+- **Nothing retries.** A second sample at the same temperature is a second answer to the same
+  question. Item 11 is a router over three runs, not a validator.
+
 ### Human-only, no detector
 
 | Criterion | Text | Tier |
@@ -535,7 +565,9 @@ nothing and exits green.
 An extractor that invents a plausible quote is the failure that would destroy trust fastest, because
 a fabricated quote looks exactly like the evidence the design depends on. Mitigation is mechanical:
 every returned quote is string-matched against the source document before acceptance, and a
-non-matching quote is discarded and logged, never rendered. Part of item 10's definition of done.
+non-matching quote is discarded and logged, never rendered. Part of item 10's definition of done,
+and built there — `sightline.extract.verify`, with the normalizations it allows and the two things
+it deliberately does not rescue documented in the module itself.
 
 ### Scope creep toward AccessLens
 

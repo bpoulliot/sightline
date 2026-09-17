@@ -24,7 +24,9 @@ nothing about any detector in it. A test that names two detectors and runs both 
 both; only the whole-registry case is a sweep.
 
 **What it cannot see, and says so.** A test function that asks for a pytest fixture cannot be called
-outside pytest, so it is counted and skipped rather than guessed at. Every detector shipped today is
+outside pytest, and neither can an ``async`` one — there is no event loop here, and calling it
+returns a coroutine that observes nothing while looking exactly like a test that ran. Both are
+counted and skipped rather than guessed at. Every detector shipped today is
 covered several times over by fixture-free tests; a future detector whose only test needs a fixture
 reads as uncovered, which fails the build with a message rather than passing quietly. That is the
 right direction for this to be wrong in.
@@ -141,12 +143,20 @@ def build_ledger() -> CoverageLedger:
     modules = detector_test_modules()
     called = 0
     needing_fixtures = 0
+    awaiting_a_loop = 0
     raised: list[str] = []
 
     with _watching(by_test, node):
         for path in modules:
             module = _load(path)
             for name, function in _callables(module):
+                if inspect.iscoroutinefunction(function):
+                    # Calling one of these builds a coroutine, runs nothing and warns. The
+                    # observation would look like it happened. Counted and skipped, exactly as a
+                    # fixture-taking test is — see this module's docstring for why that direction
+                    # is the safe one.
+                    awaiting_a_loop += 1
+                    continue
                 if inspect.signature(function).parameters:
                     needing_fixtures += 1
                     continue
@@ -172,6 +182,7 @@ def build_ledger() -> CoverageLedger:
         sweeps=swept,
         tests_called=called,
         tests_needing_fixtures=needing_fixtures,
+        tests_awaiting_a_loop=awaiting_a_loop,
         tests_that_raised=tuple(raised),
     )
 

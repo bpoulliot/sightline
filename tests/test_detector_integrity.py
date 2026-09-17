@@ -43,6 +43,7 @@ a human can check.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable
 
 import pytest
@@ -130,6 +131,18 @@ def test_the_ledger_scanned_real_modules_and_called_real_tests() -> None:
     assert recorded.modules_scanned
     assert "test_detect_accessibility.py" in recorded.modules_scanned
     assert recorded.tests_called > 0
+
+
+def test_an_async_test_is_counted_rather_than_called() -> None:
+    """A coroutine called without a loop observes nothing and looks like a test that ran.
+
+    The extraction suite (item 10) is the first async code in a scanned module, which is what
+    surfaced this: the harness was calling those functions, recording nothing, and emitting a
+    RuntimeWarning per call. They are counted now, and the count is in the statement, so a
+    detector whose only test is async reads as uncovered rather than as observed.
+    """
+    assert ledger().tests_awaiting_a_loop > 0
+    assert "async test(s) were not called here" in coverage(registry(), ledger()).statement()
 
 
 def test_the_ledger_names_the_tests_it_saw_running_each_detector() -> None:
@@ -392,6 +405,11 @@ def test_the_guard_reports_counts_rather_than_a_verdict() -> None:
     assert "0 uncovered." in statement
     for detector_id in registry():
         assert f"  {detector_id}: " in statement
+    # Whole words, not substrings. The statement names the test modules it observed, and a
+    # substring search reads a verdict out of a filename: `test_extract_passages.py` contains
+    # "pass". A lint that fires on the name of a file is a lint nobody can trust the next time it
+    # fires for real.
     for word in ("score", "grade", "healthy", "good", "pass"):
-        assert word not in statement.lower()
-        assert word not in capability_report.statement().lower()
+        pattern = re.compile(rf"\b{word}\b")
+        assert not pattern.search(statement.lower())
+        assert not pattern.search(capability_report.statement().lower())
