@@ -45,7 +45,7 @@ Queue lives at `~/docker/overnight-sightline/`. Next free item number: **33**.
 | 29 | `Scan.text` fuses two words at every block seam | 1 | READY | **DONE** — PR #13 |
 | 30 | Every HTML detector re-parses every body | 2 | READY | queued 99c — **measure first** |
 | 31 | `plain_text()` reads a tag with a regex, and two shapes of course HTML defeat it | 1 | READY | queued 99c1 — take with 30 |
-| 32 | The suite reads the developer's `.env`; the fixture that promises it does not, does not | 1 | READY | queued 09a — **jumps ahead** |
+| 32 | The suite reads the developer's `.env`; the fixture that promises it does not, does not | 1 | READY | **DONE** — PR #16 |
 
 ---
 
@@ -79,7 +79,7 @@ command runs verbatim (490 tests, clean lint and format, container healthy).
 07-sightline-item08-mobile-detectors.md          # DONE — PR #12. The pack flag was already there.
 08-sightline-item09-ollama-client.md              # DONE — PR #14. Three host behaviours measured.
 09-sightline-item10-extraction-layer.md          # DONE — PR #15. 10 extractors, quotes verified.
-09a-sightline-item32-dotenv-leaks-into-tests.md  # filed by item 10; jumps ahead
+09a-sightline-item32-dotenv-leaks-into-tests.md  # DONE — PR #16. Two holes, not one.
 10-sightline-item11-disagreement-router.md
 11-sightline-item17-batch-runner.md
 11a-sightline-item12a-effort-model.md            # LAST in batch 2, before anything renders a band
@@ -561,6 +561,45 @@ has no `.env` (`.dockerignore` keeps it out of the build context), so the guaran
 where nobody needs it and fails exactly where the secret exists. Queued at `09a-`, ahead of the
 rest, for that reason. Item 10 pinned its own module with a monkeypatched `get_settings` and the
 item removes that workaround.
+
+**DONE 2026-09-17 (PR #16). The sweep found a second hole, and the fix is one line in the
+fixture that already promised the guarantee.** `_isolated_environment` now also neutralises
+`env_file` on the settings class — `monkeypatch.setattr(Settings, "model_config", {...,
+"env_file": None})` — so `Settings()` ignores the file wherever it is constructed, including by
+the app factory and by every `python -m` entry point. Nothing in `sightline.config` changed:
+reading `.env` is what it is for, and the defect was only ever the harness's claim about what it
+isolates. Changing the working directory was rejected for the reason the item gave — the suite
+resolves `examples/sample-course` and `docs/` from the repository root.
+
+**The guard was shown failing before it was shown passing**, the item 21 discipline:
+`tests/test_env_isolation.py` writes a `.env` carrying a reserved-TLD hostname into a directory it
+then chdirs to, and against the unfixed fixture **4 of its 5 original tests failed**. The one that
+passed is the one that should: the environment still reaches settings, which a fix that switched
+off *both* sources would have broken silently. Proven at the suite level too, by the difference
+between the two run paths: on the developer machine (a `.env` at the root) **1437 passed, 1
+skipped**; in the container by `./scripts/dev.sh pytest -q` (no `.env` at all) **1436 passed, 2
+skipped**. Same 1438 tests, and the single moved result is the one test *defined* to skip without
+a `.env`. A file that changes no test result is what the item asked for.
+
+**The sweep's finding: `SIGHTLINE_RUBRIC_PACKS_DIR` was never cleared either.**
+`sightline.rubric.shipped` reads it with `os.environ.get` rather than through `Settings`, so the
+hand-maintained `SETTING_ENV_VARS` list could not know about it — a developer with it exported
+fails **43 tests** in `test_rubric_packs.py` alone, measured by exporting it. Loud rather than
+silent, so a much smaller problem than the `.env` leak, but the same defect and the same fixture,
+so it was fixed here rather than filed. What closes the *class*: a test now reads the validation
+aliases off `Settings` and fails if one is missing from the cleared list, so the next setting
+added cannot quietly escape isolation. Nothing else in the sweep: the only two working-directory
+reads in the package (`assets.candidate_paths`, `shipped.candidate_paths`) each fall back to the
+same file resolved from `__file__`, and `scripts/scan-secrets.sh` cds to the repository root
+before it does anything.
+
+**Worth recording, because it is what made this invisible for nine items.**
+`test_canvas_exports.py::test_a_fixture_needs_a_token_or_it_skips` has asserted
+`os.environ.get("CANVAS_API_TOKEN") is None` since item 02 — a guard aimed at exactly this, which
+passed the whole time because it checked the *environment* and the leak was through a *file*. And
+a test that checks for a leak must not print it: `assert settings.canvas_base_url is None` puts
+the institution's hostname in the pytest output on failure, so every check that touches the real
+values reduces to a bool first.
 
 **31 · FILED 2026-09-17 by item 29's session. `plain_text()` reads a tag with a regular
 expression, and two shapes of real course HTML defeat it — silently.** Found while checking item
