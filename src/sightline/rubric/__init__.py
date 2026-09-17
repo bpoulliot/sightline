@@ -15,6 +15,11 @@ The pieces, in the order they are used:
 :mod:`~sightline.rubric.importer`
     A workbook to a valid pack **with empty bindings**, which is immediately usable rather than a
     stub awaiting authoring.
+:mod:`~sightline.rubric.mapping`
+    The authored mapping file — the tags, the tiers and the section flags no workbook has a column
+    for. **The only thing that differs between the two shipped packs.**
+:mod:`~sightline.rubric.shipped`
+    Locating the packs this build ships. They are peers; neither is a default.
 :mod:`~sightline.rubric.coverage`
     A coverage report about the pack alone: how many of its rows a parser can answer. Computed
     before any course is read, so a gap is visible information rather than silent degradation.
@@ -35,6 +40,8 @@ neither side, so it lives at :mod:`sightline.capabilities`.
 from .coverage import PackCoverage, RowCoverage, pack_coverage
 from .effort import EffortModel, placeholder_effort_model
 from .importer import Import, ImportReport, RubricImportError, import_csv, import_workbook
+from .mapping import MappingError, PackMapping, RowMapping, SectionMapping
+from .mapping import load as load_mapping
 from .pack import (
     Band,
     Criterion,
@@ -65,6 +72,7 @@ from .routing import (
     routes_to_extraction,
     routing_reason,
 )
+from .shipped import PacksNotFoundError, pack_paths, packs_dir, shipped_pack, shipped_packs
 from .states import Coverage, Rating, coverage_of
 
 __all__ = [
@@ -77,17 +85,22 @@ __all__ = [
     "ExtractionRequest",
     "Import",
     "ImportReport",
+    "MappingError",
     "PackCoverage",
+    "PackMapping",
+    "PacksNotFoundError",
     "Projection",
     "Rating",
     "RatingScale",
     "RoutingManifest",
     "RowCoverage",
+    "RowMapping",
     "RowResult",
     "RubricImportError",
     "RubricPack",
     "RubricPackError",
     "Section",
+    "SectionMapping",
     "TagIndex",
     "coverage_of",
     "default_rating_scale",
@@ -95,14 +108,19 @@ __all__ = [
     "import_csv",
     "import_workbook",
     "load",
+    "load_mapping",
     "loads",
     "manifest",
     "pack_coverage",
+    "pack_paths",
+    "packs_dir",
     "placeholder_effort_model",
     "project",
     "routes_to_extraction",
     "routing_reason",
     "schema",
+    "shipped_pack",
+    "shipped_packs",
     "tag_descriptions",
     "validate",
 ]

@@ -48,6 +48,123 @@ Departmental Online Course Checklist 2026.1: 0 of 1 criteria have deterministic 
 1 are evidence-only.
 ```
 
+## The two packs Sightline ships
+
+```
+rubrics/source/   the blank instruments, committed
+rubrics/maps/     the authored mapping files — tags, tiers, section flags
+rubrics/packs/    the generated packs, committed
+```
+
+| Pack | Rows | Instrument |
+|---|---|---|
+| `uccs-oscqr-3-1-3` | 68 in 7 categories | The UCCS adaptation of OSCQR. Ten sheets, a category column, a composite code, an OPEN SUNY number, an origin flag, a priority flag. |
+| `uccs-oscqr-rsi` | 18 in 6 sections | The short-form RSI review. One sheet, section headings sitting in the index column, **none** of those identifiers, and a file `openpyxl` refuses to open in its default mode. |
+
+**They are peers.** Neither is a default, neither is expressed in terms of the other, and no
+crosswalk exists in either direction. The RSI instrument's criterion 8 binds `link_text` because
+its own text is about link text — it reaches the same capability the other instrument's ACD 5
+reaches, independently. A test asserts that neither pack file mentions the other's numbering.
+
+```
+python -m sightline.rubric packs
+```
+
+```
+uccs-oscqr-3-1-3
+  UCCS OSCQR 3.1.3 3.1.3: 10 of 68 criteria have deterministic coverage, 18 are evidence-only,
+  39 are bound to a capability no detector implements yet, 1 are not determinable from course
+  artifacts.
+```
+
+**The middle number is the interesting one and it is meant to shrink.** 39 rows bind a capability
+this build does not implement yet; roadmap items 07 and 08 are what move them into the first
+column. Until then those rows read `NOT_YET_IMPLEMENTED`, which is neither covered nor
+evidence-only, and the report never adds the three together.
+
+### Regenerating them
+
+```
+./scripts/build-packs.sh
+```
+
+One command, no arguments. It reads the workbooks in `rubrics/source/` and the mapping files in
+`rubrics/maps/`, and writes `rubrics/packs/`. **Re-running it is byte-identical** — the import date
+lives in the mapping file rather than coming off the clock — so `git diff rubrics/packs` after a
+run is the check: an empty diff means the committed packs are what the inputs produce today, and a
+non-empty one is the review.
+
+---
+
+## The mapping file
+
+A rubric workbook carries criterion text and the instrument's own identifiers. It carries nothing
+about what Sightline can compute — **no rubric workbook has a column naming a detector** — so an
+import produces a pack with empty bindings, and everything an author knows beyond the file goes in
+a mapping file beside it.
+
+```yaml
+pack: uccs-oscqr-3-1-3
+name: UCCS OSCQR 3.1.3
+version: "3.1.3"
+imported_at: 2026-09-17
+join_key_column: F
+
+sections:
+  MOB:
+    optional: true
+    note: The mobile standards apply to a course reviewed for mobile delivery.
+
+criteria:
+  ACD 8:
+    tier: A
+    bindings: [alt_text]
+  ENIN 6:
+    tier: C
+```
+
+```
+python -m sightline.rubric import --workbook "my-rubric.xlsx" --map my-rubric-map.yaml > my-rubric.yaml
+```
+
+| Field | Notes |
+|---|---|
+| `pack`, `name`, `version`, `description`, `source_title`, `sheet` | The pack's identity, so regeneration takes no arguments. A command-line flag still wins over any of them. |
+| `imported_at` | Fixed, not read off the clock. This is what makes regeneration byte-identical. |
+| `join_key_column` | The spreadsheet column that identifies a row across sheets and across a re-import. Checked on import: a column that repeats or is blank on any row is refused. |
+| `sections[CODE]` | `title`, `optional`, `enabled`, `note`. |
+| `criteria[CODE]` | `tier`, `bindings`, `note`. A row named with no body keeps its imported defaults. |
+
+**A mapping naming a row the import did not produce is fatal.** That is the point of keeping the
+bindings in a separate file: when an instrument is revised and a criterion is renumbered or
+removed, the binding written against it now points at nothing, and §11's rubric drift must not pass
+quietly. The reverse — a row the mapping says nothing about — is *reported*, not fatal: a new row
+on a revised instrument imports unbound, which is a perfectly good state for it to be in.
+
+An unrecognised capability tag is **not** refused here. The mapping file feeds the pack side of the
+joint, so it inherits the pack side's rule: reported, and the row degrades.
+
+**A key written twice is refused, naming the line.** YAML permits a duplicated key and keeps the
+last one silently, which in a hand-edited file 68 rows long would drop the earlier `ACD 5:` block —
+its tier, its bindings, its note — with nothing downstream able to notice: the row is still there
+and the counts are still right. The same rule applies at every level of the file, and to a tag
+listed twice inside one row, where the duplicate would otherwise double that row's effort inside a
+sum that is then banded.
+
+### The join key, and the plausible wrong answer
+
+On the reference instrument, the obvious key is the category code plus the within-category index —
+`COAL` and `1`. It is wrong. That index column mixes `float` and `int` **inside one sheet**, and
+differently between sheets, so `COAL 1.0` and `COAL 1` both occur in the raw data. Joining the
+canonical sheet to its duplicate on that pair matches **7 rows of 69**. Column F, which holds the
+instrument's own composite code as a string, matches **69 of 69**.
+
+The row *codes* in the pack are still `COAL 1`, because that is what the instrument prints and what
+a reviewer reads; the importer normalizes an integral float before building one. Display and join
+are different jobs, and `source_ids.join_key` carries the second.
+
+---
+
 ## Importing a workbook
 
 ```
@@ -71,6 +188,8 @@ detector, so no import can produce one.
 ```
 python -m sightline.rubric import --csv "my-rubric.csv" ...
 ```
+
+Pass `--map` to apply a mapping file on the way through; see above.
 
 CSV is a lossy fallback for a file no spreadsheet reader can open. The report says so every time,
 and it counts any replacement characters the export has already lost.

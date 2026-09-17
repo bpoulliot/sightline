@@ -149,3 +149,66 @@ def test_the_tags_command_lists_the_vocabulary_and_what_implements_each_concept(
         assert f"[{detector_id}]" in out
     for criterion in ("ACD 8", "GSOV 5", "OPEN SUNY"):
         assert criterion not in out
+
+
+# ---------------------------------------------------------------------------------------------
+# The mapping file and the shipped packs (roadmap item 05)
+# ---------------------------------------------------------------------------------------------
+
+MAPS = REPO / "rubrics" / "maps"
+REFERENCE_WORKBOOK = REPO / "rubrics" / "source" / "UCCS OSCQR 3.1.3.xlsx"
+
+
+def test_the_import_command_applies_a_mapping_file(capsys: pytest.CaptureFixture[str]) -> None:
+    """The documented regeneration command, run verbatim. stdout is the pack and stderr is the
+    report, so the command pipes and the report is still readable."""
+    assert (
+        main(
+            [
+                "import",
+                "--workbook",
+                str(REFERENCE_WORKBOOK),
+                "--map",
+                str(MAPS / "uccs-oscqr-3-1-3.yaml"),
+            ]
+        )
+        == 0
+    )
+    captured = capsys.readouterr()
+    pack = loads(captured.out, origin="<imported>")
+    assert len(pack.criteria) == 68
+    assert pack.id == "uccs-oscqr-3-1-3"
+    # The report says what the mapping reached, so an import can be checked rather than trusted.
+    assert "mapping: uccs-oscqr-3-1-3.yaml reached 68 of 68 row(s)" in captured.err
+    assert "Join key: column F, 68 distinct value(s)" in captured.err
+    assert "39 are bound to a capability no detector implements yet" in captured.err
+
+
+def test_an_unreadable_mapping_file_exits_two_without_writing_a_pack(
+    capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    broken = tmp_path / "broken.yaml"
+    broken.write_text("critera: {}\n", encoding="utf-8")
+    assert main(["import", "--workbook", str(RSI), "--map", str(broken)]) == 2
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "critera" in captured.err
+
+
+def test_the_packs_command_reports_each_shipped_pack_separately(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Two peers, listed with their own counts. Neither is a default and neither is described in
+    terms of the other."""
+    assert main(["packs"]) == 0
+    out = capsys.readouterr().out
+    assert "2 rubric pack(s)" in out
+    assert "uccs-oscqr-3-1-3" in out
+    assert "uccs-oscqr-rsi" in out
+    assert "10 of 68 criteria have deterministic coverage" in out
+    assert "5 of 18 criteria have deterministic coverage" in out
+    # The three states are printed apart, and the middle one is named for what it is.
+    assert "are bound to a capability no detector implements yet" in out
+    assert "are evidence-only" in out
+    for word in ("degraded", "unsupported", "incomplete"):
+        assert word not in out.casefold()

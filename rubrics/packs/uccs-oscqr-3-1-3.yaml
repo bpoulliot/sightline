@@ -1,0 +1,1168 @@
+schema_version: 1
+id: uccs-oscqr-3-1-3
+name: UCCS OSCQR 3.1.3
+version: 3.1.3
+description: 'The University of Colorado Colorado Springs adaptation of OSCQR, at 68 criteria across seven
+  categories. A local instrument, not stock SUNY OSCQR 4.0, and the reference rubric Sightline was built
+  against — the reference, not the schema: nothing in Sightline requires another rubric to be expressed
+  in terms of this one.'
+source:
+  title: UCCS OSCQR 3.1.3 — Instructional Designer
+  workbook: UCCS OSCQR 3.1.3.xlsx
+  sheet: Instructional Designer
+  imported_at: '2026-09-17'
+  key_source: category_and_index
+  notes:
+  - 'Join key: column F, 68 distinct value(s) over 68 row(s). Declared in uccs-oscqr-3-1-3.yaml and checked
+    here; it is what a re-import of a revised edition diffs against, and it is carried on every row as
+    source_ids.join_key.'
+  - 9 row(s) carry no priority flag. Null, not a default — the flag is absent on the instrument.
+  - 'uccs-oscqr-3-1-3.yaml bound 49 of 68 row(s) to a capability tag and left 19 unbound. An unbound row
+    is normal and permanent: nothing computed bears on it, so its evidence is located and quoted instead.'
+priority_order:
+- Essential
+- Important
+rating_scale:
+  sufficiently_present: Sufficiently Present
+  not_applicable: Not Applicable
+  no_response: No Response
+  bands:
+  - rating: minor
+    label: Minor Revision
+    up_to_hours: 0.5
+    range_label: 1/2 hour or less
+  - rating: moderate
+    label: Moderate Revision
+    up_to_hours: 2.0
+    range_label: 1/2-2 hours
+  - rating: major
+    label: Major Revision
+    up_to_hours: null
+    range_label: 2+ hours
+sections:
+- code: COAL
+  title: Course Alignment
+- code: GSOV
+  title: Getting Started and Overviews
+- code: OREP
+  title: Organization and Representation
+- code: ACD
+  title: Accessible Course Design
+- code: ENIN
+  title: Engagement and Interaction
+- code: ASFE
+  title: Assessment and Feedback
+- code: MOB
+  title: Mobile Standards
+  optional: true
+  note: The mobile standards are an integrated set and apply to a course reviewed for mobile delivery.
+    A review may switch this section off; its rows are then reported as omitted.
+criteria:
+- code: COAL 1
+  section: COAL
+  text: Course objectives are clearly articulated, describe a single discrete behavior, support learner
+    achievement of program objectives, and define the measurement of success.
+  tier: B
+  priority: Essential
+  bindings:
+  - outcomes_defined
+  source_ids:
+    row: 7
+    join_key: 1a
+    key: '1'
+    letter: a
+    category: COAL
+    index: '1'
+    origin: UCCS
+    column_D: '1'
+- code: COAL 2
+  section: COAL
+  text: Module objectives are clearly articulated, describe a single discrete behavior, support learner
+    achievement of course objectives, and define the measurement of success.
+  tier: B
+  priority: Important
+  bindings:
+  - outcomes_defined
+  source_ids:
+    row: 8
+    join_key: 2b
+    key: '2'
+    letter: b
+    category: COAL
+    index: '2'
+    origin: UCCS
+    column_D: '2'
+- code: COAL 3
+  section: COAL
+  text: Course and module objectives are appropriate to the academic level of the course and consistent
+    with the course series (if applicable).
+  tier: B
+  priority: Essential
+  source_ids:
+    row: 9
+    join_key: 3c
+    key: '3'
+    letter: c
+    category: COAL
+    index: '3'
+    origin: UCCS
+    column_D: '3'
+- code: COAL 4
+  section: COAL
+  text: Learning materials and activities demonstrably support the achievement of module and course objectives.
+  tier: B
+  priority: Essential
+  source_ids:
+    row: 10
+    join_key: 4d
+    key: '4'
+    letter: d
+    category: COAL
+    index: '4'
+    origin: UCCS
+    column_D: '4'
+- code: COAL 5
+  section: COAL
+  text: Assessments measure progress towards and/or achievement of module and course objectives.
+  tier: B
+  priority: Essential
+  source_ids:
+    row: 11
+    join_key: 5e
+    key: '5'
+    letter: e
+    category: COAL
+    index: '5'
+    origin: UCCS
+    column_D: '5'
+- code: COAL 6
+  section: COAL
+  text: The relationship between all content, activities, assessments and module, course objectives is
+    clearly and explicitly stated to learners.
+  tier: B
+  priority: Essential
+  source_ids:
+    row: 12
+    join_key: 6f
+    key: '6'
+    letter: f
+    category: COAL
+    index: '6'
+    origin: UCCS
+    column_D: '6'
+- code: COAL 7
+  section: COAL
+  text: Technology tools clearly support learner achievement of module and course objectives and elevate
+    learner engagement.
+  tier: C
+  priority: Important
+  note: Whether a technology tool supports achievement and elevates engagement is a pedagogical judgement
+    about the course, not a property of its artifacts. Context is assembled for a reviewer; no rating
+    is proposed.
+  source_ids:
+    row: 13
+    join_key: 7g
+    key: '7'
+    letter: g
+    category: COAL
+    index: '7'
+    origin: UCCS
+    column_D: '7'
+- code: GSOV 1
+  section: GSOV
+  text: Course includes information about required technology tools (websites, software, and hardware),
+    requisite skills for use, support resources, and links to privacy policies.
+  tier: B
+  priority: Important
+  bindings:
+  - external_tool_inventory
+  source_ids:
+    row: 16
+    join_key: 8a
+    key: '8'
+    letter: a
+    category: GSOV
+    index: '1'
+    origin: UCCS
+    column_D: '8'
+- code: GSOV 2
+  section: GSOV
+  text: Course provides links to relevant campus policies on plagiarism, computer use, filing grievances,
+    disability accommodation, etc.
+  tier: A
+  priority: Important
+  bindings:
+  - policy_links
+  source_ids:
+    row: 17
+    join_key: 9b
+    key: '9'
+    letter: b
+    category: GSOV
+    index: '2'
+    origin: UCCS
+    column_D: '9'
+- code: GSOV 3
+  section: GSOV
+  text: Course presents information on navigating the course, locating and/or purchasing learning materials,
+    and a list of next steps students should complete as preparation for success in the course
+  tier: B
+  priority: Important
+  note: No capability is bound to this row, so nothing computed bears on it; its evidence is located and
+    quoted instead.
+  source_ids:
+    row: 18
+    join_key: 10c
+    key: '10'
+    letter: c
+    category: GSOV
+    index: '3'
+    origin: UCCS
+    column_D: '10'
+- code: GSOV 4
+  section: GSOV
+  text: An overview is provided for the course overall and for each module that informs learners how to
+    navigate, relevant course and module objectives, and what tasks are due.
+  tier: B
+  priority: Essential
+  bindings:
+  - module_overview
+  source_ids:
+    row: 19
+    join_key: 11d
+    key: '11'
+    letter: d
+    category: GSOV
+    index: '4'
+    origin: UCCS
+    column_D: '11'
+- code: GSOV 5
+  section: GSOV
+  text: Tentative course schedule provided with due dates for all activities and assessments, learning
+    materials, and relevant academic calendar information (e.g., Spring Break, drop/withdraw deadline).
+  tier: B
+  priority: Essential
+  bindings:
+  - course_schedule
+  - due_date_coverage
+  source_ids:
+    row: 20
+    join_key: 12e
+    key: '12'
+    letter: e
+    category: GSOV
+    index: '5'
+    origin: UCCS
+    column_D: '12'
+- code: GSOV 6
+  section: GSOV
+  text: Welcome Announcement posted that includes course details, how to access the course, technical
+    requirements, accessibility information, instructor contact information, and guides students to a
+    Getting Started module.
+  tier: B
+  priority: Important
+  bindings:
+  - welcome_announcement
+  source_ids:
+    row: 21
+    join_key: 13f
+    key: '13'
+    letter: f
+    category: GSOV
+    index: '6'
+    origin: UCCS
+    column_D: '13'
+- code: GSOV 7
+  section: GSOV
+  text: Syllabus states the duration, purpose, and structure of the course and how the course is delivered
+    based on the current accepted instructional modes.
+  tier: B
+  priority: Essential
+  bindings:
+  - syllabus_presence
+  source_ids:
+    row: 22
+    join_key: 14g
+    key: '14'
+    letter: g
+    category: GSOV
+    index: '7'
+    origin: UCCS
+    column_D: '14'
+- code: GSOV 8
+  section: GSOV
+  text: Syllabus includes instructor/student interaction requirements, expectations, and communication
+    preferences as well as contact information for the instructor, department, and program.
+  tier: B
+  priority: Important
+  bindings:
+  - syllabus_presence
+  source_ids:
+    row: 23
+    join_key: 15h
+    key: '15'
+    letter: h
+    category: GSOV
+    index: '8'
+    origin: UCCS
+    column_D: '15'
+- code: GSOV 9
+  section: GSOV
+  text: Syllabus features measurable, student-focused course objectives prominently.
+  tier: B
+  priority: Important
+  bindings:
+  - syllabus_presence
+  - outcomes_defined
+  source_ids:
+    row: 24
+    join_key: 16i
+    key: '16'
+    letter: i
+    category: GSOV
+    index: '9'
+    origin: UCCS
+    column_D: '16'
+- code: GSOV 10
+  section: GSOV
+  text: Course grading policies, including consequences of late submissions, are clearly stated in the
+    syllabus.
+  tier: B
+  priority: Essential
+  bindings:
+  - syllabus_presence
+  source_ids:
+    row: 25
+    join_key: 17j
+    key: '17'
+    letter: j
+    category: GSOV
+    index: '10'
+    origin: UCCS
+    column_D: '17'
+- code: GSOV 11
+  section: GSOV
+  text: Resources for student success (e.g., institutional supports, course-specific strategies) are readily
+    available.
+  tier: B
+  priority: Important
+  bindings:
+  - support_resource_links
+  source_ids:
+    row: 26
+    join_key: 18k
+    key: '18'
+    letter: k
+    category: GSOV
+    index: '11'
+    origin: UCCS
+    column_D: '18'
+- code: GSOV 12
+  section: GSOV
+  text: Syllabus is easily printable (PDF or HTML) and appropriately divided into logical, related sections
+    using preformatted headings.
+  tier: A
+  priority: Important
+  bindings:
+  - syllabus_printability
+  source_ids:
+    row: 27
+    join_key: 19l
+    key: '19'
+    letter: l
+    category: GSOV
+    index: '12'
+    origin: UCCS
+    column_D: '19'
+- code: OREP 1
+  section: OREP
+  text: Course, content, and associated technology tools are easy to access and navigate; extraneous information
+    (e.g., irrelevant privacy policies, information from previous semesters) is removed from course content.
+  tier: B
+  priority: Essential
+  bindings:
+  - stale_content
+  source_ids:
+    row: 30
+    join_key: 20a
+    key: '20'
+    letter: a
+    category: OREP
+    index: '1'
+    origin: UCCS
+    column_D: '20'
+- code: OREP 2
+  section: OREP
+  text: Course organization is logical and consistent throughout; modules separate content into distinct
+    learning units, broken up by topic or by week.
+  tier: B
+  priority: Important
+  bindings:
+  - module_naming_consistency
+  source_ids:
+    row: 31
+    join_key: 21b
+    key: '21'
+    letter: b
+    category: OREP
+    index: '2'
+    origin: UCCS
+    column_D: '21'
+- code: OREP 3
+  section: OREP
+  text: 'Each module Overview contains introductory information and lists of: module objectives, associated
+    course objectives, learning materials, activities, and assessments.'
+  tier: B
+  priority: Important
+  bindings:
+  - module_overview
+  source_ids:
+    row: 32
+    join_key: 22c
+    key: '22'
+    letter: c
+    category: OREP
+    index: '3'
+    origin: UCCS
+    column_D: '22'
+- code: OREP 4
+  section: OREP
+  text: Content pages have appropriate titles, group related learning materials together, and use consistent
+    iconography and color.
+  tier: B
+  priority: Important
+  bindings:
+  - page_titles
+  source_ids:
+    row: 33
+    join_key: 23d
+    key: '23'
+    letter: d
+    category: OREP
+    index: '4'
+    origin: UCCS
+    column_D: '23'
+- code: OREP 5
+  section: OREP
+  text: Large blocks of information on Pages are divided into sections using headings or separate content
+    pages.
+  tier: A
+  priority: Important
+  bindings:
+  - heading_structure
+  - content_chunking
+  source_ids:
+    row: 34
+    join_key: 24e
+    key: '24'
+    letter: e
+    category: OREP
+    index: '5'
+    origin: UCCS
+    column_D: '24'
+- code: OREP 6
+  section: OREP
+  text: All learning materials include copyright or licensing information, model proper attribution, and
+    explicitly state any permissions granted by the copyright owner.
+  tier: B
+  priority: Essential
+  bindings:
+  - attribution_and_licence
+  source_ids:
+    row: 35
+    join_key: 25f
+    key: '25'
+    letter: f
+    category: OREP
+    index: '6'
+    origin: UCCS
+    column_D: '25'
+- code: OREP 7
+  section: OREP
+  text: HTML (Pages) is used as the primary delivery method for text content, excluding copyrighted materials.
+  tier: A
+  priority: Important
+  bindings:
+  - html_primary_delivery
+  source_ids:
+    row: 36
+    join_key: 26g
+    key: '26'
+    letter: g
+    category: OREP
+    index: '7'
+    origin: UCCS
+    column_D: '26'
+- code: OREP 8
+  section: OREP
+  text: Open Educational Resources and low- or no-cost learning materials are utilized prominently.
+  tier: B
+  priority: Important
+  bindings:
+  - oer_signals
+  source_ids:
+    row: 37
+    join_key: 27h
+    key: '27'
+    letter: h
+    category: OREP
+    index: '8'
+    origin: UCCS
+    column_D: '27'
+- code: OREP 9
+  section: OREP
+  text: Course offers access to a variety of learning material types (e.g., text, video, hyperdocs) that
+    facilitate communication and collaboration, deliver content, and provide options for engagement.
+  tier: A
+  priority: Essential
+  bindings:
+  - material_type_variety
+  source_ids:
+    row: 38
+    join_key: 28i
+    key: '28'
+    letter: i
+    category: OREP
+    index: '9'
+    origin: UCCS
+    column_D: '28'
+- code: OREP 10
+  section: OREP
+  text: Diverse sources and voices are represented in learning materials.
+  tier: C
+  priority: Essential
+  note: Whether diverse sources and voices are represented is a judgement about the materials. Context
+    is assembled for a reviewer; no rating is proposed.
+  source_ids:
+    row: 39
+    join_key: 29j
+    key: '29'
+    letter: j
+    category: OREP
+    index: '10'
+    origin: UCCS
+    column_D: '29'
+- code: OREP 11
+  section: OREP
+  text: Course navigation menu is aligned with how learners progress through the course (i.e., extraneous
+    tools and links are removed from course navigation).
+  tier: A
+  priority: Essential
+  bindings:
+  - navigation_pruning
+  source_ids:
+    row: 40
+    join_key: 30k
+    key: '30'
+    letter: k
+    category: OREP
+    index: '11'
+    origin: UCCS
+    column_D: '30'
+- code: ACD 1
+  section: ACD
+  text: All technology tools include accessibility information (e.g., an accessibility statement).
+  tier: A
+  priority: Essential
+  bindings:
+  - external_tool_inventory
+  - tool_accessibility_statement
+  source_ids:
+    row: 43
+    join_key: 31a
+    key: '31'
+    letter: a
+    category: ACD
+    index: '1'
+    origin: UCCS
+    column_D: '31'
+- code: ACD 2
+  section: ACD
+  text: Contrast between text and background colors in pages and any images is sufficient (text:background
+    ratio of 4.5:1 for normal-sized text and 3:1 for large text greater than 18 point); text in documents
+    (Word, PDF) uses sans serif font and size is at least 12 pt. Canvas does this automatically.
+  tier: A
+  priority: Essential
+  bindings:
+  - colour_contrast
+  - type_size_and_family
+  source_ids:
+    row: 44
+    join_key: 32b
+    key: '32'
+    letter: b
+    category: ACD
+    index: '2'
+    origin: UCCS
+    column_D: '32'
+- code: ACD 3
+  section: ACD
+  text: Content is properly formatted using preformatted styles (e.g., Title, Normal, H2, Paragraph),
+    including all PDFs, slideshow presentations, Word documents, and HTML pages.
+  tier: A
+  priority: Essential
+  bindings:
+  - heading_structure
+  - document_accessibility
+  - text_as_image
+  source_ids:
+    row: 45
+    join_key: 33c
+    key: '33'
+    letter: c
+    category: ACD
+    index: '3'
+    origin: UCCS
+    column_D: '33'
+- code: ACD 4
+  section: ACD
+  text: All documents (Word, PDF, PowerPoint) in content are printable and/or downloadable.
+  tier: A
+  priority: Important
+  bindings:
+  - document_printability
+  - document_accessibility
+  source_ids:
+    row: 46
+    join_key: 34d
+    key: '34'
+    letter: d
+    category: ACD
+    index: '4'
+    origin: UCCS
+    column_D: '34'
+- code: ACD 5
+  section: ACD
+  text: Hyperlinks use descriptive text instead of raw URLs or phrases such as “click here”.
+  tier: A
+  priority: Important
+  bindings:
+  - link_text
+  source_ids:
+    row: 47
+    join_key: 35e
+    key: '35'
+    letter: e
+    category: ACD
+    index: '5'
+    origin: UCCS
+    column_D: '35'
+- code: ACD 6
+  section: ACD
+  text: Tables are used for tabular data (not page layout), contain header rows or columns, and include
+    a caption and summary.
+  tier: A
+  priority: Essential
+  bindings:
+  - table_semantics
+  source_ids:
+    row: 48
+    join_key: 36f
+    key: '36'
+    letter: f
+    category: ACD
+    index: '6'
+    origin: UCCS
+    column_D: '36'
+- code: ACD 7
+  section: ACD
+  text: All text and images provide the same information when viewed with or without color and color is
+    not used to convey meaning to learners in content or communication.
+  tier: A
+  priority: Essential
+  bindings:
+  - colour_as_sole_cue
+  source_ids:
+    row: 49
+    join_key: 37g
+    key: '37'
+    letter: g
+    category: ACD
+    index: '7'
+    origin: UCCS
+    column_D: '37'
+- code: ACD 8
+  section: ACD
+  text: All images, including images in content such as PDFs, have appropriate, descriptive alt text (or
+    summaries) and decorative images are labeled as decorative.
+  tier: A
+  priority: Essential
+  bindings:
+  - alt_text
+  source_ids:
+    row: 50
+    join_key: 38h
+    key: '38'
+    letter: h
+    category: ACD
+    index: '8'
+    origin: UCCS
+    column_D: '38'
+- code: ACD 9
+  section: ACD
+  text: All video content includes accurate closed captioning (automatic captioning may require editing)
+    and audio content is accompanied by a transcript, including all instructor-generated media.
+  tier: A
+  priority: Essential
+  bindings:
+  - captions_and_transcripts
+  source_ids:
+    row: 51
+    join_key: 39i
+    key: '39'
+    letter: i
+    category: ACD
+    index: '9'
+    origin: UCCS
+    column_D: '39'
+- code: ACD 10
+  section: ACD
+  text: Learners are informed when a timed response is required. Proper lead time is provided to ensure
+    there is an opportunity to prepare an accommodation.
+  tier: B
+  priority: Important
+  bindings:
+  - timed_assessment_disclosure
+  source_ids:
+    row: 52
+    join_key: 40j
+    key: '40'
+    letter: j
+    category: ACD
+    index: '10'
+    origin: UCCS
+    column_D: '40'
+- code: ACD 11
+  section: ACD
+  text: All activities and assessments include clear instructions, due dates, and submission guidelines
+    (i.e., what is to be submitted, acceptable file formats, where to submit).
+  tier: A
+  priority: Essential
+  bindings:
+  - activity_instructions
+  - due_date_coverage
+  source_ids:
+    row: 53
+    join_key: 41k
+    key: '41'
+    letter: k
+    category: ACD
+    index: '11'
+    origin: UCCS
+    column_D: '41'
+- code: ENIN 1
+  section: ENIN
+  text: Learning materials, activities, and planned learner-instructor interactions integrate getting
+    to know the instructor (e.g., personality, online presence)
+  tier: B
+  priority: Important
+  bindings:
+  - instructor_presence
+  source_ids:
+    row: 56
+    join_key: 42a
+    key: '42'
+    letter: a
+    category: ENIN
+    index: '1'
+    origin: UCCS
+    column_D: '42'
+- code: ENIN 2
+  section: ENIN
+  text: Expectations for interaction are clearly stated (netiquette, grade weighting, models/examples,
+    and timing and frequency of contributions).
+  tier: B
+  priority: Essential
+  source_ids:
+    row: 57
+    join_key: 43b
+    key: '43'
+    letter: b
+    category: ENIN
+    index: '2'
+    origin: UCCS
+    column_D: '43'
+- code: ENIN 3
+  section: ENIN
+  text: Course contains activities intended to build a sense of class community, support open communication,
+    and establish trust (e.g., class introductions, course questions discussion).
+  tier: B
+  priority: Important
+  bindings:
+  - discussion_inventory
+  source_ids:
+    row: 58
+    join_key: 44c
+    key: '44'
+    letter: c
+    category: ENIN
+    index: '3'
+    origin: UCCS
+    column_D: '44'
+- code: ENIN 4
+  section: ENIN
+  text: Expectations for timely and regular interaction with the instructor are clearly stated (feedback,
+    additional help, questions, mode preference).
+  tier: B
+  priority: Essential
+  source_ids:
+    row: 59
+    join_key: 45d
+    key: '45'
+    letter: d
+    category: ENIN
+    index: '4'
+    origin: UCCS
+    column_D: '45'
+- code: ENIN 5
+  section: ENIN
+  text: Activities help learners develop higher-order thinking and problem-solving skills, such as critical
+    reflection and analysis.
+  tier: B
+  priority: Essential
+  source_ids:
+    row: 60
+    join_key: 46e
+    key: '46'
+    letter: e
+    category: ENIN
+    index: '5'
+    origin: UCCS
+    column_D: '46'
+- code: ENIN 6
+  section: ENIN
+  text: Course provides activities that emulate real world applications of the discipline and connect
+    the learning experience with personal context.
+  tier: C
+  priority: Important
+  source_ids:
+    row: 61
+    join_key: 47f
+    key: '47'
+    letter: f
+    category: ENIN
+    index: '6'
+    origin: UCCS
+    column_D: '47'
+- code: ENIN 7
+  section: ENIN
+  text: Course leverages varied types of activities and options for learners to engage with the instructor,
+    their peers, and the content.
+  tier: C
+  priority: Important
+  source_ids:
+    row: 62
+    join_key: 48g
+    key: '48'
+    letter: g
+    category: ENIN
+    index: '7'
+    origin: UCCS
+    column_D: '48'
+- code: ENIN 8
+  section: ENIN
+  text: Learning activities incorporate varied learner interactions (i.e., self-reflection, one-on-one,
+    small group, whole class).
+  tier: C
+  priority: Important
+  source_ids:
+    row: 63
+    join_key: 49h
+    key: '49'
+    letter: h
+    category: ENIN
+    index: '8'
+    origin: UCCS
+    column_D: '49'
+- code: ENIN 9
+  section: ENIN
+  text: Levels of difficulty and complexity in learning activities are scaffolded throughout the course.
+  tier: C
+  priority: Essential
+  source_ids:
+    row: 64
+    join_key: 50i
+    key: '50'
+    letter: i
+    category: ENIN
+    index: '9'
+    origin: UCCS
+    column_D: '50'
+- code: ENIN 10
+  section: ENIN
+  text: Learners are encouraged to share outside resources, inject knowledge from diverse sources of information
+    and their personal experiences, and further the discussion in their course interactions.
+  tier: C
+  priority: Important
+  source_ids:
+    row: 65
+    join_key: 51j
+    key: '51'
+    letter: j
+    category: ENIN
+    index: '10'
+    origin: UCCS
+    column_D: '51'
+- code: ENIN 11
+  section: ENIN
+  text: Learners have multiple opportunities to provide descriptive feedback on course design, course
+    content, course experience, and ease of online technology.
+  tier: B
+  priority: Essential
+  bindings:
+  - course_feedback_mechanism
+  source_ids:
+    row: 66
+    join_key: 52k
+    key: '52'
+    letter: k
+    category: ENIN
+    index: '11'
+    origin: UCCS
+    column_D: '52'
+- code: ENIN 12
+  section: ENIN
+  text: Technical skills required for participation in course activities provide opportunities for guided
+    orientation and learner-driven practice.
+  tier: B
+  priority: Essential
+  source_ids:
+    row: 67
+    join_key: 53l
+    key: '53'
+    letter: l
+    category: ENIN
+    index: '12'
+    origin: UCCS
+    column_D: '53'
+- code: ASFE 1
+  section: ASFE
+  text: Course objectives associated with assessments are clearly stated within assessment information.
+  tier: B
+  priority: Important
+  source_ids:
+    row: 70
+    join_key: 54a
+    key: '54'
+    letter: a
+    category: ASFE
+    index: '1'
+    origin: UCCS
+    column_D: '54'
+- code: ASFE 2
+  section: ASFE
+  text: Activities include evaluation criteria and clearly articulate expectations (e.g., rubrics, exemplars).
+  tier: B
+  priority: Essential
+  bindings:
+  - assignment_rubric_attached
+  source_ids:
+    row: 71
+    join_key: 55b
+    key: '55'
+    letter: b
+    category: ASFE
+    index: '2'
+    origin: UCCS
+    column_D: '55'
+- code: ASFE 3
+  section: ASFE
+  text: Course offers learners options for demonstrating learning and achievement of learning objectives
+    through multiple activities and assessments without relying exclusively on limited summative or cumulative
+    assessments.
+  tier: C
+  priority: Essential
+  source_ids:
+    row: 72
+    join_key: 56c
+    key: '56'
+    letter: c
+    category: ASFE
+    index: '3'
+    origin: UCCS
+    column_D: '56'
+- code: ASFE 4
+  section: ASFE
+  text: The course offers opportunities to provide formative feedback on the achievement of learning objectives
+  tier: B
+  priority: Essential
+  bindings:
+  - formative_opportunities
+  source_ids:
+    row: 73
+    join_key: 57d
+    key: '57'
+    letter: d
+    category: ASFE
+    index: '4'
+    origin: UCCS
+    column_D: '57'
+- code: ASFE 5
+  section: ASFE
+  text: Assessments with a prolonged duration are scaffolded and provide the opportunity to receive constructive
+    feedback (e.g., drafts, peer review).
+  tier: B
+  priority: Essential
+  bindings:
+  - assessment_scaffolding
+  source_ids:
+    row: 74
+    join_key: 58e
+    key: '58'
+    letter: e
+    category: ASFE
+    index: '5'
+    origin: UCCS
+    column_D: '58'
+- code: ASFE 7
+  section: ASFE
+  text: Learners have easy access to a logical and frequently-updated gradebook.
+  tier: B
+  priority: Important
+  bindings:
+  - gradebook_structure
+  source_ids:
+    row: 75
+    join_key: 59f
+    key: '59'
+    letter: f
+    category: ASFE
+    index: '7'
+    origin: UCCS
+    column_D: '59'
+- code: MOB 1
+  section: MOB
+  text: Hyperlinks are provided for embedded content.
+  tier: A
+  bindings:
+  - embed_fallback_link
+  source_ids:
+    row: 77
+    join_key: M-A
+    key: M-A
+    letter: A
+    category: MOB
+    index: '1'
+    origin: INT
+    column_D: M
+- code: MOB 2
+  section: MOB
+  text: The course avoids the use of tables and multiple levels of indents.
+  tier: A
+  bindings:
+  - table_semantics
+  source_ids:
+    row: 78
+    join_key: M-B
+    key: M-B
+    letter: B
+    category: MOB
+    index: '2'
+    origin: INT
+    column_D: M
+- code: MOB 3
+  section: MOB
+  text: Text is not placed to the left or right of images.
+  tier: A
+  bindings:
+  - text_float_beside_media
+  source_ids:
+    row: 79
+    join_key: M-C
+    key: M-C
+    letter: C
+    category: MOB
+    index: '3'
+    origin: INT
+    column_D: M
+- code: MOB 4
+  section: MOB
+  text: When specifying width, percentages are used instead of pixels.
+  tier: A
+  bindings:
+  - fixed_width_layout
+  source_ids:
+    row: 80
+    join_key: M-D
+    key: M-D
+    letter: D
+    category: MOB
+    index: '4'
+    origin: INT
+    column_D: M
+- code: MOB 5
+  section: MOB
+  text: The course is tested on multiple mobile devices.
+  tier: D
+  note: Whether the course has been tested on mobile devices is not determinable from course artifacts.
+    Left Not Applicable for a reviewer to set.
+  source_ids:
+    row: 81
+    join_key: M-E
+    key: M-E
+    letter: E
+    category: MOB
+    index: '5'
+    origin: INT
+    column_D: M
+- code: MOB 6
+  section: MOB
+  text: Any apps that are required for students are available on both Android and iOS mobile platforms.
+  tier: C
+  bindings:
+  - mobile_app_availability
+  source_ids:
+    row: 82
+    join_key: M-F
+    key: M-F
+    letter: F
+    category: MOB
+    index: '6'
+    origin: INT
+    column_D: M
+- code: MOB 7
+  section: MOB
+  text: Efforts are made to minimize the use of content that does not work on mobile devices (such as
+    Flash and Java).
+  tier: A
+  bindings:
+  - legacy_embeds
+  source_ids:
+    row: 83
+    join_key: M-G
+    key: M-G
+    letter: G
+    category: MOB
+    index: '7'
+    origin: INT
+    column_D: M
+- code: MOB 8
+  section: MOB
+  text: When file attachments are necessary, PDF is used as much as possible.
+  tier: A
+  bindings:
+  - attachment_formats
+  source_ids:
+    row: 84
+    join_key: M-H
+    key: M-H
+    letter: H
+    category: MOB
+    index: '8'
+    origin: INT
+    column_D: M
+- code: MOB 9
+  section: MOB
+  text: Content is divided into small, manageable chunks.
+  tier: A
+  bindings:
+  - content_chunking
+  source_ids:
+    row: 85
+    join_key: M-I
+    key: M-I
+    letter: I
+    category: MOB
+    index: '9'
+    origin: INT
+    column_D: M

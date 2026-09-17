@@ -1,0 +1,325 @@
+# UCCS OSCQR 3.1.3 — the mapping file.
+#
+# WHAT THIS FILE IS. The workbook at rubrics/source/ carries the 68 criteria and the instrument's
+# own identifiers. It carries nothing about what Sightline can compute — no rubric workbook has a
+# column naming a detector — so everything on this side of the joint lives here: which capability
+# tags each row is about, what determinacy tier it is, and whether a section may be switched off.
+# `scripts/build-packs.sh` reads it and writes rubrics/packs/uccs-oscqr-3-1-3.yaml.
+#
+# SIGHTLINE REVIEWS THE COURSE. THE RUBRIC IS ONLY THE LENS. This file maps THIS instrument's rows
+# onto capability tags. It does not map onto any other instrument, it is not a crosswalk, and the
+# RSI mapping beside it does not refer to it in either direction.
+#
+# ------------------------------------------------------------------------------------------------
+# HOW THE BINDINGS WERE CHOSEN
+#
+# A binding names a course-quality concept the row is about, from the closed vocabulary in
+# src/sightline/capabilities.yaml. It is never a detector id.
+#
+# The bindings follow SPEC §05's detector inventory, which is the spec's own projection of
+# detectors onto criteria; the comment on each row names the §05 detectors it came from so a reader
+# can check the two against each other in a minute. Where §05 reaches a row only through a
+# model-backed extractor (E01–E14), the row is LEFT UNBOUND: extractors are reached through the
+# routing contract rather than through a tag, so there is no tag to bind and inventing one to fill
+# the hole would be worse than the hole. 19 of the 68 rows are unbound and that is normal and
+# permanent — they route to the extraction layer for a quoted passage with a location.
+#
+# MOST OF THESE BINDINGS HAVE NO DETECTOR YET, AND THAT IS THE POINT. 39 rows bind a capability
+# nothing implements in this build. They read NOT_YET_IMPLEMENTED, which is a development-phase
+# state distinct from "no binding" and very distinct from "a detector ran and found nothing". The
+# binding is the specification roadmap items 07 and 08 build against.
+#
+# ------------------------------------------------------------------------------------------------
+# HOW THE TIERS WERE CHOSEN  (SPEC §02)
+#
+#   A  the bound capabilities, run clean, settle the criterion as written — the row asks for what
+#      they measure and nothing more. Rating computed, stated declaratively, no extraction.
+#   B  a passage of the course settles it, or the bound capabilities bear on the row without
+#      answering all of it. Detectors still contribute their arithmetic AND the extraction layer
+#      still gathers quotes, so a partial capability cannot close the row on its own.
+#   C  pedagogical judgement. Context assembled, never pre-rated.
+#   D  not determinable from course artifacts. Defaults to Not Applicable with a note.
+#
+# The test applied to every row was: *if every capability bound here ran and found nothing, would
+# this criterion be answered?* Where the answer is no — GSOV 7 asks what the syllabus states, and
+# a syllabus-presence check establishes only that one exists — the row is B, not A. That direction
+# is the safe one: demoting a row adds evidence and never manufactures a clean reading.
+#
+# It comes out at A 23, B 35, C 9, D 1. SPEC §02's own coverage table says 29 / 21 / 14 / 2 and a
+# further 2 unmapped, which does not reconcile with §05 under this rule or any other one tried; the
+# disagreement is reported rather than resolved here (see the item 05 pull request). §05 also maps
+# no detector and no extractor at all to GSOV 3, the one row below with neither.
+#
+# ------------------------------------------------------------------------------------------------
+
+pack: uccs-oscqr-3-1-3
+name: UCCS OSCQR 3.1.3
+version: "3.1.3"
+source_title: UCCS OSCQR 3.1.3 — Instructional Designer
+description: >-
+  The University of Colorado Colorado Springs adaptation of OSCQR, at 68 criteria across seven
+  categories. A local instrument, not stock SUNY OSCQR 4.0, and the reference rubric Sightline was
+  built against — the reference, not the schema: nothing in Sightline requires another rubric to be
+  expressed in terms of this one.
+
+# Fixed rather than read off the clock, so regenerating the pack is byte-identical and a diff shows
+# a change to the instrument rather than today's date.
+imported_at: 2026-09-17
+
+sheet: Instructional Designer
+
+# THE JOIN KEY, and the obvious answer is the wrong one. Column F holds the instrument's own
+# composite code — 1a, 2b, 3c ... M-A ... M-I — as a string on all 68 criterion rows, and it is what
+# identifies a row across the workbook's ten sheets and across a re-import of a revised edition.
+#
+# The category code plus the within-category index looks like a key and is not: the index column
+# mixes float and int INSIDE ONE SHEET and differently between sheets, so `COAL 1.0` and `COAL 1`
+# both occur. Joining the Instructional Designer sheet to the Faculty sheet on that pair matches
+# 7 rows of 69. On column F it matches 69 of 69. Both numbers are reproduced from the committed
+# file in tests/test_rubric_packs.py.
+#
+# The row *codes* below are still `COAL 1` — that is what the instrument prints and what a reviewer
+# reads — and they are safe because the importer normalizes an integral float before building one.
+# Display and join are different jobs.
+join_key_column: F
+
+sections:
+  MOB:
+    # The mobile block is an integrated set from a different source: the instrument flags its origin
+    # as INT where the other 59 rows are UCCS, and it is the only block carrying no priority flag.
+    # Declaring it optional is what allows a reviewer to switch it off for a course nobody is
+    # reviewing for mobile delivery. NOTHING SWITCHES IT OFF HERE — `optional` is permission, not an
+    # instruction, and a section that is switched off has its rows reported as omitted, not dropped.
+    optional: true
+    note: >-
+      The mobile standards are an integrated set and apply to a course reviewed for mobile
+      delivery. A review may switch this section off; its rows are then reported as omitted.
+
+criteria:
+
+  # -- COAL · Course Alignment ---------------------------------------------------------------
+  # Five of the seven are reached only by E01/E02, the alignment extractors. Unbound, as intended.
+
+  COAL 1:  # D11 outcomes; E01 objectives. "Clearly articulated / a single discrete behavior" is a
+           # reading of the wording, which recorded outcomes do not establish.
+    tier: B
+    bindings: [outcomes_defined]
+  COAL 2:  # D11; E01. Same reading, at module level.
+    tier: B
+    bindings: [outcomes_defined]
+  COAL 3:  # E01 only.
+    tier: B
+  COAL 4:  # E02 only.
+    tier: B
+  COAL 5:  # E02 only.
+    tier: B
+  COAL 6:  # E02 only.
+    tier: B
+  COAL 7:  # SPEC §05 lists this under "human-only, no detector".
+    tier: C
+    note: >-
+      Whether a technology tool supports achievement and elevates engagement is a pedagogical
+      judgement about the course, not a property of its artifacts. Context is assembled for a
+      reviewer; no rating is proposed.
+
+  # -- GSOV · Getting Started and Overviews --------------------------------------------------
+
+  GSOV 1:  # D12 tool inventory. The row also asks for requisite skills, support and privacy links.
+    tier: B
+    bindings: [external_tool_inventory]
+  GSOV 2:  # D13. The row asks exactly what the capability measures.
+    tier: A
+    bindings: [policy_links]
+  GSOV 3:  # SPEC §05 maps neither a detector nor an extractor to this row.
+    tier: B
+    note: >-
+      No capability is bound to this row, so nothing computed bears on it; its evidence is located
+      and quoted instead.
+  GSOV 4:  # D03. The row also asks about the course overall and about navigation.
+    tier: B
+    bindings: [module_overview]
+  GSOV 5:  # D04 schedule; D10 due dates. Academic-calendar information is not measured.
+    tier: B
+    bindings: [course_schedule, due_date_coverage]
+  GSOV 6:  # D05. The row lists six things the announcement must contain.
+    tier: B
+    bindings: [welcome_announcement]
+  GSOV 7:  # D01. Presence is not what the row asks about.
+    tier: B
+    bindings: [syllabus_presence]
+  GSOV 8:  # D01. As above.
+    tier: B
+    bindings: [syllabus_presence]
+  GSOV 9:  # D01; D11.
+    tier: B
+    bindings: [syllabus_presence, outcomes_defined]
+  GSOV 10:  # D01; E09 grading policy.
+    tier: B
+    bindings: [syllabus_presence]
+  GSOV 11:  # D14. "Course-specific strategies" are not links.
+    tier: B
+    bindings: [support_resource_links]
+  GSOV 12:  # D02. Printable, and keeps its heading structure — exactly the capability.
+    tier: A
+    bindings: [syllabus_printability]
+
+  # -- OREP · Organization and Representation ------------------------------------------------
+
+  OREP 1:  # D46 stale content. "Easy to access and navigate" is the other half and is not measured.
+    tier: B
+    bindings: [stale_content]
+  OREP 2:  # D47. Consistency is measured; "logical" is not.
+    tier: B
+    bindings: [module_naming_consistency]
+  OREP 3:  # D03. The row lists five things each overview must contain.
+    tier: B
+    bindings: [module_overview]
+  OREP 4:  # D37. Iconography and colour are not measured.
+    tier: B
+    bindings: [page_titles]
+  OREP 5:  # D22 headings; D35 chunking. Together they are the row.
+    tier: A
+    bindings: [heading_structure, content_chunking]
+  OREP 6:  # D31. "Model proper attribution" and stated permissions go beyond finding the text.
+    tier: B
+    bindings: [attribution_and_licence]
+  OREP 7:  # D34.
+    tier: A
+    bindings: [html_primary_delivery]
+  OREP 8:  # D32. "Prominently" is not a count.
+    tier: B
+    bindings: [oer_signals]
+  OREP 9:  # D33.
+    tier: A
+    bindings: [material_type_variety]
+  OREP 10:  # E07 only, and §05 classes it a judgement.
+    tier: C
+    note: >-
+      Whether diverse sources and voices are represented is a judgement about the materials.
+      Context is assembled for a reviewer; no rating is proposed.
+  OREP 11:  # D06.
+    tier: A
+    bindings: [navigation_pruning]
+
+  # -- ACD · Accessible Course Design --------------------------------------------------------
+  # Eight of the eleven are answered by detectors that exist today (D21–D30, roadmap item 06).
+
+  ACD 1:  # D12 inventory; D38 accessibility statement. The row is the statement.
+    tier: A
+    bindings: [external_tool_inventory, tool_accessibility_statement]
+  ACD 2:  # D25 contrast; D28 font. The row states both thresholds itself.
+    tier: A
+    bindings: [colour_contrast, type_size_and_family]
+  ACD 3:  # D22 headings; D30 documents; D29 text-as-image.
+    tier: A
+    bindings: [heading_structure, document_accessibility, text_as_image]
+  ACD 4:  # D36 printable; D30 documents.
+    tier: A
+    bindings: [document_printability, document_accessibility]
+  ACD 5:  # D23.
+    tier: A
+    bindings: [link_text]
+  ACD 6:  # D24.
+    tier: A
+    bindings: [table_semantics]
+  ACD 7:  # D26.
+    tier: A
+    bindings: [colour_as_sole_cue]
+  ACD 8:  # D21.
+    tier: A
+    bindings: [alt_text]
+  ACD 9:  # D27.
+    tier: A
+    bindings: [captions_and_transcripts]
+  ACD 10:  # D15. Disclosure is measured; adequate lead time is not.
+    tier: B
+    bindings: [timed_assessment_disclosure]
+  ACD 11:  # D09 instructions; D10 due dates.
+    tier: A
+    bindings: [activity_instructions, due_date_coverage]
+
+  # -- ENIN · Engagement and Interaction -----------------------------------------------------
+  # Nine of the twelve are reached only by extractors. Five of those §05 classes as judgement.
+
+  ENIN 1:  # D18 instructor presence.
+    tier: B
+    bindings: [instructor_presence]
+  ENIN 2:  # E03 only.
+    tier: B
+  ENIN 3:  # D17 discussion inventory; E04 community activities. An inventory is not the intent.
+    tier: B
+    bindings: [discussion_inventory]
+  ENIN 4:  # E03 only.
+    tier: B
+  ENIN 5:  # E01 only.
+    tier: B
+  ENIN 6:  # E05, judgement.
+    tier: C
+  ENIN 7:  # E12, judgement.
+    tier: C
+  ENIN 8:  # E12, judgement.
+    tier: C
+  ENIN 9:  # E06, judgement.
+    tier: C
+  ENIN 10:  # E13, judgement.
+    tier: C
+  ENIN 11:  # D20. "Multiple opportunities" across four aspects is more than a mechanism existing.
+    tier: B
+    bindings: [course_feedback_mechanism]
+  ENIN 12:  # E10 only.
+    tier: B
+
+  # -- ASFE · Assessment and Feedback --------------------------------------------------------
+  # THIS BLOCK SKIPS AN INDEX. It runs 1, 2, 3, 4, 5, 7 — there is no ASFE 6 on the instrument.
+  # Anything walking positions instead of codes misaligns every row after the gap.
+
+  ASFE 1:  # E11 only.
+    tier: B
+  ASFE 2:  # D08 attached rubric; E08 evaluation criteria. A rubric is one way of stating criteria.
+    tier: B
+    bindings: [assignment_rubric_attached]
+  ASFE 3:  # E14, judgement.
+    tier: C
+  ASFE 4:  # D16 formative opportunities. The row is about formative feedback, which is more.
+    tier: B
+    bindings: [formative_opportunities]
+  ASFE 5:  # D19. Scaffolding is measured; the feedback opportunity is not.
+    tier: B
+    bindings: [assessment_scaffolding]
+  ASFE 7:  # D07. "Logical and frequently-updated" is more than structure.
+    tier: B
+    bindings: [gradebook_structure]
+
+  # -- MOB · Mobile Standards ----------------------------------------------------------------
+  # NINE ROWS WITH NO PRIORITY FLAG. The instrument gives them none; nothing here fills one in, and
+  # action-plan ordering sorts a null priority after every labelled one.
+
+  MOB 1:  # D39.
+    tier: A
+    bindings: [embed_fallback_link]
+  MOB 2:  # D40 layout tables and indents; D24 table semantics. One capability covers both.
+    tier: A
+    bindings: [table_semantics]
+  MOB 3:  # D41.
+    tier: A
+    bindings: [text_float_beside_media]
+  MOB 4:  # D42.
+    tier: A
+    bindings: [fixed_width_layout]
+  MOB 5:  # §05 lists this under "human-only, no detector", at tier D.
+    tier: D
+    note: >-
+      Whether the course has been tested on mobile devices is not determinable from course
+      artifacts. Left Not Applicable for a reviewer to set.
+  MOB 6:  # D45, which §05 classes as judgement: app availability is established outside the course.
+    tier: C
+    bindings: [mobile_app_availability]
+  MOB 7:  # D43.
+    tier: A
+    bindings: [legacy_embeds]
+  MOB 8:  # D44.
+    tier: A
+    bindings: [attachment_formats]
+  MOB 9:  # D35 chunking, the same capability OREP 5 binds.
+    tier: A
+    bindings: [content_chunking]

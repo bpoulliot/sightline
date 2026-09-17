@@ -5,7 +5,7 @@ Canonical for item status. `docs/SPEC.md` is canonical for design.
 Labels: **READY** · **NEEDS DISCUSSION** · **NEEDS MEASUREMENT** · **BLOCKED**.
 Nothing unready enters the queue. One item per conversation, one PR per item.
 
-Queue lives at `~/docker/overnight-sightline/`. Next free item number: **28**.
+Queue lives at `~/docker/overnight-sightline/`. Next free item number: **29**.
 
 ---
 
@@ -17,7 +17,7 @@ Queue lives at `~/docker/overnight-sightline/`. Next free item number: **28**.
 | 02 | Canvas connector and connection test | 0 | READY | **DONE** — PR #2 |
 | 03 | Acquisition and normalization | 0 | READY | **DONE** — PR #3 |
 | 04 | Rubric pack format + capability tags | 0 | READY | **DONE** — PR #9 |
-| 05 | Ship the two rubric packs | 0 | READY | queued 05b |
+| 05 | Ship the two rubric packs | 0 | READY | **DONE** — PR #10 |
 | 06 | Detector framework + accessibility cluster | 0 | READY | **DONE** — PR #7 |
 | 07 | Canvas structure detectors D01–D20 | 1 | READY | queued 06 |
 | 08 | Mobile detectors + optional-section flag | 1 | READY | queued 07 |
@@ -41,6 +41,7 @@ Queue lives at `~/docker/overnight-sightline/`. Next free item number: **28**.
 | 25 | Returned-review ingestion | 3 | **BLOCKED** — needs reviews delivered and returned | — |
 | 26 | Wire document bytes from the export to the detectors | 1 | READY | queued 99 |
 | 27 | One detector's crash must not take the whole review with it | 1 | READY | queued 99a |
+| 28 | A binding says *relevant*; rating reads it as *sufficient* | 1 | READY | queued 99b |
 
 ---
 
@@ -68,7 +69,7 @@ command runs verbatim (490 tests, clean lint and format, container healthy).
 04-sightline-item06-detector-framework.md       # DONE — PR #7
 05-sightline-item21-detector-integrity-guard.md  # DONE — PR #8
 05a-sightline-item04-rubric-pack-format.md       # DONE — PR #9. Item 08's stop is cleared.
-05b-sightline-item05-rubric-packs.md             # the two packs, straight after the format
+05b-sightline-item05-rubric-packs.md             # DONE — PR #10. 68 + 18 rows, no new reader.
 06-sightline-item07-canvas-structure-detectors.md
 07-sightline-item08-mobile-detectors.md          # pack flag needs item 04
 08-sightline-item09-ollama-client.md
@@ -373,6 +374,75 @@ default `/24` collides.
   settled; a later move toward stock OSCQR 3.1 / 4.0 is a pack change, not a code change.
 
 ## Notes carried forward
+
+**28 · FILED 2026-09-17 by item 05's session.** **A pack's `bindings` list carries two different
+claims and the rating code can only read one of them.** Authoring the two shipped packs against
+SPEC §05 made the ambiguity concrete: `syllabus_presence` is *relevant* to GSOV 7 — a course with
+no syllabus is a finding against it — but it is not *sufficient*, because GSOV 7 asks what the
+syllabus states. `project._rate` does not distinguish: any row with `DETERMINISTIC` coverage whose
+detectors ran and found nothing reads **Sufficiently Present**, which is the one rating that means
+clean. So a partial capability bound to a row it does not settle can close that row on a course
+nobody examined for it — SPEC §11's silent under-detection, arriving through the pack rather than
+through a detector.
+
+**Nothing is wrong today and that is why this is filed rather than fixed here.** Of the 46
+capability tags, the 10 this build implements all land on Tier A rows in both packs —
+`tests/test_rubric_packs.py::test_every_row_with_deterministic_coverage_today_is_tier_a` asserts
+exactly that and is written to **fail the day item 07 or 08 lands**, which is the moment to decide.
+Item 05 mitigated it as far as a pack can: the tier of every row was set by asking *if every
+capability bound here ran clean, would this criterion be answered?*, so the 35 reference rows where
+the answer is no are Tier B and gather located evidence as well. That is a mitigation, not a fix —
+a Tier B row can still read Sufficiently Present.
+
+Two shapes of answer, both cheap, neither chosen here: a second list (`supporting:` beside
+`bindings:`) whose findings reach the row but cannot rate it, or a rule in `_rate` that only Tier A
+reaches `SUFFICIENTLY_PRESENT` and Tier B proposes a band with its evidence and otherwise stays at
+`No Response`. The second matches SPEC §02's own wording — *"A: rating pre-selected"* against
+*"B: rating proposed, worded as evidence"* — which the code currently treats as identical. Filed
+sorting **after** every pending item: it is not wrong output today, but it becomes wrong output
+somewhere inside item 07.
+
+**Item 05 — the two packs, and what is now true about them.**
+
+- **Adding a rubric really does cost a mapping file.** Two structurally unalike instruments — ten
+  sheets against one, a category column against section headings in the index column, a composite
+  code and a priority flag against neither — produced two packs with **no new reader, no branch on
+  the instrument and no `if` on a filename**. What was added is a format (`rubric/mapping.py`) that
+  both use identically. Honest caveat: item 04 wrote the importer with both files already in its
+  tests, so the reader was proven there; what item 05 proves is that *binding, tiering and shipping*
+  them needed no per-instrument code either.
+- **`rubrics/maps/` is the authored input, `rubrics/packs/` is the generated output.** Both are
+  committed; `./scripts/build-packs.sh` regenerates and is **byte-identical** because the import
+  date lives in the mapping file. `git diff rubrics/packs` after a run is the check.
+- **A mapping naming a row the import did not produce raises.** That is §11's rubric drift caught
+  at the only moment it is cheap. A row the mapping says nothing about is *reported*, not fatal.
+- **The join key is column F and it is declared, not guessed.** Category-plus-index is the
+  plausible wrong answer: that column mixes `float` and `int` inside one sheet and differently
+  between sheets, so a join between two sheets of the same workbook matches **7 rows of 69** where
+  column F matches **69 of 69**. Both numbers are reproduced from the file in the suite. The pack's
+  row *codes* are still `COAL 1` — display and join are different jobs.
+- **Coverage today: 10 / 39 / 18 / 1 on the reference pack and 5 / 9 / 4 / 0 on the RSI one**
+  (deterministic, awaiting a detector, evidence-only, not determinable). The middle number is what
+  items 07 and 08 move. The three are never summed, in the pack, the report or the tests.
+- **SPEC §02's tier coverage table does not reconcile with §05.** §02 says 29 A / 21 B / 14 C /
+  2 D and 2 unmapped. §05's per-detector inventory yields 41 / 16 / 9 / 1 read one way and
+  34 / 23 / 9 / 1 read another, and neither is §02's. The packs ship at **23 / 35 / 9 / 1**, by the
+  rule written at the top of `rubrics/maps/uccs-oscqr-3-1-3.yaml`; it is the conservative direction,
+  since demoting a row adds evidence and never manufactures a clean reading. §02 has been annotated
+  rather than rewritten — reconciling it is a judgement call for a human. §05 also maps neither a
+  detector nor an extractor to **GSOV 3**, the one row of the 68 with neither.
+- **No crosswalk exists in either direction and tests assert it.** The RSI pack contains no 3.1.3
+  criterion identifier and neither mapping file names the other instrument. RSI criterion 8 and
+  ACD 5 both bind `link_text` because both rows are about link text.
+- **The mapping file refuses a key written twice.** YAML keeps the last of a duplicated pair and
+  says nothing, so a second `ACD 5:` in a 68-row hand-edited file would drop the first block — its
+  tier, its bindings, its note — and the pack would import, validate and ship with a row nobody
+  meant to change, with correct counts and no signal anywhere downstream.
+- **SPEC §07's bands are now read off both workbooks by a test** rather than asserted in three
+  docstrings: the reference sheet's `T4:V4` and the RSI sheet's `D7:F7` both print `1/2 hour or
+  less`, `1/2-2 hours`, `2+ hours`. The rating *names* differ — RSI prints them plural and prints
+  `Not applicable` — and that difference is asserted too, so it reads as a known fact about the
+  instrument rather than a bug in the pack.
 
 **27 · FILED 2026-09-17 by item 21's session.** `run_detectors` catches `NothingExamined` and
 nothing else, so a detector that raises anything unexpected — a `ValueError` out of a parser handed

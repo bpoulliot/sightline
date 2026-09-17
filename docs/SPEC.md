@@ -82,6 +82,17 @@ evidenced, dashed is judgment, dotted is unreachable.
 | Unmapped, human-only for now | 2 |
 | **Total** | **68** |
 
+> **This table does not reconcile with §05 and has not been rewritten.** Roadmap item 05 authored a
+> tier for every row of both shipped packs and could not reproduce these counts under any mechanical
+> reading of §05's detector inventory: taking the strongest tier reaching each criterion gives
+> 41 / 16 / 9 / 1, taking the weakest gives 34 / 23 / 9 / 1, and §05's own "human-only" pair is
+> given tiers C and D there while appearing here as a separate row of 2. The packs ship at
+> **23 / 35 / 9 / 1**, by the rule stated at the top of `rubrics/maps/uccs-oscqr-3-1-3.yaml`: a row
+> is Tier A only where the capabilities bound to it, run clean, answer the criterion as written.
+> That is the conservative direction — demoting a row adds located evidence and never manufactures
+> a clean reading. Reconciling this table is a judgement call left to a human. §05 also maps neither
+> a detector nor an extractor to **GSOV 3**, the one criterion of the 68 with neither.
+
 Tier A is large because the accessibility and mobile clusters — ACD 1–11 and MOB 1–9, twenty
 criteria — are almost entirely parser work. Those are also where reviewers currently spend the most
 tedious time. That's the wedge, and it is roadmap item 06.

@@ -294,9 +294,33 @@ A pack is one YAML file, validated on load against a JSON Schema committed at
 documented in [`docs/RUBRIC-PACKS.md`](docs/RUBRIC-PACKS.md).
 
 ```sh
-python -m sightline.rubric coverage --pack tests/fixtures/rubric/tiny-pack.yaml
+python -m sightline.rubric packs
+python -m sightline.rubric coverage --pack rubrics/packs/uccs-oscqr-3-1-3.yaml
 python -m sightline.rubric import --workbook "rubrics/source/UCCS OSCQR 3.1.3.xlsx" > pack.yaml
 python -m sightline.rubric tags
+```
+
+### The two packs Sightline ships
+
+`rubrics/packs/` carries two, generated from the blank instruments in `rubrics/source/` and
+committed beside them:
+
+| Pack | Rows | Instrument |
+|---|---|---|
+| `uccs-oscqr-3-1-3` | 68 in 7 categories | Ten sheets, a category column, a composite code, an OPEN SUNY number, an origin flag, a priority flag. |
+| `uccs-oscqr-rsi` | 18 in 6 sections | One sheet, section headings sitting in the index column, **none** of those identifiers, and a file `openpyxl` refuses to open in its default mode. |
+
+**They are peers and no crosswalk exists in either direction.** The RSI instrument's criterion 8
+binds `link_text` because its own text is about link text — it reaches the same capability the
+other instrument's ACD 5 reaches, independently, which is the whole of *detectors are primary,
+rubrics are projections*. A test asserts that neither pack file carries the other's numbering.
+
+Two structurally unalike instruments cost **one mapping file each and no code**: the tags, the
+determinacy tiers and the section flags a workbook has no column for live in `rubrics/maps/`, and
+one command regenerates both packs from them.
+
+```sh
+./scripts/build-packs.sh          # re-running it is byte-identical; `git diff rubrics/packs` is the check
 ```
 
 **A pack with no bindings is normal, and it is a success case.** Binding is an optimization, not a
@@ -574,12 +598,14 @@ and says which check it skipped rather than passing quietly.
 docs/            SPEC.md, ROADMAP.md, RUBRIC-PACKS.md, tokens.css
 examples/        synthetic sample course and sample report — never anything real
 rubrics/source/  the blank rubric workbooks
-scripts/         dev.sh (container-backed test/lint/format), scan-secrets.sh
+rubrics/maps/    the authored mapping files: capability tags, determinacy tiers, section flags
+rubrics/packs/   the two generated rubric packs, committed
+scripts/         dev.sh (container-backed test/lint/format), build-packs.sh, scan-secrets.sh
 src/sightline/   the application
   canvas/        the Canvas connector: client, connection test, reference resolution, sanitizer
   acquire/       acquisition and normalization: the API reader, the fetch/unzip layer, the cache
   detect/        the detector framework and the accessibility cluster D21-D30
-  rubric/        the pack format, its JSON Schema, the importer, and the projection onto rows
+  rubric/        the pack format, its JSON Schema, the importer, the mapping file, the projection
   capabilities.yaml  the capability-tag vocabulary: the one thing detectors and packs share
   model.py       the normalized document model every detector reads
 tests/           the suite
