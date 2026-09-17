@@ -5,7 +5,7 @@ Canonical for item status. `docs/SPEC.md` is canonical for design.
 Labels: **READY** · **NEEDS DISCUSSION** · **NEEDS MEASUREMENT** · **BLOCKED**.
 Nothing unready enters the queue. One item per conversation, one PR per item.
 
-Queue lives at `~/docker/overnight-sightline/`. Next free item number: **31**.
+Queue lives at `~/docker/overnight-sightline/`. Next free item number: **33**.
 
 ---
 
@@ -22,7 +22,7 @@ Queue lives at `~/docker/overnight-sightline/`. Next free item number: **31**.
 | 07 | Canvas structure detectors D01–D20 | 1 | READY | **DONE** — PR #11 |
 | 08 | Mobile detectors + optional-section flag | 1 | READY | **DONE** — PR #12 |
 | 09 | Ollama client, capability filter, model picker | 1 | READY | **DONE** — PR #14 |
-| 10 | Extraction layer with verified quotes | 1 | READY | queued 09 |
+| 10 | Extraction layer with verified quotes | 1 | READY | **DONE** — PR #15 |
 | 11 | Three-run disagreement router | 1 | READY | queued 10 |
 | 12a | Effort model — ship it | 1 | READY | queued 11a |
 | 12b | Effort model — fit the costs | 1 | **BLOCKED** — item 06/07/08 detectors have all landed; unblocked in code, still needs the calibration corpus | — |
@@ -45,6 +45,7 @@ Queue lives at `~/docker/overnight-sightline/`. Next free item number: **31**.
 | 29 | `Scan.text` fuses two words at every block seam | 1 | READY | **DONE** — PR #13 |
 | 30 | Every HTML detector re-parses every body | 2 | READY | queued 99c — **measure first** |
 | 31 | `plain_text()` reads a tag with a regex, and two shapes of course HTML defeat it | 1 | READY | queued 99c1 — take with 30 |
+| 32 | The suite reads the developer's `.env`; the fixture that promises it does not, does not | 1 | READY | queued 09a — **jumps ahead** |
 
 ---
 
@@ -77,7 +78,8 @@ command runs verbatim (490 tests, clean lint and format, container healthy).
 07a-sightline-item29-scan-text-block-seam.md     # DONE — PR #13. Nothing in the suite moved.
 07-sightline-item08-mobile-detectors.md          # DONE — PR #12. The pack flag was already there.
 08-sightline-item09-ollama-client.md              # DONE — PR #14. Three host behaviours measured.
-09-sightline-item10-extraction-layer.md
+09-sightline-item10-extraction-layer.md          # DONE — PR #15. 10 extractors, quotes verified.
+09a-sightline-item32-dotenv-leaks-into-tests.md  # filed by item 10; jumps ahead
 10-sightline-item11-disagreement-router.md
 11-sightline-item17-batch-runner.md
 11a-sightline-item12a-effort-model.md            # LAST in batch 2, before anything renders a band
@@ -391,6 +393,64 @@ default `/24` collides.
 
 ## Notes carried forward
 
+**10 · DONE 2026-09-17 (PR #15). The extraction layer: ten extractors, one schema, and the
+string match that stands between a model and a fabricated quote.**
+
+- **The accepted quote is the SOURCE's text, not the model's string.** Matching happens in
+  normalized space — entities, typography, whitespace and case, each a fold of the same characters
+  — and what is sliced out and rendered is the document's own bytes at the match. That is what
+  makes those folds safe to have at all: a model that straightened a curly apostrophe does not get
+  its version shown, and a reviewer can search the page for what they are handed. Nothing
+  approximate is rescued, and an **ellipsis is a splice** — two real halves joined by one can
+  assert what neither says, so it is discarded like any other non-matching quote.
+- **The location is computed, not believed.** The schema requires the model to say where it looked
+  and that string is never rendered: three models on the target host answered the same question
+  about the same page with `"Course policies (page)"`, `"page"` and `"Week 2 overview"`. The
+  artifact comes from the harness — **one artifact per call**, so a page can never be invented —
+  the line from the block the verified quote landed in, and the heading from above it.
+- **Verification catches invention, not irrelevance, and the README says so.** Measured on
+  `llama3.1:8b` over the sample course: E09 verified **16** quotes and discarded **1**, and only
+  about four of the sixteen stated a policy about grades or late work — the rest were real
+  sentences about something else. A verified quote is a quote that *exists*, not a quote that
+  bears on the question, which is exactly why a reviewer is handed the quote and its location
+  rather than a rating. That discard also means the fabrication guard has now fired on live output
+  and not only on a fixture.
+- **Four outcomes are kept apart in the data and in the sentence**: *no evidence found* (sent,
+  answered, verified, nothing bears on it), *nothing was examined*, *none carried any text*, and
+  *could not be read*. The last is never worded as the first. A schema violation fired on the live
+  host without being planted — a model returned an empty `quote` — and was recorded as a failure
+  rather than coerced into an absence.
+- **Split, never truncate.** A body over the word budget becomes several passages with a call each.
+  The block rendering checks itself against the scanner's word count and rebuilds from the whole
+  body rather than lose a word it cannot place — a passage nobody sent is a criterion nobody could
+  answer, with no error anywhere.
+- **The thinking pin goes ON where the model has the capability**, from item 09's measurement: with
+  it off, a thinking model's reasoning arrives inside `message.content`, which is what this parses.
+  **Ollama's top-level `format` takes the response schema** and constrains generation to it,
+  verified end to end against the live host; `OllamaClient.chat` gained `response_format` for it.
+  It is top-level and not one of `options` — in `options` the host accepts the request and ignores
+  it. The response is validated regardless, because a constraint the host promises is not one this
+  code checked.
+- **Nothing retries.** A second sample at the same temperature is a second answer to the same
+  question. Item 11 is a router over three runs and reports the disagreement; it is not a
+  validator (§01).
+- **E01 is the worked example and the pattern for the rest.** The model extracts the sentence, the
+  verb table takes the task verb from the **verified** quote in code, the distribution is
+  arithmetic. A verb the table does not carry is reported as *no table verb*. Tier C extractors
+  draft a question and never answer it, asserted by a lint over every shipped string; a second
+  guard reads SPEC §05's own table out of `docs/SPEC.md` and checks the registered tiers against
+  it, so the inventory and the spec cannot drift apart silently.
+- **`answer_request()` implements the routing contract** and is the only thing in the layer that
+  knows a criterion exists — because the row hands over its own text. It costs one call per passage
+  per row, which is the honest price of an instrument Sightline ships no mapping for, and it is why
+  the ten topic extractors exist beside it: they answer a course once, it answers a row.
+- **Two defects outside the item, both fixed in its PR.** The integrity guard's register lint
+  searched for `pass` as a *substring* of a statement that names the test modules it observed, so a
+  file called `test_extract_passages.py` read as a verdict; it matches whole words now. And the
+  coverage ledger was **calling async test functions**, which builds a coroutine, observes nothing
+  and warns — an observation that looks like it happened. Both were found by running the suite
+  rather than by reading it.
+
 **07 · DONE 2026-09-17 (PR #11). The Canvas structure cluster D01–D20, and five things it
 established that were not known before it ran.**
 
@@ -466,6 +526,22 @@ space at every tag, so the two helpers are one rule with two implementations, as
 shared list of cases from both test files. What keeps it is the parse it avoids — which is item 30's
 measurement, not this item's to pre-empt. The two places it still reads a tag worse than a parser
 does are item 31.
+
+**32 · FILED 2026-09-17 by item 10's session, which hit it. The test suite reads the
+developer's `.env`, and the autouse fixture that promises it does not only clears environment
+variables.** `Settings.model_config` sets `env_file=".env"`, so `Settings()` reads the repository's
+own file whenever the working directory is the repository root — which is where the suite runs.
+`tests/conftest.py`'s `_isolated_environment` clears every settings variable and states the
+guarantee in as many words: *"Tests never read the developer's `.env` — a suite that picks up a
+real Canvas URL is a suite that can leak one into an assertion message."* Clearing the environment
+does not cover the file, so any test reaching `get_settings()` reads the real `CANVAS_BASE_URL` (a
+secret by this project's own rule), the real token and the real `OLLAMA_BASE_URL`. Item 10's CLI
+test for *"no model host is configured"* found the host that way and started calling the live LAN
+model host, which is how it was found. **It is silent because it fails only where it matters:** CI
+has no `.env` (`.dockerignore` keeps it out of the build context), so the guarantee holds exactly
+where nobody needs it and fails exactly where the secret exists. Queued at `09a-`, ahead of the
+rest, for that reason. Item 10 pinned its own module with a monkeypatched `get_settings` and the
+item removes that workaround.
 
 **31 · FILED 2026-09-17 by item 29's session. `plain_text()` reads a tag with a regular
 expression, and two shapes of real course HTML defeat it — silently.** Found while checking item

@@ -580,11 +580,12 @@ is the **source's own text** at the match, sliced out of the document, so a mode
 a curly apostrophe does not get its version rendered.
 
 It does not catch irrelevance. A quote that is really on the page but has nothing to do with the
-question is verified and shown; measured on `llama3.1:8b` over the sample course, roughly half of
-what E09 returned was a real sentence about something else. That is the design working as intended
-rather than failing: a reviewer reads a quote with its location and dismisses it in seconds, which
-is exactly the falsifiability SPEC §01 asks for, and it is why nothing here is allowed to skip
-straight to a rating.
+question is verified and shown. Measured on `llama3.1:8b` over the sample course, E09 verified 16
+quotes and discarded 1, and only about four of the sixteen stated a policy about grades or late
+work — the rest were real sentences about something else. That is the design working rather than
+failing: a reviewer reads a quote with its location and dismisses it in seconds, which is exactly
+the falsifiability SPEC §01 asks for, and it is why nothing here is allowed to skip straight to a
+rating.
 
 ### Four outcomes, kept apart
 
