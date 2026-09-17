@@ -216,3 +216,68 @@ def test_an_evidence_shape_has_nowhere_to_put_a_verdict() -> None:
     for shape in (Evidence, ExtractorResult):
         fields = set(getattr(shape, "__dataclass_fields__", {}))
         assert not fields & {"rating", "score", "band", "confidence", "verdict"}, shape
+
+
+# -- what an extractor computes from a verified quote, in code -------------------------------------
+
+
+def test_e09_reads_a_stated_penalty_including_the_per_cent_sign() -> None:
+    """`10%` is how a late penalty is almost always written, and it was the one shape missed.
+
+    The first regex ended in `\\b` after an alternation whose first branch is `%`. `%` is not a
+    word character, so the boundary never matched and "Late work loses 10% per day" reported no
+    figure — a computed field that was quietly wrong on the commonest case there is.
+    """
+    from sightline.extract.extractors import E09Grading
+
+    extractor = E09Grading()
+    for quote, figure in (
+        ("Late work loses 10% per day.", "10%"),
+        ("Late work loses 10 percent per day.", "10 percent"),
+        ("Late work loses 10 per cent per day.", "10 per cent"),
+        ("A 5 pts penalty applies.", "5 pts"),
+        ("Each late day costs 2 points.", "2 points"),
+    ):
+        context = extractor.annotate(quote, None)  # type: ignore[arg-type]
+        assert context["states_a_figure"] is True, quote
+        assert context["figure"] == figure, quote
+
+    for quote in ("Work is due at 11:59 p.m. on Sunday.", "You lose half a letter grade."):
+        assert extractor.annotate(quote, None)["states_a_figure"] is False, quote  # type: ignore[arg-type]
+
+
+def test_e09_separates_late_work_from_grading_in_general() -> None:
+    from sightline.extract.extractors import E09Grading
+
+    extractor = E09Grading()
+    assert extractor.annotate("No late work is accepted.", None)["mentions_late_work"] is True  # type: ignore[arg-type]
+    assert (
+        extractor.annotate("Grades are posted in the gradebook.", None)["mentions_late_work"]  # type: ignore[arg-type]
+        is False
+    )
+
+
+def test_e03_reads_a_stated_period_and_does_not_invent_one() -> None:
+    from sightline.extract.extractors import E03Interaction
+
+    extractor = E03Interaction()
+    for quote, period in (
+        ("I reply to email within 24 hours on weekdays.", "within 24 hours"),
+        ("Feedback is returned within one week.", "within one week"),
+        ("Marks are posted in 2 business days.", "in 2 business days"),
+    ):
+        context = extractor.annotate(quote, None)  # type: ignore[arg-type]
+        assert context["states_a_period"] is True, quote
+        assert context["period"] == period, quote
+
+    context = extractor.annotate("I reply to messages as soon as I can.", None)  # type: ignore[arg-type]
+    assert context["states_a_period"] is False
+    assert context["period"] is None
+
+
+def test_e01_and_e06_read_the_task_verb_off_the_quote_rather_than_the_document() -> None:
+    from sightline.extract.extractors import E01Objectives
+
+    context = E01Objectives().annotate("Students will analyze two proposals.", None)  # type: ignore[arg-type]
+    assert context["bloom_level"] == "analyze"
+    assert E01Objectives().annotate("Read chapter three.", None)["task_verb"] is None  # type: ignore[arg-type]

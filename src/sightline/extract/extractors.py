@@ -49,8 +49,10 @@ _TURNAROUND = re.compile(
 #: Words that mark a passage as being about work handed in late or not at all.
 _LATE_WORDS = ("late", "overdue", "past due", "extension", "resubmit", "make-up", "makeup")
 
-#: A stated penalty: "10%", "half a letter grade", "10 points".
-_PENALTY = re.compile(r"\b\d{1,3}\s*(?:%|per\s?cent|percent|points?|pts?)\b", re.I)
+#: A stated penalty: "10%", "10 points", "5 pts". The word boundary goes on the *word* branches
+#: only: `%` is not a word character, so a trailing `\b` after it never matches and "loses 10% per
+#: day" — the commonest way a late penalty is ever written — reported no figure at all.
+_PENALTY = re.compile(r"\b\d{1,3}\s*(?:%|per\s?cent\b|percent\b|points?\b|pts?\b)", re.I)
 
 
 class E01Objectives(Extractor):
