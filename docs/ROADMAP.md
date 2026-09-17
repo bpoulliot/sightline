@@ -18,7 +18,7 @@ Queue lives at `~/docker/overnight-sightline/`. Next free item number: **27**.
 | 03 | Acquisition and normalization | 0 | READY | **DONE** — PR #3 |
 | 04 | Rubric pack format + capability tags | 0 | READY | queued 05a |
 | 05 | Ship the two rubric packs | 0 | READY | queued 05b |
-| 06 | Detector framework + accessibility cluster | 0 | READY | **DONE** — PR #PRNUM |
+| 06 | Detector framework + accessibility cluster | 0 | READY | **DONE** — PR #7 |
 | 07 | Canvas structure detectors D01–D20 | 1 | READY | queued 06 |
 | 08 | Mobile detectors + optional-section flag | 1 | READY | queued 07 |
 | 09 | Ollama client, capability filter, model picker | 1 | READY | queued 08 |
@@ -64,7 +64,7 @@ command runs verbatim (490 tests, clean lint and format, container healthy).
 
 ```
 03a-sightline-item23-content-export-request.md  # DONE — PR #6
-04-sightline-item06-detector-framework.md       # DONE — PR #PRNUM
+04-sightline-item06-detector-framework.md       # DONE — PR #7
 05-sightline-item21-detector-integrity-guard.md
 05a-sightline-item04-rubric-pack-format.md       # clears item 08's stop; unblocks 05 and 13
 05b-sightline-item05-rubric-packs.md             # the two packs, straight after the format
