@@ -25,12 +25,27 @@ from .models import (
     RunCourse,
     RunEvent,
     RunStatus,
+    as_utc,
     utcnow,
 )
 from .paths import DataPaths
 from .redaction import scrub, scrub_object
 
 log = get_logger("sightline.store")
+
+#: Columns added to the schema after an earlier item shipped it, and the whole of this project's
+#: migration mechanism. ``Base.metadata.create_all`` creates missing *tables* and never alters an
+#: existing one, so a column a later item adds is simply absent from a data root somebody already
+#: has — and the symptom is ``no such column`` on the first query, at runtime, in front of them.
+#: There is no Alembic here on purpose: one process, one SQLite file, and a handful of additive
+#: columns is not a migration framework's problem. Anything that is not an additive column (a
+#: rename, a type change, a backfill) is where that stops being true, and is not silently
+#: expressible here.
+ADDED_COLUMNS: dict[str, dict[str, str]] = {
+    # Roadmap item 17: the export gate. Null for every course a previous version recorded, which
+    # is the correct reading — nobody opened their review.
+    "run_courses": {"review_opened_at": "DATETIME"},
+}
 
 
 def create_store_engine(url: str, *, echo: bool = False) -> Engine:
@@ -65,6 +80,29 @@ class RunStore:
 
     def create_all(self) -> None:
         Base.metadata.create_all(self.engine)
+        self.apply_added_columns()
+
+    def apply_added_columns(self) -> list[str]:
+        """Add any column in :data:`ADDED_COLUMNS` that an older data root does not have yet.
+
+        Returns what it added, so a caller — and the suite — can assert on it rather than trust
+        it. A fresh database gets every column from ``create_all`` and this finds nothing to do.
+        """
+        applied: list[str] = []
+        with self.engine.begin() as connection:
+            for table, columns in ADDED_COLUMNS.items():
+                rows = connection.exec_driver_sql(f"PRAGMA table_info({table})").fetchall()
+                present = {str(row[1]) for row in rows}
+                if not present:  # pragma: no cover - create_all has just made every table
+                    continue
+                for name, ddl in columns.items():
+                    if name in present:
+                        continue
+                    connection.exec_driver_sql(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}")
+                    applied.append(f"{table}.{name}")
+        if applied:
+            log.info("schema_columns_added", columns=applied)
+        return applied
 
     def dispose(self) -> None:
         self.engine.dispose()
@@ -150,6 +188,45 @@ class RunStore:
                 )
             )
 
+    def mark_review_opened(self, course_id: str) -> datetime:
+        """Record that a person opened this course's review. The one door the export gate has.
+
+        Called only from :mod:`sightline.batch.gate`, which is the module that states what it
+        means; this method is the write and nothing else. Re-opening a review does not move the
+        timestamp: the question a report asks is *whether* a human has looked, and the first time
+        is the honest answer to it.
+        """
+        with self.session() as session:
+            course = session.get(RunCourse, course_id)
+            if course is None:
+                raise KeyError(course_id)
+            if course.review_opened_at is None:
+                course.review_opened_at = utcnow()
+                session.add(
+                    RunEvent(
+                        run_id=course.run_id,
+                        course_id=course_id,
+                        event="review_opened",
+                        data={"ordinal": course.ordinal},
+                    )
+                )
+            opened = as_utc(course.review_opened_at)
+            assert opened is not None  # just set, or already present
+            return opened
+
+    def set_course_stage(self, course_id: str, stage: str) -> None:
+        """Move a running course to its next stage. No event: ``stage_started`` is the event.
+
+        Separate from :meth:`set_course_status` because a stage change is not a status change, and
+        going through that method would write a second ``course_status`` row per stage — five per
+        course saying nothing that the stage events do not already say better.
+        """
+        with self.session() as session:
+            course = session.get(RunCourse, course_id)
+            if course is None:
+                raise KeyError(course_id)
+            course.stage = stage
+
     def append_event(
         self,
         run_id: str,
@@ -179,6 +256,10 @@ class RunStore:
         with self.session() as session:
             return session.get(Run, run_id)
 
+    def get_course(self, course_id: str) -> RunCourse | None:
+        with self.session() as session:
+            return session.get(RunCourse, course_id)
+
     def list_runs(self, *, limit: int = 25) -> list[Run]:
         with self.session() as session:
             statement = select(Run).order_by(Run.created_at.desc()).limit(limit)
@@ -190,6 +271,22 @@ class RunStore:
                 select(RunEvent)
                 .where(RunEvent.run_id == run_id)
                 .order_by(RunEvent.id.desc())
+                .limit(limit)
+            )
+            return list(session.scalars(statement))
+
+    def events_in_order(self, run_id: str, *, limit: int = 2000) -> list[RunEvent]:
+        """The run log oldest-first, which is the order progress has to be replayed in.
+
+        :meth:`list_events` answers "what just happened" and is newest-first for a screen. Reading
+        a course's stage history out of that means reversing a truncated window, which silently
+        drops the *earliest* events — exactly the ones that say a stage started.
+        """
+        with self.session() as session:
+            statement = (
+                select(RunEvent)
+                .where(RunEvent.run_id == run_id)
+                .order_by(RunEvent.id.asc())
                 .limit(limit)
             )
             return list(session.scalars(statement))

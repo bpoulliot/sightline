@@ -37,6 +37,10 @@ class BackgroundRunner:
         self.store = store
         self.handler = handler
         self._tasks: dict[str, asyncio.Task[None]] = {}
+        #: The task that works through what a restart found. One, not one per run: courses are
+        #: reviewed one after another against a single model host (SPEC §04), and two runs
+        #: resuming at once would be two batches competing for it.
+        self._resume: asyncio.Task[None] | None = None
 
     # -- lifecycle ---------------------------------------------------------------------------
 
@@ -50,8 +54,42 @@ class BackgroundRunner:
         )
         return interrupted
 
+    def resume_all(self) -> list[str]:
+        """Start every run the store says can pick up again, one after another.
+
+        Called once at startup, after :meth:`recover`. A process that comes back up and leaves a
+        half-finished batch sitting there has persisted its state for nothing (SPEC §04). They go
+        through one task in creation order rather than one task each, because they share a model
+        host.
+        """
+        run_ids = [run.id for run in self.store.resumable_runs()]
+        if not run_ids:
+            return []
+        self._resume = asyncio.create_task(self._resume_serially(run_ids), name="sightline-resume")
+        log.info("runs_resuming", run_ids=run_ids, count=len(run_ids))
+        return run_ids
+
+    async def _resume_serially(self, run_ids: list[str]) -> None:
+        for run_id in run_ids:
+            try:
+                await self.submit(run_id)
+            except asyncio.CancelledError:
+                raise
+            except Exception:  # already recorded by _execute; the next run still gets its turn
+                log.warning("resumed_run_failed", run_id=run_id)
+
     async def shutdown(self) -> None:
         """Cancel in-flight tasks and leave the store in a resumable state."""
+        if self._resume is not None:
+            # First, so that cancelling the run it is awaiting does not start the next one.
+            self._resume.cancel()
+            try:
+                await self._resume
+            except asyncio.CancelledError:
+                log.info("resume_cancelled_on_shutdown")
+            except Exception as exc:  # already logged by _execute; do not mask shutdown
+                log.warning("resume_failed_during_shutdown", error=str(exc))
+            self._resume = None
         tasks = list(self._tasks.items())
         for _run_id, task in tasks:
             task.cancel()
@@ -101,4 +139,11 @@ class BackgroundRunner:
             log.error("run_failed", run_id=run_id, error_type=type(exc).__name__, error=str(exc))
             raise
         else:
-            self.store.set_run_status(run_id, RunStatus.SUCCEEDED)
+            # The handler may have recorded a more precise outcome than "it did not raise" — a
+            # batch that reviewed two courses of three is ``partial``, and one the model host
+            # stopped is ``interrupted`` and resumable. Only a run still marked running is
+            # completed here. Overwriting either would be this class asserting something it did
+            # not observe.
+            run = self.store.get_run(run_id)
+            if run is None or RunStatus(run.status) is RunStatus.RUNNING:
+                self.store.set_run_status(run_id, RunStatus.SUCCEEDED)
