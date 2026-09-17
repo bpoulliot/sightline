@@ -39,7 +39,7 @@ one. :attr:`ExtractionRequest.expects` states the same thing in the words that g
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -141,6 +141,27 @@ class ExtractionRequest:
             "reason": self.reason,
             "expects": self.expects,
         }
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> ExtractionRequest:
+        """Rebuild a request from its own serialization. Kept beside :meth:`to_dict` on purpose.
+
+        A recorded request outlives the process that made it — roadmap item 11 writes the
+        disagreement set to a file and item 18 re-runs it later, possibly on another day. The
+        inverse therefore has to live next to the forward direction: a field added to this class
+        and to ``to_dict`` while the reader sits in another module is a field that silently stops
+        round-tripping, and the subset item 18 re-runs quietly becomes a different subset. The
+        suite asserts the pair covers every field of the dataclass.
+        """
+        return cls(
+            criterion=str(payload["criterion"]),
+            section=str(payload["section"]),
+            text=str(payload["text"]),
+            tier=Tier(payload["tier"]),
+            coverage=Coverage(payload["coverage"]),
+            reason=str(payload["reason"]),
+            expects=str(payload["expects"]),
+        )
 
 
 def extraction_request(row: Any) -> ExtractionRequest:

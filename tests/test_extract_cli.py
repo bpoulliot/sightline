@@ -14,6 +14,7 @@ import pytest
 
 import ollama_recordings as recordings
 from sightline.extract.__main__ import build_parser, main
+from sightline.extract.router import DISAGREEMENTS_FILENAME, DisagreementSet
 from sightline.llm.client import OllamaClient
 
 MODEL = "llama3.1:8b"
@@ -162,3 +163,173 @@ def test_the_parser_documents_the_budget() -> None:
     parser = build_parser()
     assert "--budget" in parser.format_help()
     assert "Words of course text per call" in parser.format_help()
+
+
+def test_the_parser_says_what_a_second_run_costs() -> None:
+    """Three runs cost three times one pass and the help says so, because nothing amortizes it."""
+    help_text = build_parser().format_help()
+    assert "--runs" in help_text
+    assert "concurrency is 1" in help_text
+
+
+# -- the router, through the CLI -----------------------------------------------------------------
+
+
+def _routed(
+    host: recordings.FakeHost,
+    sample: str,
+    monkeypatch: pytest.MonkeyPatch,
+    *extra: str,
+) -> int:
+    monkeypatch.setattr(
+        "sightline.extract.__main__.OllamaClient",
+        lambda endpoint, **kwargs: OllamaClient(endpoint, transport=host.transport(), **kwargs),
+    )
+    return main(
+        [
+            "--bundle",
+            sample,
+            "--extractor",
+            "E09",
+            "--model",
+            MODEL,
+            "--endpoint",
+            recordings.EXAMPLE_ENDPOINT,
+            "--runs",
+            "3",
+            *extra,
+        ]
+    )
+
+
+def _quote(text: str) -> str:
+    return json.dumps({"findings": [{"quote": text, "location": "Grading"}]})
+
+
+LATE = "Late work is accepted at the instructor's discretion."
+NOTHING = json.dumps({"findings": []})
+
+#: E09 opens ten artifacts of the sample course, so one run is ten calls and the recorded host
+#: answers them in order. A run's ten answers are built together rather than relying on the
+#: host's clamp, or "run 2" would silently mean "every call after the second".
+CALLS_PER_RUN = 10
+
+
+def _run_answers(*bodies: str) -> list[dict[str, object]]:
+    return [recordings.chat_response(MODEL, body) for body in bodies for _ in range(CALLS_PER_RUN)]
+
+
+def test_runs_that_differ_are_printed_under_needs_attention(
+    sample: str, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Run 2 returned nothing anywhere. Runs 1 and 3 found a sentence that is really there."""
+    host = recordings.only([MODEL])
+    host.chat_responses = _run_answers(_quote(LATE), NOTHING, _quote(LATE))
+    assert _routed(host, sample, monkeypatch) == 0
+    out = capsys.readouterr().out
+    assert "NEEDS ATTENTION" in out
+    assert "span(s) were returned by some runs and not by others" in out
+    assert "run(s) 1, 3 only:" in out
+    assert "not a statement about which run is right" in out
+
+
+def test_runs_that_agree_print_no_marker_at_all(
+    sample: str, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The quote prints. Nothing prints beside it — no marker, no adjective, no run count.
+
+    The pass's own header still counts the flagged subjects, and *zero* is the honest thing for it
+    to say: that is arithmetic about the run, on the line that also reports what it cost. The rule
+    is about what gets attached to a subject, and the subject's own block is checked here.
+    """
+    host = recordings.only([MODEL])
+    host.chat_responses = _run_answers(_quote(LATE), _quote(LATE), _quote(LATE))
+    assert _routed(host, sample, monkeypatch) == 0
+    out = capsys.readouterr().out
+    header, blocks = out.split("\n\n", 1)
+    assert "0 subject(s) need attention." in header
+    assert LATE in blocks
+    for marker in ("attention", "agree", "confiden", "only:", "could not read"):
+        assert marker not in blocks.lower()
+
+
+def test_saving_the_disagreement_set_needs_more_than_one_run(
+    sample: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    code = main(["--bundle", sample, "--model", MODEL, "--save-disagreements"])
+    assert code == 2
+    assert "one run has nothing to disagree with" in capsys.readouterr().err
+
+
+def test_the_disagreement_set_is_written_inside_the_data_root(
+    sample: str,
+    data_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The subset item 18 re-runs, on disk, readable back into requests."""
+    monkeypatch.setenv("SIGHTLINE_DATA_DIR", str(data_root))
+    host = recordings.only([MODEL])
+    host.chat_responses = _run_answers(_quote(LATE), NOTHING, _quote(LATE))
+    assert _routed(host, sample, monkeypatch, "--save-disagreements") == 0
+
+    written = sorted(data_root.rglob(DISAGREEMENTS_FILENAME))
+    assert len(written) == 1
+    assert data_root in written[0].parents
+    recorded = DisagreementSet.from_dict(json.loads(written[0].read_text(encoding="utf-8")))
+    assert [entry.subject for entry in recorded.entries] == ["E09"]
+    assert recorded.runs == 3
+
+
+def test_the_router_screen_prints_everything_one_pass_prints(
+    sample: str, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Three runs must not buy a reviewer *less* on the screen than one run does.
+
+    E05 is Tier C, so its drafted question is the deliverable and the quotes are its context. The
+    check is against a single pass's own screen rather than a hand-written string: anything one
+    run puts under a subject, the router puts under it too.
+    """
+    monkeypatch.setattr(
+        "sightline.extract.__main__.OllamaClient",
+        lambda endpoint, **kwargs: OllamaClient(endpoint, transport=_host().transport(), **kwargs),
+    )
+    base = [
+        "--bundle",
+        sample,
+        "--extractor",
+        "E05",
+        "--model",
+        MODEL,
+        "--endpoint",
+        recordings.EXAMPLE_ENDPOINT,
+    ]
+    assert main(base) == 0
+    once = capsys.readouterr().out
+    assert main([*base, "--runs", "3"]) == 0
+    routed = capsys.readouterr().out
+
+    assert E05_QUOTE in once, "the fixture quote is not in the sample course any more"
+    asked = [line for line in once.splitlines() if line.strip().startswith("asks")]
+    assert asked, "the single-run screen stopped printing the Tier C question"
+    assert any(line.strip().startswith("quote") for line in once.splitlines())
+    assert any(line.strip().startswith("counts") for line in once.splitlines())
+    for line in asked:
+        assert line in routed.splitlines()
+    for line in once.splitlines():
+        if line.strip().startswith(("quote", "counts")):
+            assert line in routed.splitlines()
+    assert "NEEDS ATTENTION" not in routed
+
+
+#: A sentence that really is in the sample course's first assignment, so the quote verifies and
+#: the screens have a quote, a count and a question on them to compare.
+E05_QUOTE = "Then reply to two classmates."
+
+
+def _host() -> recordings.FakeHost:
+    """Answers every call the same way, so one pass and three runs see identical evidence."""
+    host = recordings.only([MODEL])
+    body = json.dumps({"findings": [{"quote": E05_QUOTE, "location": "the task"}]})
+    host.chat_responses = [recordings.chat_response(MODEL, body) for _ in range(120)]
+    return host

@@ -551,6 +551,7 @@ rendered.
 ```sh
 python -m sightline.extract --bundle examples/sample-course --dry-run
 python -m sightline.extract --bundle examples/sample-course --model gemma4:e4b
+python -m sightline.extract --bundle examples/sample-course --model gemma4:e4b --runs 3
 ```
 
 `--dry-run` calls nothing and needs no model host. It prints the passages each extractor would send
@@ -600,7 +601,60 @@ A schema violation is rejected rather than coerced. A response carrying a `ratin
 response with a key to drop — it is a model doing something other than what it was asked, and
 quietly deleting the key would hide that. Nothing is retried: a second sample at the same
 temperature is a second answer to the same question, and choosing between them is the redundancy
-SPEC §01 rules out. Item 11's 3× router reports the disagreement instead.
+SPEC §01 rules out. The 3× router below reports the disagreement instead of resolving it.
+
+### Three runs, and what a disagreement is allowed to mean
+
+`--runs 3` engages the disagreement router. The same extraction runs three times, the runs are
+compared **on the extracted spans after normalization**, and a subject whose runs returned
+different text is marked *needs attention*. Nothing votes, nothing averages, and there is no
+confidence signal anywhere in the output.
+
+**A subject whose runs agree is not marked at all.** Not "confident", not a tick, not "3 of 3". The
+reason is the one in SPEC §01: a mildly agreeable model returns three identical confident answers
+on a weak prompt, so a marker for agreement would be strongest exactly where the model is most
+confidently wrong. Variance is a good triage signal and a bad truth signal, and only the first use
+is allowed here. The run count that produced a span is recorded **only inside the disagreement
+record**, where a reviewer resolving the difference needs it.
+
+The evidence handed downstream is the **union** of the runs, never the intersection. Every span was
+string-matched against the source before it was accepted, so a span one run returned is a passage
+that demonstrably exists in the course — dropping it because the other two runs missed it would be
+using agreement as a filter, which is the thing the router exists not to do.
+
+Three outcomes per run per span are kept apart: returned, read-and-not-returned, and *the artifact
+could not be read in that run*. A run that could not read a page did not fail to find a sentence in
+it. And a passage that **every** run failed is not a disagreement at all — it is an incomplete
+result, which the layer already reports on its own.
+
+A span is identified by **where it sits as well as what it says**. One sentence can appear twice in
+one artifact — a policy restated under two headings is ordinary in a syllabus — and each occurrence
+is verified and located separately, so one run legitimately returns two quotes of the same text.
+Keyed on the text alone the union would keep the first and drop the second. The position is safe to
+compare on because the harness computes it, not the model.
+
+An agreeing subject printing "exactly what one run produced" is meant literally: the counts and a
+Tier C extractor's drafted question are there too, recomputed over the union so that the count
+under a list of quotes counts the quotes above it.
+
+### What three runs cost, measured
+
+Over the synthetic sample course on `llama3.1:8b`, target host, 2026-09-17:
+
+| | calls | wall clock |
+|---|---|---|
+| one pass, ten extractors | 127 | 953 s |
+| three runs | 381 | 2 859 s |
+| three runs, repeated later the same day | 381 | 2 865 s |
+
+Exactly 3.0×. Concurrency is 1 by design, so nothing amortizes and the arithmetic is the whole
+story. **On that course and that model the router flagged nothing**: all ten extractors returned
+byte-identical evidence across three runs, and a fourth independent pass in a separate process 48
+minutes later returned the same 226 quotes again. The whole three-run pass was then repeated from a
+clean process and returned the same 226 quotes over the same ten extractors, on an identical
+160 998 tokens, flagging nothing a second time. That is a measurement of one model on one synthetic
+course, not a general claim — but it is the number to weigh `--runs 3` against, which is why the
+default is one run.
 
 ### The verb table judges, not the model
 
