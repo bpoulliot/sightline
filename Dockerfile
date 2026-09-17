@@ -53,6 +53,13 @@ COPY docs/SPEC.md ./docs/SPEC.md
 # run without it. It is also what `python -m sightline.acquire --bundle` reads, which is why the
 # runtime stage below carries it too.
 COPY examples ./examples
+# The rubric importer is tested against the committed instruments themselves rather than against a
+# copy of them, because the facts it has to survive are facts about those files: one of them does
+# not open in openpyxl's default mode at all, one category skips an index, and the counts have to
+# come out of the workbook rather than out of the spec. A fixture would agree with the importer
+# instead of checking it. The workbooks are a blank template with no personal data (SPEC §11), and
+# the runtime stage carries them too.
+COPY rubrics ./rubrics
 
 ENV PATH="/app/.venv/bin:$PATH" \
     SIGHTLINE_DATA_DIR=/tmp/sightline-test-data \

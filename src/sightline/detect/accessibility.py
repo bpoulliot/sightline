@@ -105,6 +105,11 @@ class ImageAltText(HtmlDetector):
         "read as a paragraph, or marked decorative in a way that contradicts itself"
     )
     tier = Tier.A
+    capability_tag = "alt_text"
+    capability_description = (
+        "Whether each image carries alt text at all, and whether what it carries is a real "
+        "description rather than a filename, an empty string on a meaningful image, or a paragraph."
+    )
 
     def examine(self, survey: Survey) -> Iterable[Finding]:
         for body, page in self.pages(survey):
@@ -232,6 +237,11 @@ class HeadingStructure(HtmlDetector):
         "where a heading was meant"
     )
     tier = Tier.A
+    capability_tag = "heading_structure"
+    capability_description = (
+        "Whether pages use real heading elements, in order and without gaps, rather than bold text "
+        "standing in for one."
+    )
 
     def examine(self, survey: Survey) -> Iterable[Finding]:
         for body, page in self.pages(survey):
@@ -379,6 +389,11 @@ class LinkText(HtmlDetector):
         "same label pointing at different places, and addresses typed into the page as prose"
     )
     tier = Tier.A
+    capability_tag = "link_text"
+    capability_description = (
+        "Whether a link's own text says where it goes, and whether the same label is reused for "
+        "different destinations."
+    )
 
     def examine(self, survey: Survey) -> Iterable[Finding]:
         for body, page in self.pages(survey):
@@ -499,6 +514,11 @@ class TableSemantics(HtmlDetector):
         "and tables used to position things on the page rather than to hold data"
     )
     tier = Tier.A
+    capability_tag = "table_semantics"
+    capability_description = (
+        "Whether tables of data declare their header cells and scope and carry a caption, and "
+        "whether a table is being used to lay out a page instead."
+    )
 
     def examine(self, survey: Survey) -> Iterable[Finding]:
         for body, page in self.pages(survey):
@@ -666,6 +686,11 @@ class ContrastRatio(HtmlDetector):
         "rubric asks for, reported with the background it was measured against"
     )
     tier = Tier.A
+    capability_tag = "colour_contrast"
+    capability_description = (
+        "The contrast ratio of each declared text colour against the background it was measured "
+        "against, in course pages."
+    )
 
     def examine(self, survey: Survey) -> Iterable[Finding]:
         for body, page in self.pages(survey):
@@ -768,6 +793,11 @@ class ColourAsSoleCarrier(HtmlDetector):
         "look for a colour, and coloured text that carries no second cue"
     )
     tier = Tier.B
+    capability_tag = "colour_as_sole_cue"
+    capability_description = (
+        "Passages where colour appears to be the only thing carrying a distinction, including "
+        "prose that tells a learner to look for one."
+    )
 
     def examine(self, survey: Survey) -> Iterable[Finding]:
         for body, page in self.pages(survey):
@@ -874,6 +904,11 @@ class CaptionTrack(HtmlDetector):
         "the course itself does not record"
     )
     tier = Tier.A
+    capability_tag = "captions_and_transcripts"
+    capability_description = (
+        "Whether a caption track accompanies each audio or video element, and where a hosted "
+        "player's caption state cannot be read from the course."
+    )
     collections = ("embeds", "files")
 
     def examine(self, survey: Survey) -> Iterable[Finding]:
@@ -948,6 +983,11 @@ class TypeSizeAndFamily(HtmlDetector):
         "sans-serif, in course pages and in the Word documents attached to them"
     )
     tier = Tier.A
+    capability_tag = "type_size_and_family"
+    capability_description = (
+        "Declared text sizes below the minimum and typefaces outside the family asked for, in "
+        "course pages and in attached word-processor documents."
+    )
     collections = (*BODY_COLLECTIONS, "files")
 
     def examine(self, survey: Survey) -> Iterable[Finding]:
@@ -1071,6 +1111,11 @@ class TextRenderedAsImage(HtmlDetector):
         "than prose"
     )
     tier = Tier.B
+    capability_tag = "text_as_image"
+    capability_description = (
+        "Images whose pixel density suggests a page of text rendered as a picture, and pages "
+        "carrying more picture than prose."
+    )
     collections = (*BODY_COLLECTIONS, "files")
 
     def examine(self, survey: Survey) -> Iterable[Finding]:
@@ -1134,6 +1179,12 @@ class DocumentAccessibility(Detector):
         "heading styles, and slide decks with missing or repeated titles or timed transitions"
     )
     tier = Tier.A
+    capability_tag = "document_accessibility"
+    capability_description = (
+        "Whether an attached PDF carries a tag tree and a text layer, whether a word-processor "
+        "file uses heading styles, and whether a slide deck has unique titles and no timed "
+        "transitions."
+    )
     collections = ("files",)
 
     def examine(self, survey: Survey) -> Iterable[Finding]:

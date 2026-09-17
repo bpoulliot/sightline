@@ -16,7 +16,7 @@ Queue lives at `~/docker/overnight-sightline/`. Next free item number: **28**.
 | 01 | Repo skeleton, config, run store, **container** | 0 | READY | **DONE** — PR #1 |
 | 02 | Canvas connector and connection test | 0 | READY | **DONE** — PR #2 |
 | 03 | Acquisition and normalization | 0 | READY | **DONE** — PR #3 |
-| 04 | Rubric pack format + capability tags | 0 | READY | queued 05a |
+| 04 | Rubric pack format + capability tags | 0 | READY | **DONE** — PR #9 |
 | 05 | Ship the two rubric packs | 0 | READY | queued 05b |
 | 06 | Detector framework + accessibility cluster | 0 | READY | **DONE** — PR #7 |
 | 07 | Canvas structure detectors D01–D20 | 1 | READY | queued 06 |
@@ -67,7 +67,7 @@ command runs verbatim (490 tests, clean lint and format, container healthy).
 03a-sightline-item23-content-export-request.md  # DONE — PR #6
 04-sightline-item06-detector-framework.md       # DONE — PR #7
 05-sightline-item21-detector-integrity-guard.md  # DONE — PR #8
-05a-sightline-item04-rubric-pack-format.md       # clears item 08's stop; unblocks 05 and 13
+05a-sightline-item04-rubric-pack-format.md       # DONE — PR #9. Item 08's stop is cleared.
 05b-sightline-item05-rubric-packs.md             # the two packs, straight after the format
 06-sightline-item07-canvas-structure-detectors.md
 07-sightline-item08-mobile-detectors.md          # pack flag needs item 04
@@ -424,8 +424,8 @@ producing wrong output today, and item 21 is sequenced immediately after item 06
   supersedes it, and SPEC §04 agrees — rubric packs project findings onto rows. `Finding` carries
   `detector`, `code`, `severity`, `tier`, `location`, `observed`, `evidence`, `examined` and a
   free-form `context`, and `tests/test_detect_base.py` fails the build if a detector's title ever
-  names a category code. **Item 04 backfills `capability_tag`**, which was deliberately left to it
-  rather than invented here.
+  names a category code. **Item 04 backfilled `capability_tag`** (PR #9), which was deliberately left
+  to it rather than invented here.
 - **`evidence` is verbatim and `observed` is not.** `html_scan.verbatim()` truncates only;
   `excerpt()` collapses whitespace and is for measured values. A quote that was silently tidied up
   cannot be found by searching the page, and the whole design rests on a finding being falsifiable
@@ -445,6 +445,71 @@ producing wrong output today, and item 21 is sequenced immediately after item 06
 - **`python -m sightline.detect --bundle examples/sample-course` exits 1** when any detector could
   not run. A gap in the review is not a clean course, and a script reading the exit code has to be
   told so.
+
+**Item 04 — what later items inherit. Every item that adds a detector or renders a row is subject
+to this.**
+
+- **A detector declares a `capability_tag` and a `capability_description`, and never a criterion.**
+  The tag comes from the closed vocabulary in `src/sightline/capabilities.yaml`. An unknown tag
+  raises `UnknownCapabilityTag` at class-definition time, and the integrity guard's fourth check
+  fails the build by name for a missing tag or a missing description. **Items 07 and 08 must
+  declare one per detector**; the vocabulary already carries a concept for every entry in SPEC §05's
+  `D` inventory, so neither has to invent one.
+- **Validation is asymmetric and that is the design.** A *detector* with an unknown tag fails hard;
+  a *pack* with one is a reported `BindingWarning` and that row degrades to
+  `NO_DETERMINISTIC_COVERAGE`. Packs are third-party and an uploaded rubric must never be able to
+  hard-fail Sightline. Do not make the pack side strict.
+- **THE THREE STATES LIVE IN `sightline.rubric.states` AND ARE DEFINED ONCE.** `DETERMINISTIC`,
+  `NOT_YET_IMPLEMENTED`, `NO_DETERMINISTIC_COVERAGE`, plus `Rating.SUFFICIENTLY_PRESENT` — **the
+  only value meaning clean**. `coverage_of()` is the single place the decision is made. Every output
+  surface items 13, 14, 15, 16 and 24 build is a fresh chance to collapse two of them at the last
+  moment before a human reads the result; `RowResult.clean` is true only for
+  `SUFFICIENTLY_PRESENT`, and the row dictionary carries `coverage` alongside `rating` so no
+  renderer has to re-derive it.
+- **A pack with zero bindings loads, runs and produces a usable review.** Its rows route to the
+  extraction layer. This is the ordinary steady state for a third-party instrument and **no surface
+  may word it as degraded, incomplete, unsupported or missing.** `tests/test_rubric_coverage.py`
+  asserts that vocabulary is absent from the coverage report; later items should keep doing the
+  same for theirs.
+- **Projection is many-to-many in both directions, and effort SUMS then bands.** One global rule
+  for every row — not worst-of, not a per-row policy, so item 12b calibrates one model. Band
+  thresholds are pack data (`RatingScale.bands`, from the ranges printed on the instrument);
+  per-defect costs are global config and are currently a labelled placeholder in
+  `sightline.rubric.effort` with `calibrated=False`. **Item 12a replaces `EffortModel.cost_of` and
+  nothing else.**
+- **Tiers override the arithmetic, checked before the bands.** A Tier C row stays at `No Response`
+  however many findings its bindings produced — the findings ride along as context. A Tier D row
+  defaults to `Not Applicable` with a note and is **never routed to extraction**.
+- **`sightline.rubric.routing` is the contract item 10 implements against.** `routes_to_extraction`
+  is the whole rule; `ExtractionRequest` has no field for a rating, a band or a score, and
+  `EXPECTATIONS` says so in the words that reach a prompt. Item 10 implements extraction; it does
+  not re-decide which rows get one.
+- **Every lookup keys on the row code.** `RubricPack.criterion(code)` is the only accessor and
+  there is no positional one. The reference instrument's assessment block runs 1, 2, 3, 4, 5, **7**.
+- **`priority` is nullable.** `Projection.priority_rank` sorts null after every labelled priority.
+  Nothing fills it in.
+- **`sections[].optional` is the field that clears item 08's stop.** A section declaring it may set
+  `enabled: false`; one that does not, cannot, and the loader refuses the combination. Switched-off
+  rows are *reported* as omitted rather than vanishing.
+- **`pack_coverage()` is a checkable artifact about the pack, computed with no course.** Four
+  exhaustive buckets with an arithmetic self-check (`ok`). Item 22 shows the delta on it when a
+  human accepts a proposed binding.
+- **Packs are validated against `src/sightline/rubric/pack.schema.json`** and a failure names the
+  offending path. The format is documented in `docs/RUBRIC-PACKS.md`; **item 05 authors the two
+  real packs and should not need to touch the schema.**
+- **The importer runs against both committed workbooks and the counts agree with SPEC §03.** 68
+  rows on the reference instrument (COAL 7, GSOV 12, OREP 11, ACD 11, ENIN 12, ASFE 6, MOB 9) and
+  18 on the RSI one, read from the files and asserted in `tests/test_rubric_importer.py` — so there
+  is no disagreement to report this time. Verified alongside: `ASFE` keys 1, 2, 3, 4, 5, 7; the
+  nine mobile rows carry a null priority; the index column mixes float and int inside one sheet; the
+  RSI file raises `TypeError` in openpyxl's default mode and loads read-only; the RSI CSV export has
+  already lost its curly quotes to U+FFFD and the reference one has not.
+- **The `dev` image stage now copies `rubrics/`.** It did not, so the importer's tests could not see
+  the instruments they are written against. Added in PR #9 with the reason in the Dockerfile.
+- **There is no `--out` on `python -m sightline.rubric import`, and there must not be.** Item 01's
+  structural guard — `sightline.paths` is the only module allowed to create a writable path — caught
+  an earlier draft of that flag. Shell redirection does the job. Later CLI items should expect the
+  same refusal.
 
 **Item 21 — what later items inherit. Every item that adds a detector is subject to this.**
 

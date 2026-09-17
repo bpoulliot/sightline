@@ -20,6 +20,17 @@ dependencies = [
     "defusedxml>=0.7",
     "cryptography>=43.0",
     "python-multipart>=0.0.12",
+    # Rubric packs are hand-authored YAML, so comments matter and the format has to be one a
+    # non-programmer can edit (SPEC §04). PyYAML reads them; the loader only ever calls safe_load.
+    "pyyaml>=6.0",
+    # The pack schema is a JSON Schema committed at src/sightline/rubric/pack.schema.json, and it
+    # is validated against rather than reimplemented: a schema nothing checks drifts from the
+    # loader within a release, and the error this library raises already names the offending path.
+    "jsonschema>=4.23",
+    # The rubric importer reads the committed workbooks. Note that one of them does not open in
+    # openpyxl's default mode at all (SPEC §03) — see sightline.rubric.importer for what that
+    # costs and what is done about it.
+    "openpyxl>=3.1",
 ]
 
 [project.optional-dependencies]
