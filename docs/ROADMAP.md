@@ -5,7 +5,7 @@ Canonical for item status. `docs/SPEC.md` is canonical for design.
 Labels: **READY** · **NEEDS DISCUSSION** · **NEEDS MEASUREMENT** · **BLOCKED**.
 Nothing unready enters the queue. One item per conversation, one PR per item.
 
-Queue lives at `~/docker/overnight-sightline/`. Next free item number: **33**.
+Queue lives at `~/docker/overnight-sightline/`. Next free item number: **34**.
 
 ---
 
@@ -30,7 +30,7 @@ Queue lives at `~/docker/overnight-sightline/`. Next free item number: **33**.
 | 14 | PDF course report | 2 | READY | staged 14 |
 | 15 | Narrative generator and voice contract | 2 | READY | staged 12 |
 | 16 | Review UI | 2 | READY | staged 15 |
-| 17 | Batch runner | 2 | READY | queued 11 |
+| 17 | Batch runner | 2 | READY | **DONE** — PR #18 |
 | 18 | Escalation adapter | 3 | **BLOCKED** — ChatGPT Edu API access | — |
 | 19 | Uploaded-rubric mapping screen | 3 | **SUPERSEDED by 22** | — |
 | 20 | Multi-course comparison view | 3 | **DECIDED — not building it** | see 25 |
@@ -46,6 +46,7 @@ Queue lives at `~/docker/overnight-sightline/`. Next free item number: **33**.
 | 30 | Every HTML detector re-parses every body | 2 | READY | queued 99c — **measure first** |
 | 31 | `plain_text()` reads a tag with a regex, and two shapes of course HTML defeat it | 1 | READY | queued 99c1 — take with 30 |
 | 32 | The suite reads the developer's `.env`; the fixture that promises it does not, does not | 1 | READY | **DONE** — PR #16 |
+| 33 | A routed row costs one call per passage, and nothing bounds the total | 2 | **NEEDS MEASUREMENT** | queued 99d |
 
 ---
 
@@ -81,7 +82,7 @@ command runs verbatim (490 tests, clean lint and format, container healthy).
 09-sightline-item10-extraction-layer.md          # DONE — PR #15. 10 extractors, quotes verified.
 09a-sightline-item32-dotenv-leaks-into-tests.md  # DONE — PR #16. Two holes, not one.
 10-sightline-item11-disagreement-router.md
-11-sightline-item17-batch-runner.md
+11-sightline-item17-batch-runner.md              # DONE — PR #18. The gate landed with it.
 11a-sightline-item12a-effort-model.md            # LAST in batch 2, before anything renders a band
 ```
 
@@ -113,7 +114,9 @@ which is what forced items 07 and 08 to comply without their prompts needing to 
 Item 15 leads the batch because the workbook, the PDF and the review screen all render sentences,
 and a voice contract written after two of them have shipped is a rewrite rather than a contract.
 The XLSX writer sits at `13-`, between the voice contract it depends on and the PDF that defers to
-it. Item 16 consumes the voice layer and satisfies the export gate item 14 builds. **Item 24 is
+it. Item 16 consumes the voice layer and satisfies the export gate — **which item 17 built rather
+than item 14**, because the batch runner is the thing that could have exported unattended, so
+items 13 and 14 now write *through* `sightline.batch.gate` instead of inventing it. **Item 24 is
 last on purpose**: it annotates the PDF and the review screen that items 14 and 16 build, and it
 surfaces the near-boundary marker item 12a computes but deliberately leaves without a UI.
 
@@ -392,6 +395,68 @@ default `/24` collides.
   settled; a later move toward stock OSCQR 3.1 / 4.0 is a pack change, not a code change.
 
 ## Notes carried forward
+
+**17 · DONE 2026-09-17 (PR #18). The batch runner, and the export gate that landed with it.**
+
+Five stages a run performs unattended — acquire, detect, project, extract, score — with the *loop*
+and the *work* in separate modules. `sightline.batch.runner` owns ordering, per-course isolation,
+resume, the events every progress surface reads and the file a reviewer opens;
+`sightline.batch.pipeline` owns the stages. What that buys is a suite: isolation and resume are
+proved against a scripted pipeline, and the real pipeline is proved against a course bundle and
+item 09's recorded host, so neither test needs Canvas or a GPU.
+
+**Project runs before extract, and SPEC §04's table is corrected rather than quietly contradicted.**
+The routing contract decides which rows a model is asked about from each row's coverage, which does
+not exist until the detection report has been projected onto the pack. A test fires the dependency:
+extracting before projecting has nothing to ask about.
+
+**What later items inherit.**
+
+- **`partial` is a run status.** Some courses reviewed, others failed. It exists because the other
+  two readings both lie — `succeeded` over a batch with a failure reads as done at a glance, and
+  `failed` discards two finished reviews. `STATUS_LABELS` in `sightline.models` is what a screen
+  renders, so "Completed with failures" has one home.
+- **A course failing is isolated; the batch's shared dependency failing is not.** An unreachable
+  model host, a missing credential, a pack that is not on disk: every remaining course would fail
+  identically one timeout at a time, so the batch stops, the run is left `interrupted` — resumable,
+  nothing known to be wrong with the courses — and the summary names what never ran. This is the
+  same split item 10 made inside one course, applied to a run.
+- **Resume is per course and it is never silent.** A finished course is reported as carried over; a
+  course that was mid-flight restarts at its first stage with the log recording which stage the
+  earlier attempt stopped in; a course that failed stays failed until the run is started afresh.
+- **Zero examined fails the stage**, enforced in the loop rather than by each stage remembering to.
+  Item 06's invariant at stage scale.
+- **The export gate is `sightline.batch.gate`, and it is item 17's, not item 14's.** The roadmap
+  expected the PDF report to build it; the batch runner is the thing that could export unattended,
+  so it landed here and items 13/14/16 write *through* it. `RunCourse.review_opened_at` is the
+  gate, only a human action sets it, and `tests/test_export_gate.py` scans the package's syntax
+  tree: no module but `paths.py` and `gate.py` may name `reports`. A completed run leaves that
+  directory empty and a test asserts it.
+- **The store's one migration mechanism is `ADDED_COLUMNS`**, applied when the store is opened.
+  `create_all` never alters a table it did not make, so a column a later item adds is simply absent
+  from a data root somebody already has, and the symptom is `no such column` at runtime in front of
+  them. Additive columns only — a rename or a backfill is deliberately not expressible there.
+- **Nothing here logs a course reference.** A Canvas course URL carries the host, which SPEC §11
+  treats as a secret; log calls key on the course id and the ordinal, stored events are scrubbed,
+  and a test fails the build if a reference reaches a log line.
+- **Document bytes are still not wired to the detectors (item 26).** The pipeline passes
+  `files=None` and says so in `sightline.batch.service` rather than pretending; the detectors that
+  read a PDF report that the bytes were not read, which is what they are built to do.
+
+**33 · FILED 2026-09-17 by item 17's session. A routed row costs one call per passage of the
+course, and nothing bounds the product.** Measured over the shipped sample course — 43 artifacts,
+15 passages — the routed rows cost about **180** model calls against the RSI pack and about **705**
+against the reference instrument, plus the ten topic extractors that answer a course once. At a few
+seconds a call that is roughly an hour for one course, so the cap of sixteen is a ceiling on a
+day-long wait. Item 04 stated the price plainly, so this is not a surprise; it is the point at which
+the number has been measured against a real pack and has to be decided about. **Nothing is wrong
+today — the output is correct and slow**, and every way of making it faster trades calls for the
+risk of not asking about the passage that held the evidence, which is the silent under-detection
+§11 exists to prevent. So the item is **NEEDS MEASUREMENT** with four candidates and none
+pre-selected (many rows per call, a deterministic pre-filter, embeddings, or nothing), recall
+measured against current behaviour as ground truth, and a hard condition on any of them: a row
+whose corpus was narrowed must say how much of the course it read. Sorts after every pending item —
+it is slow, not wrong, and the project stage now prints the estimate before anything is spent.
 
 **10 · DONE 2026-09-17 (PR #15). The extraction layer: ten extractors, one schema, and the
 string match that stands between a model and a fabricated quote.**
