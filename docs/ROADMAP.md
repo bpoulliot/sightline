@@ -442,12 +442,17 @@ string match that stands between a model and a fabricated quote.**
   it, so the inventory and the spec cannot drift apart silently.
 - **Both models were run end to end against the live host, and they fail in opposite directions.**
   `gemma4:e4b` on E01 over the sample course: 15 of 15 passages answered, **5 quotes verified, 0
-  discarded, 0 failures**, 316 s and 5 603 tokens for one extractor over fifteen short pages — and
-  every quote was genuinely a statement of what a learner must do. `llama3.1:8b` on E09 answered in
-  a quarter of the time and returned nearly four times as much, most of it real sentences about
-  something else. Precision is a property of the model, not of the harness; **the harness's job is
-  to make every quote checkable**, and item 11's router is where the disagreement between them
-  becomes information.
+  discarded, 0 failures**, 316 s and 5 603 tokens — 21 s a call over fifteen short pages, and every
+  quote genuinely a statement of what a learner must do. `llama3.1:8b` on E09 over ten of the same
+  course's artifacts: 16 verified and 1 discarded at **7.5 s a call** — a third of the time for
+  three times as many quotes, and only about four of the sixteen on topic. Precision is a property
+  of the model, not of the harness; **the harness's job is to make every quote checkable**, and
+  item 11's router is where the disagreement between two of them becomes information.
+- **The host is not deterministic at `temperature: 0`, measured here.** Two identical E09 runs on
+  `llama3.1:8b` over the same course returned 18 verified with 1 schema failure, then 16 verified
+  with 1 discard. **Item 11 must expect run-to-run variance from the host itself**, not only
+  disagreement between models — and nothing may read a difference between two runs as a difference
+  between two prompts.
 - **Four of E01's five verified sentences carried no verb the Bloom table knows** — *Read*,
   *Watch*, *Post*, *reply* — and were reported as *no table verb* rather than forced into a level.
   That is the designed behaviour and it is visible in the output, but it is also a measurement
