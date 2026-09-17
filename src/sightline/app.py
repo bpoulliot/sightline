@@ -23,6 +23,7 @@ from fastapi.templating import Jinja2Templates
 
 from . import __version__
 from .assets import TokensNotFoundError, resolve_tokens_css
+from .batch import BatchRunner, live_pipeline_factory
 from .config import Settings, get_settings
 from .credentials import CredentialStore
 from .llm import PullRegistry
@@ -93,6 +94,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             env_model_host_endpoint=resolved.ollama_base_url,
         )
         pulls = PullRegistry()
+        # The pipeline a run executes (roadmap item 17). Wired here rather than inside the
+        # background runner because what a run should be built from — credentials, the chosen
+        # model, the rubric recorded on the run — is the application's knowledge, not the task
+        # scheduler's. Until this line existed, submitting a run raised RunnerNotConfiguredError,
+        # which was the honest state of a project with no pipeline.
+        batch = BatchRunner(
+            store,
+            paths,
+            live_pipeline_factory(
+                settings=resolved,
+                paths=paths,
+                credentials=credentials,
+                preferences=preferences,
+            ),
+        )
+        runner.handler = batch.handle
         application.state.settings = resolved
         application.state.paths = paths
         application.state.store = store
@@ -100,7 +117,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         application.state.credentials = credentials
         application.state.preferences = preferences
         application.state.pulls = pulls
+        application.state.batch = batch
         interrupted = runner.recover()
+        # A restart continues the batch it was in the middle of (SPEC §04). One task, in creation
+        # order: the courses are reviewed sequentially against one model host either way.
+        resumed = runner.resume_all()
         log.info(
             "startup",
             version=__version__,
@@ -111,6 +132,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             ollama_concurrency=resolved.ollama_concurrency,
             escalation_configured=resolved.escalation_configured,
             interrupted_runs=len(interrupted),
+            resumed_runs=len(resumed),
+            batch_cap=resolved.batch_cap,
         )
         try:
             yield

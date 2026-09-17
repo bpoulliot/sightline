@@ -614,6 +614,103 @@ not a score: a course whose activities sit at *remember* is not a worse course.
 Tier C extractors (E05, E06, E07) assemble the same verified quotes plus the counts describing
 them, and draft a **question** for the reviewer. They never pre-select an answer to it.
 
+## Reviewing a batch of courses
+
+Up to sixteen courses in one run, reviewed one after another against a single local model host,
+resumable, and **nothing is exported**.
+
+```sh
+python -m sightline.batch run --bundle examples/sample-course --model gemma4:e4b
+python -m sightline.batch run --course 4410 --course 4411 --pack uccs-oscqr-rsi
+python -m sightline.batch status                 # recent runs
+python -m sightline.batch status <run id>        # one run, per course and per stage
+python -m sightline.batch resume <run id>        # continue one that was interrupted
+python -m sightline.batch open-review <course id>
+```
+
+`--bundle` needs no Canvas token and is the way to watch the whole thing work before any
+credentials exist. `--course` takes course ids or Canvas URLs. The two cannot be mixed in one run.
+
+### Five stages, and one of them is not where the spec printed it
+
+| Stage | What it does | What it counts |
+|---|---|---|
+| `acquire` | Canvas API and content export, normalized into the document model | artifacts normalized |
+| `detect` | Every deterministic detector. No model | artifacts opened |
+| `project` | Findings onto the chosen rubric's rows; routing decided | rows projected |
+| `extract` | The ten topic extractors, then every routed row | artifacts opened |
+| `score` | Effort summed and banded, action plan ordered | rows rolled up |
+
+SPEC §04's table lists *extract* before *project*. The runner projects first, and that is a
+correction rather than a preference: `sightline.rubric.routing` decides which rows a model is asked
+about from each row's **coverage**, which does not exist until the detection report has been
+projected onto the pack. Extracting first would mean either asking about all 68 rows of the
+reference instrument or deciding coverage twice, in two places.
+
+**A stage that examined nothing fails that course.** Item 06 established the rule for one detector
+and the batch runner applies it to a stage: zero examined is an unread course, not a clean one, and
+the loop enforces it regardless of what a pipeline reports.
+
+### What happens when something fails
+
+A course that fails fails **alone**. Its stage, its reason and its remedy go onto its row and into
+the run log, the next course starts, and the run summary names it:
+
+```
+3 course(s) in this run; 2 reviewed; 1 failed.
+Course 1: reviewed. 18 row(s) rolled up: …
+Course 2: failed at the detect stage. The course export never arrived. Ask Canvas for a fresh one.
+Course 3: reviewed. 18 row(s) rolled up: …
+```
+
+A run where some courses were reviewed and others failed is `partial`, which exists because the
+alternatives both lie: `succeeded` over a batch with a failed course reads as done, and `failed`
+throws away two finished reviews.
+
+What does **not** isolate is the batch's shared dependency: an unreachable model host, a missing
+credential, a rubric pack that is not on disk. Every remaining course would fail the same way, one
+timeout at a time, so the batch stops, the run is left `interrupted` — resumable, with nothing known
+to be wrong with the courses — and the summary says which never ran and why.
+
+### Resume is per course, and says so
+
+Killing the process and starting again continues the run. A finished course is not repeated and is
+not silently absent either: it is reported as carried over. A course that was mid-flight starts
+again at its first stage, and the log says which stage the earlier attempt stopped in. Within one
+course the stages hand typed objects to each other, so there is nothing complete to resume from
+half way through the expensive one.
+
+The application resumes on startup by itself; the `resume` command is for a run started from a
+terminal.
+
+### Nothing exports until a human opens the review
+
+A completed run leaves a reviewable result per course under `<data root>/runs/<run>/courses/<id>/`
+and leaves `reports/` **empty**. The only path to a file under `reports/` is
+`sightline.batch.gate.ExportGate.destination`, which refuses for a course whose review nobody has
+opened, and `tests/test_export_gate.py` scans the package's syntax tree so that the XLSX writer and
+the PDF report (roadmap items 13 and 14) cannot quietly reach past it when they are written.
+
+It is not access control — Sightline is one local process with no login. It stops a *program*
+exporting unattended, which is the failure the rule is about: a report delivered to a faculty
+member that no instructional designer ever read.
+
+### What a batch costs, measured
+
+The `project` stage prints the price before anything is spent, because the routed rows cost **one
+call per passage of the course, per row** (item 04 states it plainly). Over the shipped sample
+course, which is 43 artifacts and 15 passages:
+
+| Pack | Rows | Routed | Model calls for the routed rows |
+|---|---|---|---|
+| `uccs-oscqr-rsi` | 18 | 12 | about 180 |
+| `uccs-oscqr-3-1-3` | 68 | 47 | about 705 |
+
+Plus the ten topic extractors, which answer the course once rather than once per row. At a few
+seconds a call on a local host that is an hour or more for one course against the reference
+instrument, so the cap of sixteen is a ceiling on a long wait rather than a throughput target.
+Bounding that cost is roadmap item 33; the number is printed rather than discovered.
+
 ## Canvas token scopes
 
 So an institution can issue a least-privilege token rather than an administrative one, here is
@@ -725,6 +822,7 @@ repository is a bug, and `tests/test_config.py` fails the build over one.
 | `SIGHTLINE_RESOLVE_LINKS` | Whether the policy-link check may request the addresses a course links to. Default `false` — the only traffic Sightline makes outside Canvas. With it off the check reports which policy links are present and claims nothing about where they go; a request that fails is reported as unknown, never as a broken link. |
 | `SIGHTLINE_SECRET_KEY` | Key for credentials entered in the UI. Unset means Sightline manages a key file under the data root. |
 | `SIGHTLINE_DATA_DIR` | Root for everything downloaded or generated. Default `./data`; `/data` in the container. |
+| `SIGHTLINE_BATCH_CAP` | Courses per run. Default `16` (SPEC §09). Lower it if you want results sooner; raising it buys a longer wait rather than more throughput, because courses are reviewed one after another. |
 | `OLLAMA_BASE_URL` | Ollama endpoint. No default. Fallback for the endpoint on the Settings screen, which wins over it. |
 | `OLLAMA_CONCURRENCY` | Concurrent model calls. Default `1`, ceiling `8`. |
 | `OLLAMA_NUM_CTX` | Context window pinned on every model call. Default `8192`. Not a quality knob — see **The model layer**. |

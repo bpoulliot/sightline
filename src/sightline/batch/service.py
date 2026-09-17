@@ -1,0 +1,139 @@
+"""Assembling the real pipeline for one run out of what this deployment is configured with.
+
+The batch runner takes a factory rather than a pipeline because the pipeline holds an HTTP client
+per run and because what it should be built from is only known once the run exists — the rubric
+pack is recorded on the run, and the credentials are whatever is in force at the moment the run
+starts rather than when the process booted.
+
+**Everything missing fails as a stated condition of the run, not as a stack trace.** No Canvas
+credentials, no model host, a pack id nothing on disk answers to: each raises
+:class:`~sightline.batch.stages.BatchAborted` carrying what to do about it, which the runner
+records and the summary repeats. A batch that starts and then throws a ``KeyError`` sixteen times
+is the shape this avoids.
+
+**Document bytes are not wired in yet and this module says so rather than pretending.** The
+detectors that read a PDF or a Word file take a
+:class:`~sightline.detect.sources.FileSource`, and nothing can build one: the unpacked export's
+directory is a local inside ``CourseAcquisition.acquire`` and never leaves it. That is roadmap
+item 26, filed by item 06's session and queued. Until it lands those detectors report that the
+bytes were not read — which is what they are built to do, and is why passing ``None`` here is
+honest rather than quiet.
+"""
+
+from __future__ import annotations
+
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
+from ..acquire.service import CourseAcquisition
+from ..canvas.client import CanvasClient
+from ..config import Settings
+from ..credentials import CredentialError, CredentialStore
+from ..detect.links import HttpLinkResolver
+from ..llm.client import OllamaClient
+from ..logging import get_logger
+from ..models import Run
+from ..paths import DataPaths
+from ..preferences import PreferenceStore
+from ..rubric.shipped import PacksNotFoundError, shipped_pack
+from .pipeline import CanvasSource, CoursePipeline, ReviewPipeline
+from .runner import PipelineFactory
+from .stages import BatchAborted
+
+log = get_logger("sightline.batch.service")
+
+#: Said whenever a run cannot start for want of credentials. One string, because the two places
+#: that say it are two ways of being unconfigured and not two different problems.
+CANVAS_REMEDY = (
+    "Enter the Canvas URL and an API token on the Settings screen, then start the run again."
+)
+
+
+def live_pipeline_factory(
+    *,
+    settings: Settings,
+    paths: DataPaths,
+    credentials: CredentialStore,
+    preferences: PreferenceStore,
+    model_endpoint: str | None = None,
+    model_name: str | None = None,
+) -> PipelineFactory:
+    """The factory the application wires into its background runner.
+
+    ``model_endpoint`` and ``model_name`` override the stored preferences **for this factory
+    only**, which is what a command-line flag should do: a flag typed once is an answer about this
+    run, not a change to what the deployment is configured with.
+    """
+
+    @asynccontextmanager
+    async def build(run: Run) -> AsyncIterator[CoursePipeline]:
+        pack = _pack(run.rubric_pack)
+        canvas = _canvas(credentials)
+        endpoint = model_endpoint or preferences.model_host().endpoint
+        model = model_name or preferences.review_model().name
+        links = HttpLinkResolver.from_httpx() if settings.resolve_links else None
+        export_preference = preferences.request_content_export()
+
+        async with CanvasClient(canvas.base_url, canvas.token) as client:
+            model_client = (
+                OllamaClient(
+                    endpoint,
+                    concurrency=settings.ollama_concurrency,
+                    context_tokens=settings.ollama_context_tokens,
+                )
+                if endpoint
+                else None
+            )
+            try:
+                yield ReviewPipeline(
+                    source=CanvasSource(
+                        CourseAcquisition(
+                            client,
+                            paths,
+                            request_export=export_preference.enabled,
+                        )
+                    ),
+                    pack=pack,
+                    client=model_client,
+                    model=model,
+                    # Item 26: nothing can build a FileSource yet. See the module docstring.
+                    files=None,
+                    links=links,
+                )
+            finally:
+                if model_client is not None:
+                    await model_client.aclose()
+
+    return build
+
+
+def _pack(pack_id: str):  # noqa: ANN202 - the return type is RubricPack; imported lazily below
+    try:
+        return shipped_pack(pack_id)
+    except (KeyError, PacksNotFoundError) as exc:
+        raise BatchAborted(
+            f"This run was recorded against rubric pack {pack_id!r}, which is not on disk. {exc}",
+            remedy=(
+                "Start the run again against a rubric this build ships, or point "
+                "SIGHTLINE_RUBRIC_PACKS_DIR at the directory holding the packs."
+            ),
+        ) from exc
+
+
+def _canvas(credentials: CredentialStore):  # noqa: ANN202 - CanvasCredentials
+    try:
+        canvas = credentials.canvas()
+    except CredentialError as exc:
+        raise BatchAborted(
+            f"Sightline has no Canvas credentials, so no course could be acquired. {exc}",
+            remedy=CANVAS_REMEDY,
+        ) from exc
+    if not canvas.complete:
+        raise BatchAborted(
+            "Sightline has no complete Canvas credentials, so no course could be acquired.",
+            remedy=CANVAS_REMEDY,
+        )
+    return canvas
+
+
+__all__ = ["live_pipeline_factory"]

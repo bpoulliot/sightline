@@ -8,7 +8,7 @@ import pytest
 
 from sightline.models import RunStatus
 from sightline.paths import DataPaths
-from sightline.store import RunStore
+from sightline.store import RunStore, create_store_engine
 
 
 @pytest.fixture
@@ -154,3 +154,45 @@ def test_unknown_ids_raise(store: RunStore) -> None:
     with pytest.raises(KeyError):
         store.set_course_status("nope", RunStatus.RUNNING)
     assert store.get_run("nope") is None
+
+
+def test_a_data_root_from_before_the_export_gate_gains_its_column(paths: DataPaths) -> None:
+    """The whole migration mechanism, fired: ``create_all`` never alters a table it did not make.
+
+    A developer who has been running Sightline has a ``run_courses`` table with no
+    ``review_opened_at`` column, and the symptom of doing nothing about it is ``no such column``
+    on the first query — at runtime, in front of them. So the store adds what
+    :data:`sightline.store.ADDED_COLUMNS` names, and this test builds the older schema by hand and
+    checks both that the column arrives and that the row that was already there survives.
+    """
+    paths.ensure()
+    engine = create_store_engine(paths.database_url())
+    with engine.begin() as connection:
+        connection.exec_driver_sql(
+            "CREATE TABLE run_courses ("
+            "id VARCHAR(32) NOT NULL PRIMARY KEY, run_id VARCHAR(32) NOT NULL, "
+            "ordinal INTEGER, course_ref VARCHAR(512), status VARCHAR(16), "
+            "stage VARCHAR(32), error TEXT, updated_at DATETIME)"
+        )
+        connection.exec_driver_sql(
+            "INSERT INTO run_courses (id, run_id, ordinal, course_ref, status) "
+            "VALUES ('c1', 'r1', 0, '101', 'succeeded')"
+        )
+    engine.dispose()
+
+    store = RunStore.open(paths)
+    try:
+        with store.engine.begin() as connection:
+            columns = {
+                str(row[1])
+                for row in connection.exec_driver_sql("PRAGMA table_info(run_courses)").fetchall()
+            }
+            kept = connection.exec_driver_sql(
+                "SELECT course_ref FROM run_courses WHERE id = 'c1'"
+            ).scalar_one()
+        assert "review_opened_at" in columns
+        assert kept == "101"
+        # Idempotent: a second open finds nothing left to add.
+        assert store.apply_added_columns() == []
+    finally:
+        store.dispose()

@@ -36,6 +36,7 @@ from fastapi import APIRouter, Form, Request, UploadFile
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
+from .batch import progress_of
 from .canvas import (
     REQUIRED_PERMISSIONS,
     REQUIRED_SCOPES,
@@ -48,6 +49,7 @@ from .canvas import (
     parse_course_ref_csv,
     parse_course_refs,
 )
+from .config import DEFAULT_BATCH_CAP
 from .credentials import CanvasCredentials, CredentialError, CredentialStore
 from .llm import (
     HostReport,
@@ -64,13 +66,15 @@ from .preferences import (
     PreferenceStore,
     ReviewModelPreference,
 )
+from .store import RunStore
 
 log = get_logger("sightline.views")
 
 #: How many courses one resolution request will look up in Canvas. The batch cap is sixteen
 #: (SPEC §09); parsing is unlimited so the user can see everything they pasted, and the surplus is
-#: reported as "parsed but not looked up" rather than dropped.
-MAX_LOOKUPS = 16
+#: reported as "parsed but not looked up" rather than dropped. Taken from the cap rather than
+#: spelled again: two numbers that have to match are a number that will not.
+MAX_LOOKUPS = DEFAULT_BATCH_CAP
 
 #: Cap on an uploaded CSV. Large enough for any realistic course list, small enough that a wrong
 #: file fails as a stated limit rather than as a memory error.
@@ -234,6 +238,24 @@ def build_router(templates: Jinja2Templates) -> APIRouter:
     async def model_installs(request: Request) -> Any:
         """Every install this process has started, running or finished."""
         return JSONResponse({"installs": [state.as_dict() for state in _pulls(request).states()]})
+
+    # -- runs --------------------------------------------------------------------------------
+
+    @router.get("/api/runs/{run_id}")
+    async def run_progress(request: Request, run_id: str) -> JSONResponse:
+        """One run, per course and per stage, with every failure carried (SPEC §09).
+
+        JSON and not a screen, deliberately. The run-progress *screen* is part of the review UI
+        (roadmap item 16), which is where the question of how a batch and a review sit together
+        gets decided; item 17 owes that screen its data, not a second design for it. Until then
+        this endpoint and ``python -m sightline.batch status`` are the surfaces, and both report
+        what each stage examined rather than a percentage nobody can check.
+        """
+        store: RunStore | None = getattr(request.app.state, "store", None)
+        progress = progress_of(store, run_id) if store is not None else None
+        if progress is None:
+            return JSONResponse({"error": f"no run {run_id!r} in this run store"}, status_code=404)
+        return JSONResponse(progress.to_dict())
 
     # -- courses -----------------------------------------------------------------------------
 

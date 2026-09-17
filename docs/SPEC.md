@@ -206,11 +206,22 @@ and the three coverage states are documented in `docs/RUBRIC-PACKS.md` (roadmap 
 | 1 | Acquire | Canvas API + content export. Reuse the AccessLens fetch/unzip layer. |
 | 2 | Normalize | One document model: pages, files, assignments, modules, embeds — each with a Canvas deep link. |
 | 3 | Detect | Deterministic parsers. No model. Typed findings with locations and examined counts. |
-| 4 | Extract | Model-backed extractors. JSON schema, verified quotes only, 3× for routing. |
-| 5 | Project | Map findings onto the selected rubric's rows. |
+| 4 | Project | Map findings onto the selected rubric's rows, and decide which rows need a model. |
+| 5 | Extract | Model-backed extractors. JSON schema, verified quotes only, 3× for routing. |
 | 6 | Score | Effort model turns defect counts into revision tiers. |
 | 7 | Review | Designer confirms, overrides, annotates. |
 | 8 | Emit | XLSX workbook + PDF course report + narrative. |
+
+**Project precedes Extract, and this table said otherwise until item 17 built the runner.** The
+routing contract (item 04, `sightline.rubric.routing`) decides which rows are handed to a model
+from each row's *coverage*, and coverage does not exist until the detection report has been
+projected onto the pack. Extracting first would mean asking about every row of the instrument, or
+deciding coverage a second time somewhere else. The correction is recorded rather than quietly
+applied because the old order is cited in earlier items.
+
+The five stages a batch runs unattended are 1–6, with Normalize inside Acquire — acquisition
+returns a normalized document and there is nothing to observe between them. **Review and Emit are
+not stages a run performs**, which is the whole of "nothing exports unattended" below.
 
 ### Runtime
 
@@ -526,7 +537,14 @@ deployment footprint is a priority. All colour comes from `docs/tokens.css`.
 - **Overrides are first-class and persisted**, with the original machine proposal retained. That
   record is the calibration data for the effort model.
 - **Rubric selection is per run**, defaulting to OSCQR 3.1.3. RSI ships as a selectable alternative.
-- **Nothing exports until a human has opened the review.** No unattended report generation.
+- **Nothing exports until a human has opened the review.** No unattended report generation. Held as
+  a gate rather than a convention since item 17: `sightline.batch.gate.ExportGate` is the only way
+  to a path under `reports/`, it refuses for a course whose review nobody opened, and a structural
+  test fails the build if any other module names that directory.
+- **Progress is per course and per stage, and a stage that examined nothing is a failure.** Until
+  the review UI lands (item 16) the surfaces are `GET /api/runs/{id}` and
+  `python -m sightline.batch status`; the run-progress *screen* is part of that item rather than a
+  second design taken here.
 
 ### Open for discussion
 

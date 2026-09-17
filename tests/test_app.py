@@ -113,3 +113,12 @@ def test_interrupted_runs_are_recovered_on_startup(settings: Settings) -> None:
     with TestClient(create_app(settings)) as second_client:
         counts = second_client.get("/healthz").json()["run_store"]["runs_by_status"]
     assert counts == {"interrupted": 1}
+
+
+def test_the_application_can_actually_run_a_batch(client: TestClient) -> None:
+    """Before item 17 there was no pipeline, and submitting a run raised. There is one now."""
+    from sightline.batch import BatchRunner
+
+    runner = client.app.state.runner
+    assert runner.handler is not None
+    assert isinstance(client.app.state.batch, BatchRunner)
