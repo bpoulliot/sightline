@@ -110,7 +110,7 @@ def test_the_report_names_which_capabilities_are_awaiting_a_detector() -> None:
     """Named rather than counted, because "2 rows are waiting" is not something anybody can act
     on and "waiting on document_printability" is."""
     detail = pack_coverage(load(TINY), tags=SHIPPED).detail()
-    assert "awaiting a detector: document_printability, fixed_width_layout" in detail
+    assert "awaiting a detector: content_chunking, document_printability" in detail
 
 
 def test_the_report_names_a_tag_this_build_does_not_recognise() -> None:

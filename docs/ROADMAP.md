@@ -5,7 +5,7 @@ Canonical for item status. `docs/SPEC.md` is canonical for design.
 Labels: **READY** · **NEEDS DISCUSSION** · **NEEDS MEASUREMENT** · **BLOCKED**.
 Nothing unready enters the queue. One item per conversation, one PR per item.
 
-Queue lives at `~/docker/overnight-sightline/`. Next free item number: **30**.
+Queue lives at `~/docker/overnight-sightline/`. Next free item number: **31**.
 
 ---
 
@@ -20,12 +20,12 @@ Queue lives at `~/docker/overnight-sightline/`. Next free item number: **30**.
 | 05 | Ship the two rubric packs | 0 | READY | **DONE** — PR #10 |
 | 06 | Detector framework + accessibility cluster | 0 | READY | **DONE** — PR #7 |
 | 07 | Canvas structure detectors D01–D20 | 1 | READY | **DONE** — PR #11 |
-| 08 | Mobile detectors + optional-section flag | 1 | READY | queued 07 |
+| 08 | Mobile detectors + optional-section flag | 1 | READY | **DONE** — PR #12 |
 | 09 | Ollama client, capability filter, model picker | 1 | READY | queued 08 |
 | 10 | Extraction layer with verified quotes | 1 | READY | queued 09 |
 | 11 | Three-run disagreement router | 1 | READY | queued 10 |
 | 12a | Effort model — ship it | 1 | READY | queued 11a |
-| 12b | Effort model — fit the costs | 1 | **BLOCKED** — items 06/07/08 | — |
+| 12b | Effort model — fit the costs | 1 | **BLOCKED** — item 06/07/08 detectors have all landed; unblocked in code, still needs the calibration corpus | — |
 | 13 | XLSX writer | 2 | READY | staged 13 |
 | 14 | PDF course report | 2 | READY | staged 14 |
 | 15 | Narrative generator and voice contract | 2 | READY | staged 12 |
@@ -43,6 +43,7 @@ Queue lives at `~/docker/overnight-sightline/`. Next free item number: **30**.
 | 27 | One detector's crash must not take the whole review with it | 1 | READY | queued 99a |
 | 28 | A binding says *relevant*; rating reads it as *sufficient* | 1 | READY | queued 99b — **now live**, 27 rows |
 | 29 | `Scan.text` fuses two words at every block seam | 1 | READY | queued 07a |
+| 30 | Every HTML detector re-parses every body | 2 | READY | queued 99c — **measure first** |
 
 ---
 
@@ -73,7 +74,7 @@ command runs verbatim (490 tests, clean lint and format, container healthy).
 05b-sightline-item05-rubric-packs.md             # DONE — PR #10. 68 + 18 rows, no new reader.
 06-sightline-item07-canvas-structure-detectors.md   # DONE — PR #11
 07a-sightline-item29-scan-text-block-seam.md         # filed by item 07's session
-07-sightline-item08-mobile-detectors.md          # pack flag needs item 04
+07-sightline-item08-mobile-detectors.md          # DONE — PR #12. The pack flag was already there.
 08-sightline-item09-ollama-client.md
 09-sightline-item10-extraction-layer.md
 10-sightline-item11-disagreement-router.md
@@ -85,12 +86,16 @@ Item 21 runs immediately after 06 by design: 06 builds the under-detection invar
 detector interface, and 21 proves it holds by firing it deliberately. A guard that has never failed
 is indistinguishable from a guard that cannot fail.
 
-Item 08's mobile detectors are independent of item 04, but its **optional-section pack flag is
-not** — its prompt tells the session to stop rather than invent a pack format. Item 04 is queued at
+Item 08's mobile detectors were independent of item 04, but its **optional-section pack flag was
+not** — its prompt told the session to stop rather than invent a pack format. Item 04 was queued at
 **05a**, which sorts after the detector framework that defines the typed finding shape it projects,
-and before the structure and mobile detectors. That ordering clears item 08's stop. Item 04 also
-adds a test asserting every registered detector declares a capability tag, which is what forces
-items 07 and 08 to comply without their prompts needing to know about tags.
+and before the structure and mobile detectors. **The ordering worked and the stop never fired**:
+item 04 shipped `sections[].optional` / `sections[].enabled` and the loader that refuses to switch
+off a section which has not declared itself optional, item 05 shipped the reference pack with its
+mobile block flagged optional and switched on, and item 08 wrote no pack-format code at all —
+it exercised the flag through the projection and showed the block appearing and being reported as
+omitted. Item 04 also adds a test asserting every registered detector declares a capability tag,
+which is what forced items 07 and 08 to comply without their prompts needing to know about tags.
 
 **Batch 3 — output and UI. Composed in `staged/`, decided 2026-09-08.**
 
@@ -116,6 +121,14 @@ them against a model that does not exist yet would mean three sessions each inve
 ---
 
 ## Not queued, and why
+
+**30 is queued at `99c-` and its first instruction is to measure.** Item 08 counted 180 `scan()`
+calls over the sample course's 15 bodies — twelve body-reading detectors each parsing all fifteen —
+and the whole run still costs 30ms, because the sample is fifteen short pages. That number decides
+nothing about a real course, so the item builds a synthetic course of realistic size first, and
+closing it as measured-and-rejected is an acceptable outcome written into the prompt. It sorts after
+every pending item because it is neither a blocker nor wrong output: the parse is deterministic and
+every detector sees the same tree, so what is lost is time and not agreement.
 
 **05 and 13 are now queued** — see *Queued order* above. Both were held as "blocked by 04 in code
 only", which was never a reason to leave them uncomposed: the queue's own ordering satisfies a

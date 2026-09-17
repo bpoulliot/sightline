@@ -379,13 +379,20 @@ def test_an_export_source_stops_at_its_read_cap(tmp_path: Path) -> None:
 
 
 def test_the_shipped_clusters_are_registered_and_declare_what_they_read() -> None:
-    """The Canvas structure cluster (item 07) and the accessibility cluster (item 06)."""
+    """The accessibility cluster (item 06), the Canvas structure cluster (item 07) and the mobile
+    cluster (item 08).
+
+    Written as the explicit list rather than as a count, because the gap is the point: SPEC §05
+    assigns D31-D38 and D46-D47 to the content cluster, which is not built, and a range check would
+    read a missing detector as an off-by-one somebody adjusts."""
     shipped = {detector.id: detector for detector in detectors() if detector.id.startswith("D")}
-    assert sorted(shipped) == [f"D{number:02d}" for number in range(1, 31)]
+    assert sorted(shipped) == [f"D{number:02d}" for number in (*range(1, 31), *range(39, 46))]
     for detector in shipped.values():
         assert detector.title and not detector.title.endswith(".")
         assert detector.collections
-        assert detector.tier in {Tier.A, Tier.B}
+        # Tier C arrives with the mobile cluster: one detector gathers context for a judgement a
+        # human makes and proposes no rating. Tier D never has a detector at all, by definition.
+        assert detector.tier in {Tier.A, Tier.B, Tier.C}
 
 
 def test_no_detector_names_a_rubric_criterion() -> None:

@@ -34,8 +34,16 @@ import openpyxl
 import pytest
 
 from sightline.capabilities import vocabulary
-from sightline.detect.base import Tier
+from sightline.detect.base import (
+    DetectorResult,
+    Finding,
+    Location,
+    ResultState,
+    Severity,
+    Tier,
+)
 from sightline.detect.runner import DetectionReport
+from sightline.model import ArtifactKind
 from sightline.rubric.coverage import PackCoverage, pack_coverage
 from sightline.rubric.importer import import_workbook
 from sightline.rubric.mapping import load as load_mapping
@@ -83,8 +91,8 @@ RSI_TIERS = {Tier.A: 7, Tier.B: 9, Tier.C: 2}
 #: or reporting the middle one as though it were the third, is the silent under-detection SPEC §11
 #: names.
 REFERENCE_COVERAGE = {
-    "deterministic": 35,
-    "not_yet_implemented": 14,
+    "deterministic": 41,
+    "not_yet_implemented": 8,
     "evidence_only": 18,
     "not_determinable": 1,
 }
@@ -625,6 +633,17 @@ def test_every_tier_a_row_binds_at_least_one_capability() -> None:
 #: item 07 is not the place to take it: a ``supporting:`` list beside ``bindings:``, or a rule in
 #: ``_rate`` that only Tier A may reach ``SUFFICIENTLY_PRESENT``. What item 07 owes is that the
 #: list is exact, so a *new* row joining it still fails this test.
+#: The two tiers the guard below does not need to police, and which are not exceptions to it.
+#:
+#: Tier A is what the guard is *for*: a row a parser settles, which is allowed to read Sufficiently
+#: Present. Tier C reaches the same ``deterministic`` bucket the day a detector gathers context for
+#: it — item 08's app-availability detector is the first — but it cannot produce the failure this
+#: guard names, because ``project._rate`` returns No Response for a Tier C row *before* the
+#: arithmetic runs whatever its detectors found (SPEC §02). That is proven rather than assumed by
+#: ``test_a_tier_c_row_a_detector_feeds_still_proposes_no_rating`` below; if it ever stops being
+#: true, that test fails first and this exemption comes out.
+SETTLED_OR_NEVER_SETTLED = frozenset({Tier.A, Tier.C})
+
 TIER_B_ROWS_A_DETECTOR_NOW_ANSWERS = {
     (REFERENCE_ID, code)
     for code in (
@@ -667,7 +686,7 @@ def test_every_row_with_deterministic_coverage_is_tier_a_or_a_known_exception() 
     unexpected = []
     for pack in both():
         for row in coverage_of_pack(pack.id).deterministic:
-            if row.tier is Tier.A:
+            if row.tier in SETTLED_OR_NEVER_SETTLED:
                 continue
             if (pack.id, row.code) in TIER_B_ROWS_A_DETECTOR_NOW_ANSWERS:
                 continue
@@ -689,9 +708,79 @@ def test_item_28s_recorded_list_names_no_row_that_has_since_become_clean() -> No
         (pack.id, row.code)
         for pack in both()
         for row in coverage_of_pack(pack.id).deterministic
-        if row.tier is not Tier.A
+        if row.tier not in SETTLED_OR_NEVER_SETTLED
     }
     assert live == TIER_B_ROWS_A_DETECTOR_NOW_ANSWERS
+
+
+def test_a_tier_c_row_a_detector_feeds_still_proposes_no_rating() -> None:
+    """What makes Tier C safe to exempt from the guard above, measured rather than reasoned about.
+
+    Both directions of the thing that matters. A Tier C row whose detector came back **clean** must
+    not read Sufficiently Present, and a Tier C row whose detector **found things** must not read a
+    band either: the judgement is a human's, and a tool that pre-selected one would be grading
+    (SPEC §01). The clean half is what the exemption rests on, because "a clean run settles the
+    row" is exactly the failure the guard above is watching for on Tier B.
+    """
+    fed = [
+        (pack.id, row.code)
+        for pack in both()
+        for row in coverage_of_pack(pack.id).deterministic
+        if row.tier is Tier.C
+    ]
+    assert fed, "no Tier C row has a detector behind it; the exemption would be untested"
+
+    for pack in both():
+        for report in (_clean_run(pack), _run_with_findings(pack)):
+            projection = project(pack, report)
+            for row in projection.rows:
+                if row.tier is not Tier.C:
+                    continue
+                assert row.rating is Rating.NO_RESPONSE, f"{pack.id} {row.code}"
+
+
+def _tier_c_tags(pack: RubricPack) -> tuple[str, ...]:
+    """Every capability a Tier C row of this pack binds, in binding order."""
+    return tuple(
+        tag
+        for criterion in pack.rendered_criteria()
+        if criterion.tier is Tier.C
+        for tag in criterion.bindings
+    )
+
+
+def _result(tag: str, findings: tuple[Finding, ...]) -> DetectorResult:
+    return DetectorResult(
+        detector=f"X-{tag}",
+        title=f"A synthetic detector declaring {tag}",
+        tier=Tier.C,
+        capability_tag=tag,
+        state=ResultState.EXAMINED,
+        examined=4,
+        subjects=4,
+        findings=findings,
+    )
+
+
+def _clean_run(pack: RubricPack) -> DetectionReport:
+    return DetectionReport(results=tuple(_result(tag, ()) for tag in _tier_c_tags(pack)))
+
+
+def _run_with_findings(pack: RubricPack) -> DetectionReport:
+    finding = Finding(
+        detector="X",
+        code="something_a_human_has_to_judge",
+        severity=Severity.FRICTION,
+        tier=Tier.C,
+        location=Location(
+            artifact_id="course:1",
+            artifact_kind=ArtifactKind.COURSE,
+            title="A synthetic course",
+            canvas_path="/courses/1",
+        ),
+        observed="one synthetic observation",
+    )
+    return DetectionReport(results=tuple(_result(tag, (finding,)) for tag in _tier_c_tags(pack)))
 
 
 @pytest.mark.parametrize(
