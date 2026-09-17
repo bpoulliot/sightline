@@ -16,6 +16,13 @@ not a test, it is a light. So the settings screen renders the host — in the tr
 action the user just asked for, on the screen where they typed it. It stays out of the persistent
 status table, out of the logs and out of stored run events, which redaction handles.
 
+The model-host section does not call the host when the page is rendered, and that is deliberate.
+Listing models costs one request per installed model, and an unreachable host would make the
+settings page itself hang for the connection timeout — on the one screen somebody opens *because*
+the endpoint is wrong. So the check is a button, exactly like the Canvas one, and an install's
+progress is re-read by reloading rather than by a page that refreshes itself under whatever
+somebody is typing into the form above it.
+
 There is no CSRF token and no login. Sightline is one process on a designer's machine reviewing
 courses they already have access to; adding a session layer for a single-user local tool would be
 security theatre with a maintenance cost.
@@ -42,8 +49,21 @@ from .canvas import (
     parse_course_refs,
 )
 from .credentials import CanvasCredentials, CredentialError, CredentialStore
+from .llm import (
+    HostReport,
+    ModelHostError,
+    ModelHostNotConfiguredError,
+    OllamaClient,
+    PullRegistry,
+    load_manifest,
+)
 from .logging import get_logger
-from .preferences import ExportPreference, PreferenceStore
+from .preferences import (
+    ExportPreference,
+    ModelHostPreference,
+    PreferenceStore,
+    ReviewModelPreference,
+)
 
 log = get_logger("sightline.views")
 
@@ -128,6 +148,93 @@ def build_router(templates: Jinja2Templates) -> APIRouter:
             status_code=400,
         )
 
+    # -- the model host ------------------------------------------------------------------------
+
+    @router.post("/settings/model-host", include_in_schema=False)
+    async def save_model_host(
+        request: Request,
+        model_host_endpoint: Annotated[str, Form()] = "",
+    ) -> Any:
+        try:
+            _preferences(request).set_model_host(model_host_endpoint)
+        except ModelHostError as exc:
+            return _render_settings(request, templates, model_error=exc)
+        return RedirectResponse("/settings?saved=model_host", status_code=303)
+
+    @router.post("/settings/model-host/forget", include_in_schema=False)
+    async def forget_model_host(request: Request) -> Any:
+        _preferences(request).clear_model_host()
+        return RedirectResponse("/settings?saved=model_host_forgotten", status_code=303)
+
+    @router.post("/settings/model-host/check", include_in_schema=False)
+    async def check_model_host(request: Request) -> Any:
+        report, error = await _run_host_check(request)
+        return _render_settings(request, templates, host_report=report, model_error=error)
+
+    @router.post("/settings/model", include_in_schema=False)
+    async def choose_model(
+        request: Request,
+        model: Annotated[str, Form()] = "",
+    ) -> Any:
+        try:
+            _preferences(request).set_review_model(model)
+        except ModelHostError as exc:
+            return _render_settings(request, templates, model_error=exc)
+        return RedirectResponse("/settings?saved=model_chosen", status_code=303)
+
+    @router.post("/settings/model/install", include_in_schema=False)
+    async def install_model(
+        request: Request,
+        model: Annotated[str, Form()] = "",
+    ) -> Any:
+        """Start an install and return to the page, which then shows its progress.
+
+        The response does not wait for the download. A request that waited would be a request
+        that times out on a 9 GB model, and the task outliving the request is the whole reason
+        :class:`sightline.llm.PullRegistry` exists.
+        """
+        try:
+            endpoint = _model_endpoint(request)
+        except ModelHostError as exc:
+            return _render_settings(request, templates, model_error=exc)
+        name = model.strip()
+        if not name:
+            return _render_settings(
+                request,
+                templates,
+                model_error=ModelHostError(
+                    "No model was named, so nothing was installed.",
+                    remedy="Choose one of the recommended models and submit again.",
+                ),
+            )
+        settings = request.app.state.settings
+        _pulls(request).start(
+            name,
+            lambda: OllamaClient(
+                endpoint,
+                concurrency=settings.ollama_concurrency,
+                context_tokens=settings.ollama_context_tokens,
+            ),
+        )
+        return RedirectResponse("/settings?saved=installing#models", status_code=303)
+
+    @router.post("/api/models/check")
+    async def check_model_host_api(request: Request) -> Any:
+        """The health check as JSON. Same code path as the button, no second implementation."""
+        report, error = await _run_host_check(request)
+        if report is not None:
+            return JSONResponse(report.as_dict(), status_code=200 if report.ok else 502)
+        assert error is not None  # noqa: S101 - one of the two is always set
+        return JSONResponse(
+            {"ok": False, "host": None, "summary": error.summary, "remedy": error.remedy},
+            status_code=400,
+        )
+
+    @router.get("/api/models/installs")
+    async def model_installs(request: Request) -> Any:
+        """Every install this process has started, running or finished."""
+        return JSONResponse({"installs": [state.as_dict() for state in _pulls(request).states()]})
+
     # -- courses -----------------------------------------------------------------------------
 
     @router.get("/courses", include_in_schema=False)
@@ -185,6 +292,42 @@ def build_router(templates: Jinja2Templates) -> APIRouter:
 # ---------------------------------------------------------------------------------------------
 # Shared work
 # ---------------------------------------------------------------------------------------------
+
+
+def _pulls(request: Request) -> PullRegistry:
+    registry: PullRegistry | None = getattr(request.app.state, "pulls", None)
+    if registry is None:  # pragma: no cover - only reachable without the app lifespan
+        raise RuntimeError("the install registry is not initialised")
+    return registry
+
+
+def _model_endpoint(request: Request) -> str:
+    """The endpoint in force, or the failure that says none is configured."""
+    preference = _preferences(request).model_host()
+    if not preference.endpoint:
+        raise ModelHostNotConfiguredError("No model host endpoint is configured.")
+    return preference.endpoint
+
+
+async def _run_host_check(request: Request) -> tuple[HostReport | None, ModelHostError | None]:
+    """Health, from the endpoint in force. Never raises for a host that is simply down."""
+    try:
+        endpoint = _model_endpoint(request)
+    except ModelHostError as exc:
+        return None, exc
+    settings = request.app.state.settings
+    try:
+        client = OllamaClient(
+            endpoint,
+            concurrency=settings.ollama_concurrency,
+            context_tokens=settings.ollama_context_tokens,
+        )
+    except ModelHostError as exc:
+        # A stored endpoint is normalized on the way in; the environment fallback is not, so a
+        # container started with a malformed OLLAMA_BASE_URL reaches here.
+        return None, exc
+    async with client:
+        return await client.health(), None
 
 
 def _credentials(request: Request) -> CredentialStore:
@@ -344,6 +487,19 @@ _SAVED_MESSAGES = {
         "Saved. Sightline will not ask Canvas to build an export. It will read an export the "
         "course already has, and report the steps to create one when there is none."
     ),
+    "model_host": (
+        "Saved. The endpoint was trimmed to its scheme, host and port. Nothing has been called "
+        "yet — use Check the model host to see which host answers and what it can do."
+    ),
+    "model_host_forgotten": (
+        "The stored model host endpoint has been deleted. Any value in the environment still "
+        "applies."
+    ),
+    "model_chosen": "Saved. Review work will be sent to this model.",
+    "installing": (
+        "The install has started and is running in the background. Reload this page to see how "
+        "far it has got; closing the tab does not stop it."
+    ),
 }
 
 
@@ -354,6 +510,8 @@ def _render_settings(
     saved: str | None = None,
     report: ConnectionReport | None = None,
     credential_error: CredentialError | None = None,
+    host_report: HostReport | None = None,
+    model_error: ModelHostError | None = None,
 ) -> Any:
     credentials: CanvasCredentials | None = None
     error = credential_error
@@ -361,7 +519,16 @@ def _render_settings(
         credentials = _credentials(request).canvas()
     except CredentialError as exc:
         error = error or exc
-    export: ExportPreference = _preferences(request).request_content_export()
+    preferences = _preferences(request)
+    export: ExportPreference = preferences.request_content_export()
+    model_host: ModelHostPreference = preferences.model_host()
+    review_model: ReviewModelPreference = preferences.review_model()
+    selection = host_report.selection if host_report else None
+    # None when the host has not been checked this page load, which the template renders as that
+    # rather than as "the chosen model is missing".
+    chosen_card = selection.get(review_model.name) if selection and review_model.name else None
+    manifest = load_manifest()
+    settings = request.app.state.settings
     return templates.TemplateResponse(
         request=request,
         name="settings.html",
@@ -376,6 +543,16 @@ def _render_settings(
             "permissions": REQUIRED_PERMISSIONS,
             "export": export,
             "writes": [scope for scope in REQUIRED_SCOPES if scope.writes],
+            "model_host": model_host,
+            "review_model": review_model,
+            "review_model_card": chosen_card,
+            "host_report": host_report,
+            "model_error": model_error,
+            "manifest": manifest,
+            "manifest_rows": manifest.rows(selection),
+            "installs": _pulls(request).states(),
+            "concurrency": settings.ollama_concurrency,
+            "context_tokens": settings.ollama_context_tokens,
         },
     )
 

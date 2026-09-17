@@ -1,0 +1,215 @@
+{
+  "name": "installed-models",
+  "description": "Recorded from an Ollama 0.20.6 host on 2026-09-17. Real payloads, trimmed to the fields this client reads: capabilities, details, the two model_info keys a context length is resolved from, and requires where the model declares one. The license text, the modelfile, the prompt template and the 2131-entry tensor list are dropped -- they are thousands of lines that prove nothing about a capability filter. Nothing here names a host, a person or a course; it is model metadata published by the models' own authors.",
+  "tags": {
+    "models": [
+      {
+        "name": "gemma4:e4b",
+        "size": 9608350718,
+        "model": "gemma4:e4b"
+      },
+      {
+        "name": "llava:13b",
+        "size": 8011256494,
+        "model": "llava:13b"
+      },
+      {
+        "name": "llama3.2-vision:11b",
+        "size": 7816589186,
+        "model": "llama3.2-vision:11b"
+      },
+      {
+        "name": "nomic-embed-text:latest",
+        "size": 274302450,
+        "model": "nomic-embed-text:latest"
+      },
+      {
+        "name": "llama3.1:8b",
+        "size": 4920753328,
+        "model": "llama3.1:8b"
+      },
+      {
+        "name": "llama3.2:3b",
+        "size": 2019393189,
+        "model": "llama3.2:3b"
+      },
+      {
+        "name": "deepseek-r1:8b",
+        "size": 5225376047,
+        "model": "deepseek-r1:8b"
+      },
+      {
+        "name": "qwen2.5-coder:14b",
+        "size": 8988124298,
+        "model": "qwen2.5-coder:14b"
+      }
+    ]
+  },
+  "show": {
+    "gemma4:e4b": {
+      "capabilities": [
+        "completion",
+        "vision",
+        "audio",
+        "tools",
+        "thinking"
+      ],
+      "details": {
+        "parent_model": "",
+        "format": "gguf",
+        "family": "gemma4",
+        "families": [
+          "gemma4"
+        ],
+        "parameter_size": "8.0B",
+        "quantization_level": "Q4_K_M"
+      },
+      "model_info": {
+        "gemma4.context_length": 131072,
+        "general.architecture": "gemma4"
+      },
+      "requires": "0.20.0"
+    },
+    "llava:13b": {
+      "capabilities": [
+        "completion",
+        "vision"
+      ],
+      "details": {
+        "parent_model": "",
+        "format": "gguf",
+        "family": "llama",
+        "families": [
+          "llama",
+          "clip"
+        ],
+        "parameter_size": "13B",
+        "quantization_level": "Q4_0"
+      },
+      "model_info": {
+        "general.architecture": "llama",
+        "llama.context_length": 4096
+      }
+    },
+    "llama3.2-vision:11b": {
+      "capabilities": [
+        "completion",
+        "vision"
+      ],
+      "details": {
+        "parent_model": "",
+        "format": "gguf",
+        "family": "mllama",
+        "families": [
+          "mllama"
+        ],
+        "parameter_size": "10.7B",
+        "quantization_level": "Q4_K_M"
+      },
+      "model_info": {
+        "general.architecture": "mllama",
+        "mllama.context_length": 131072
+      }
+    },
+    "nomic-embed-text:latest": {
+      "capabilities": [
+        "embedding"
+      ],
+      "details": {
+        "parent_model": "",
+        "format": "gguf",
+        "family": "nomic-bert",
+        "families": [
+          "nomic-bert"
+        ],
+        "parameter_size": "137M",
+        "quantization_level": "F16"
+      },
+      "model_info": {
+        "general.architecture": "nomic-bert",
+        "nomic-bert.context_length": 2048
+      }
+    },
+    "llama3.1:8b": {
+      "capabilities": [
+        "completion",
+        "tools"
+      ],
+      "details": {
+        "parent_model": "",
+        "format": "gguf",
+        "family": "llama",
+        "families": [
+          "llama"
+        ],
+        "parameter_size": "8.0B",
+        "quantization_level": "Q4_K_M"
+      },
+      "model_info": {
+        "general.architecture": "llama",
+        "llama.context_length": 131072
+      }
+    },
+    "llama3.2:3b": {
+      "capabilities": [
+        "completion",
+        "tools"
+      ],
+      "details": {
+        "parent_model": "",
+        "format": "gguf",
+        "family": "llama",
+        "families": [
+          "llama"
+        ],
+        "parameter_size": "3.2B",
+        "quantization_level": "Q4_K_M"
+      },
+      "model_info": {
+        "general.architecture": "llama",
+        "llama.context_length": 131072
+      }
+    },
+    "deepseek-r1:8b": {
+      "capabilities": [
+        "completion",
+        "thinking"
+      ],
+      "details": {
+        "parent_model": "",
+        "format": "gguf",
+        "family": "qwen3",
+        "families": [
+          "qwen3"
+        ],
+        "parameter_size": "8.2B",
+        "quantization_level": "Q4_K_M"
+      },
+      "model_info": {
+        "general.architecture": "qwen3",
+        "qwen3.context_length": 131072
+      }
+    },
+    "qwen2.5-coder:14b": {
+      "capabilities": [
+        "completion",
+        "tools",
+        "insert"
+      ],
+      "details": {
+        "parent_model": "",
+        "format": "gguf",
+        "family": "qwen2",
+        "families": [
+          "qwen2"
+        ],
+        "parameter_size": "14.8B",
+        "quantization_level": "Q4_K_M"
+      },
+      "model_info": {
+        "general.architecture": "qwen2",
+        "qwen2.context_length": 32768
+      }
+    }
+  }
+}

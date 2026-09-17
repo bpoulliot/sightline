@@ -380,6 +380,26 @@ That admits gemma4, rejects `llava:13b` (no `tools`) as a side effect, and leave
 - `thinking` is pinned explicitly per call site rather than left to model defaults, since it changes
   output determinism.
 
+### Measured on the target host, 2026-09-17 (item 09)
+
+Three behaviours were measured while building the client. They do not change the design above; they
+say what a correct implementation of it has to do, and item 10 depends on all three.
+
+- **A request must pin its context window.** Ollama 0.20.6 sizes its allocation from the model's
+  *declared* context length unless told otherwise, so `llama3.2:3b` — a 2 GB model declaring a
+  131,072-token window — is refused with *"model requires more system memory (52.2 GiB) than is
+  available (48.7 GiB)"*. The same call with `num_ctx: 8192` answers in 3.7 s. `OLLAMA_NUM_CTX`
+  is pinned on every call for this reason and is not a quality setting.
+- **The thinking pin is capability-aware.** `think: true` against a model with no `thinking`
+  capability is an HTTP 400, not an ignored field. The field is sent only when the model reports
+  the capability, and omitted — not sent as `false` — when it does not.
+- **Thinking off does not mean no thinking.** On `gemma4:e4b`, twice each way at `temperature: 0`:
+  with `think: true` the reasoning arrives in `message.thinking` and `message.content` holds the
+  answer alone; with `think: false` the reasoning arrives *inside* `message.content` ahead of the
+  answer, once trailed by a `<channel|>` control token. An extractor reading `content` from a
+  thinking model with the pin off therefore reads prose reasoning. Item 10 chooses the pin per
+  call site with this in front of it; `ChatResult` keeps the two fields apart either way.
+
 ### Escalation
 
 An OpenAI-compatible adapter lets a higher-capability model re-run *only the disagreement set* from

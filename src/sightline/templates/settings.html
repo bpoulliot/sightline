@@ -149,6 +149,226 @@
   </form>
 </section>
 
+<section class="panel" aria-labelledby="h-model-host" id="models">
+  <h2 id="h-model-host">Local model host</h2>
+  <p class="note">{{ model_host.note }}</p>
+
+  {% if model_error %}
+  <div class="banner banner-bad" role="alert">
+    <p class="banner-head">{{ model_error.summary }}</p>
+    {% if model_error.detail %}<p class="banner-detail">{{ model_error.detail }}</p>{% endif %}
+    <p class="banner-remedy">{{ model_error.remedy }}</p>
+  </div>
+  {% endif %}
+
+  <form method="post" action="/settings/model-host" class="form">
+    <div class="field">
+      <label for="model_host_endpoint">Endpoint</label>
+      <input type="url" id="model_host_endpoint" name="model_host_endpoint" inputmode="url"
+             autocomplete="off" spellcheck="false" placeholder="http://model-host.example.lan:11434"
+             value="{{ model_host.endpoint or '' }}">
+      <p class="hint">
+        Scheme, host and port. Anything after the port is trimmed off when it is saved. The
+        environment fallback is <code>OLLAMA_BASE_URL</code>; this value came from the
+        {{ model_host.source.value }} setting.
+      </p>
+    </div>
+    <div class="actions">
+      <button type="submit" class="button button-primary">Save endpoint</button>
+    </div>
+  </form>
+
+  <form method="post" action="/settings/model-host/check" class="form form-inline">
+    <button type="submit" class="button">Check the model host</button>
+    <span class="hint">
+      Reports which host answered, its Ollama version, and which installed models can do review
+      work. Nothing is called until you ask: an unreachable host would otherwise hold up this page.
+    </span>
+  </form>
+
+  <form method="post" action="/settings/model-host/forget" class="form form-inline">
+    <button type="submit" class="button">Forget the stored endpoint</button>
+    <span class="hint">Deletes what is stored here. Anything set in the environment still applies.</span>
+  </form>
+
+  <p class="note">
+    Model calls run {{ concurrency }} at a time
+    (<code>OLLAMA_CONCURRENCY</code>) with a {{ '{:,}'.format(context_tokens) }}-token context
+    window pinned on every call (<code>OLLAMA_NUM_CTX</code>). The pin is not a quality setting:
+    without it Ollama sizes its allocation from whatever window a model declares, and a model that
+    declares 131,072 tokens asks for far more memory than its weights need.
+  </p>
+
+  {% if host_report %}
+  <div class="report" role="status">
+    <p class="report-head {% if host_report.ok %}report-ok{% else %}report-bad{% endif %}">
+      {{ host_report.summary() }}
+    </p>
+    <ul class="checks">
+      {% for check in host_report.checks %}
+      <li>
+        <span class="state {% if check.status == 'ok' %}state-on{% elif check.status == 'failed' %}state-bad{% else %}state-off{% endif %}">{{ check.status }}</span>
+        <span class="check-name">{{ check.name }}</span>
+        <span class="check-detail">{{ check.detail }}</span>
+        {% if check.remedy %}<span class="check-remedy">{{ check.remedy }}</span>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+</section>
+
+<section class="panel" aria-labelledby="h-model-pick">
+  <h2 id="h-model-pick">{{ review_model.title }}</h2>
+  <p class="note">
+    {% if host_report and host_report.selection %}{{ host_report.selection.rule() }}{% else %}
+    Sightline selects a model by what the work needs rather than by what a model is: it must
+    report the capabilities this work uses, and vision is not a disqualifier. Check the model host
+    above to see which installed models qualify and why.
+    {% endif %}
+  </p>
+
+  <p class="note">
+    {% if review_model.chosen %}
+      Chosen: <code>{{ review_model.name }}</code>.
+      {% if review_model_card %}
+        The host reports it as {{ review_model_card.capabilities|join(', ') }} —
+        {{ review_model_card.label }}.
+      {% elif host_report %}
+        <strong>The host does not have a model by that name.</strong> It was chosen here and is
+        not installed there now; choose another, or install it below.
+      {% else %}
+        The model host has not been checked this page load, so nothing here claims it is still
+        installed.
+      {% endif %}
+    {% else %}
+      No model is chosen yet.
+    {% endif %}
+  </p>
+
+  {% if host_report and host_report.usable %}
+  <form method="post" action="/settings/model" class="form">
+    <fieldset class="field">
+      <legend>Usable models on {{ host_report.host }}</legend>
+      {% for card in host_report.usable %}
+      <label class="field-check" for="model-{{ loop.index }}">
+        <input type="radio" id="model-{{ loop.index }}" name="model" value="{{ card.name }}"
+               {% if card.name == review_model.name %}checked{% endif %}>
+        <span><code>{{ card.name }}</code> — {{ card.label }}</span>
+      </label>
+      <p class="hint">{{ card.verdict }}</p>
+      {% endfor %}
+    </fieldset>
+    <div class="actions">
+      <button type="submit" class="button button-primary">Use this model</button>
+    </div>
+  </form>
+  {% endif %}
+
+  {% if host_report and host_report.rejected %}
+  <h3>Installed, and not used for review work</h3>
+  <p class="note">
+    Listed with the reason, because a model missing from a list is indistinguishable from a model
+    nobody looked at.
+  </p>
+  <ul class="checks">
+    {% for card in host_report.rejected %}
+    <li>
+      <span class="check-name"><code>{{ card.name }}</code></span>
+      <span class="check-detail">{{ card.verdict }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</section>
+
+<section class="panel" aria-labelledby="h-model-install">
+  <h2 id="h-model-install">Recommended models</h2>
+  <p class="note">
+    Ollama has no way to search its library, so this is a hand-written list of {{ manifest|length }}
+    candidates sized for a host of this class — not a browser over everything published. Capability
+    expectations here are never what Sightline filters on: it reads <code>/api/show</code> after
+    installing and reports any difference. {{ manifest.provenance }}
+  </p>
+
+  {% if installs %}
+  <h3>Installs</h3>
+  <ul class="checks">
+    {% for install in installs %}
+    <li>
+      <span class="state {% if install.succeeded %}state-on{% elif install.failed %}state-bad{% else %}state-off{% endif %}">
+        {% if install.running %}running{% elif install.succeeded %}installed{% else %}{{ install.status }}{% endif %}
+      </span>
+      <span class="check-name"><code>{{ install.model }}</code></span>
+      <span class="check-detail">
+        {{ install.detail }}
+        {% if install.percent is not none %}
+        <progress max="100" value="{{ install.percent }}">{{ install.percent }}%</progress>
+        {% endif %}
+      </span>
+      {% if install.error and install.error.remedy %}
+      <span class="check-remedy">{{ install.error.remedy }}</span>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  <form method="get" action="/settings" class="form form-inline">
+    <button type="submit" class="button">Refresh install progress</button>
+    <span class="hint">
+      An install keeps running whether or not this page is open. This page does not refresh itself,
+      because a page that reloaded under you would discard whatever you were typing above.
+    </span>
+  </form>
+  {% endif %}
+
+  <div class="scroll-x">
+    <table>
+      <caption class="visually-hidden">Recommended models, their download size and what each is for</caption>
+      <thead>
+        <tr>
+          <th scope="col">Model</th>
+          <th scope="col">Download</th>
+          <th scope="col">Expected capabilities</th>
+          <th scope="col">On this host</th>
+          <th scope="col">Install</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in manifest_rows %}
+        <tr>
+          <th scope="row">
+            <code>{{ row.entry.name }}</code>
+            {% if row.entry.role == 'embedding' %}<span class="muted">embedding</span>{% endif %}
+            <span class="hint">{{ row.entry.why }}</span>
+          </th>
+          <td data-label="Download">{{ row.entry.size_label }}</td>
+          <td data-label="Expected capabilities">
+            {{ row.entry.expected_capabilities|join(', ') }}
+            <span class="hint">{{ row.entry.evidence_note }}</span>
+          </td>
+          <td data-label="On this host" class="muted">{{ row.confirmation }}</td>
+          <td data-label="Install">
+            {% if row.installed %}
+              <span class="state state-on">installed</span>
+            {% else %}
+            <form method="post" action="/settings/model/install" class="form form-inline">
+              <input type="hidden" name="model" value="{{ row.entry.name }}">
+              <button type="submit" class="button">Install</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="note">
+    There is no button here that removes a model. Ollama has an endpoint for it and Sightline
+    deliberately does not call it: a review tool that can delete somebody's models is a review tool
+    that deletes somebody's models.
+  </p>
+</section>
+
 <section class="panel" aria-labelledby="h-scopes">
   <h2 id="h-scopes">Canvas token scopes</h2>
   <p class="note">

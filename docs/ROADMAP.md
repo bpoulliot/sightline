@@ -21,7 +21,7 @@ Queue lives at `~/docker/overnight-sightline/`. Next free item number: **31**.
 | 06 | Detector framework + accessibility cluster | 0 | READY | **DONE** — PR #7 |
 | 07 | Canvas structure detectors D01–D20 | 1 | READY | **DONE** — PR #11 |
 | 08 | Mobile detectors + optional-section flag | 1 | READY | **DONE** — PR #12 |
-| 09 | Ollama client, capability filter, model picker | 1 | READY | queued 08 |
+| 09 | Ollama client, capability filter, model picker | 1 | READY | **DONE** — PR #14 |
 | 10 | Extraction layer with verified quotes | 1 | READY | queued 09 |
 | 11 | Three-run disagreement router | 1 | READY | queued 10 |
 | 12a | Effort model — ship it | 1 | READY | queued 11a |
@@ -35,7 +35,7 @@ Queue lives at `~/docker/overnight-sightline/`. Next free item number: **31**.
 | 19 | Uploaded-rubric mapping screen | 3 | **SUPERSEDED by 22** | — |
 | 20 | Multi-course comparison view | 3 | **DECIDED — not building it** | see 25 |
 | 21 | Detector integrity guard | 0 | READY | **DONE** — PR #8 |
-| 22 | Model-proposed bindings, human-confirmed | 3 | READY | blocked by 09/10 in code |
+| 22 | Model-proposed bindings, human-confirmed | 3 | READY | 09 has landed; still blocked by 10 in code |
 | 23 | Canvas-requested content export | 1 | READY | **DONE** — PR #6 |
 | 24 | Agreement and near-boundary transparency | 2 | READY | staged 16 |
 | 25 | Returned-review ingestion | 3 | **BLOCKED** — needs reviews delivered and returned | — |
@@ -76,7 +76,7 @@ command runs verbatim (490 tests, clean lint and format, container healthy).
 06-sightline-item07-canvas-structure-detectors.md   # DONE — PR #11
 07a-sightline-item29-scan-text-block-seam.md     # DONE — PR #13. Nothing in the suite moved.
 07-sightline-item08-mobile-detectors.md          # DONE — PR #12. The pack flag was already there.
-08-sightline-item09-ollama-client.md
+08-sightline-item09-ollama-client.md              # DONE — PR #14. Three host behaviours measured.
 09-sightline-item10-extraction-layer.md
 10-sightline-item11-disagreement-router.md
 11-sightline-item17-batch-runner.md

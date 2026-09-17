@@ -42,7 +42,7 @@ does not wipe a half-finished batch.
 | Path | What it does |
 |---|---|
 | `/` | Status: configuration presence, the data root, recent runs, the determinacy-tier legend. |
-| `/settings` | Canvas base URL and token, **Test connection**, and the token-scope table below. |
+| `/settings` | Canvas base URL and token, **Test connection**, the model host and model picker, and the token-scope table below. |
 | `/courses` | Resolve a course from a pasted URL, a bare id, or an uploaded CSV. |
 
 There is also a command-line entry point, and its first form needs no Canvas token at all:
@@ -54,7 +54,8 @@ python -m sightline.acquire 4410                              # a course on your
 
 Everything on the web screens works with JavaScript switched off — each action is a form post that
 re-renders the page with its result. `/settings` also exposes the connection test as JSON at
-`POST /api/canvas/test`, which is the same code path, not a second implementation.
+`POST /api/canvas/test`, the model-host check at `POST /api/models/check` and install progress at
+`GET /api/models/installs`. Each is the same code path as its button, not a second implementation.
 
 ### Test connection
 
@@ -459,6 +460,86 @@ write the detectors, so a typo in one is our bug and it should stop the build. A
 an unknown tag is a reported warning, and that row degrades to `no_deterministic_coverage`. Packs
 are third-party, and a rubric somebody uploaded must never be able to hard-fail Sightline.
 
+## The model layer
+
+Sightline runs against a local [Ollama](https://ollama.com) host. The endpoint is configuration and
+there is no default pointing at one. Everything below was measured against an AGX Orin 64 GB
+running Ollama 0.20.6 on 2026-09-17; where a behaviour surprised us, the measurement is in the
+source next to the code that handles it (`src/sightline/llm/`).
+
+### Models are selected by capability, and excluding vision is the wrong rule
+
+`/api/show` reports each installed model's capabilities. The obvious filter — drop anything that
+reports `vision` — is wrong, and on this host it would drop the best model available: `gemma4:e4b`
+reports `completion, vision, audio, tools, thinking`, because it is multimodal rather than a vision
+model. So the rule selects on what the work needs:
+
+> **Require `completion` and `tools`; exclude `embedding`.**
+
+Over the eight models recorded in `tests/fixtures/ollama/`, that admits `gemma4:e4b`,
+`llama3.1:8b`, `llama3.2:3b` and `qwen2.5-coder:14b`. It rejects `llava:13b` and
+`llama3.2-vision:11b` for having no `tools` — not for having vision — rejects `deepseek-r1:8b` for
+the same reason despite its `thinking`, and rejects `nomic-embed-text` as an embedding model, which
+leaves it installed and available for embedding work exactly as intended.
+
+Every rejection is rendered with the capability list that produced it, because a model missing from
+a list is indistinguishable from a model nobody looked at.
+
+### Three behaviours of the host that change what a correct client does
+
+**A request must pin its context window.** Ollama sizes its allocation from the model's *declared*
+context length unless the request says otherwise. On this host that means a 2 GB `llama3.2:3b` is
+refused outright — *"model requires more system memory (52.2 GiB) than is available (48.7 GiB)"* —
+because it declares a 131,072-token window. The same call with `num_ctx: 8192` answers in 3.7
+seconds. So `OLLAMA_NUM_CTX` is pinned on every call, and that refusal maps to an error whose
+remedy names the context window rather than the hardware.
+
+**The thinking pin is capability-aware.** `think: true` against a model with no `thinking`
+capability is an HTTP 400, not an ignored field. Sightline sends the field only when the model
+reports the capability, and refuses the request before making it otherwise.
+
+**Thinking off does not mean no thinking.** Measured on `gemma4:e4b`, twice each way at
+`temperature: 0`: with `think: true` the reasoning arrives in `message.thinking` and
+`message.content` holds the answer alone. With `think: false` the reasoning is *not* suppressed —
+it arrives inside `message.content`, ahead of the answer, in one run trailed by a `<channel|>`
+control token. An extractor reading `content` from a thinking model with the pin off gets prose
+reasoning where it expected an answer. The pin is therefore explicit per call site, with no
+default, and `ChatResult` keeps the two fields apart and reports which way the call was pinned.
+
+### Recommendations are a curated file, not a catalogue
+
+Ollama exposes no library-search endpoint, so "what could I install?" cannot be answered by asking
+the host. `src/sightline/llm/recommended.yaml` is twelve hand-picked candidates sized for a host of
+this class, each with its download size read from `registry.ollama.ai`.
+
+The community mirror at `ollama-models.zwz.workers.dev` was probed as the freshness test: it serves
+170 models, carries **no capability data at all**, and does not contain `gemma4` — the model
+running on the target host. It is a usable seed for a human writing that file and never a runtime
+source. Ollama's own registry does know about `gemma4`, and offers no search: you can only ask it
+about a name you already have.
+
+Nothing in that file decides anything. Capability lists there are *expectations*, each labelled
+with how it was arrived at, and the settings screen states the difference between the expectation
+and what `/api/show` actually reported once a model is installed.
+
+### Installing, and the thing deliberately missing
+
+`POST /api/pull` installs a model as a background task in the same process, with progress readable
+at `GET /api/models/installs` and rendered on the settings screen. An install outlives the request
+that started it and survives the tab being closed.
+
+There is no delete. `/api/delete` exists in Ollama and Sightline deliberately does not call it — a
+review tool that can remove somebody's models eventually removes somebody's models. The suite
+AST-scans the package to keep it that way.
+
+### Concurrency, and logging that makes a failure loud
+
+Concurrency defaults to **1** and one semaphore guards every call, discovery included. Every model
+call logs its latency, its token counts and the host that served it, and when the host reports no
+token counts that absence is logged as `tokens_reported: false` rather than omitted. This is not
+decoration: an earlier local-AI pipeline on this network died from 48-way concurrency against
+capacity that could not sustain it, and it died *silently*.
+
 ## Canvas token scopes
 
 So an institution can issue a least-privilege token rather than an administrative one, here is
@@ -570,8 +651,9 @@ repository is a bug, and `tests/test_config.py` fails the build over one.
 | `SIGHTLINE_RESOLVE_LINKS` | Whether the policy-link check may request the addresses a course links to. Default `false` — the only traffic Sightline makes outside Canvas. With it off the check reports which policy links are present and claims nothing about where they go; a request that fails is reported as unknown, never as a broken link. |
 | `SIGHTLINE_SECRET_KEY` | Key for credentials entered in the UI. Unset means Sightline manages a key file under the data root. |
 | `SIGHTLINE_DATA_DIR` | Root for everything downloaded or generated. Default `./data`; `/data` in the container. |
-| `OLLAMA_BASE_URL` | Ollama endpoint. No default. |
-| `OLLAMA_CONCURRENCY` | Concurrent model calls. Default `1`. |
+| `OLLAMA_BASE_URL` | Ollama endpoint. No default. Fallback for the endpoint on the Settings screen, which wins over it. |
+| `OLLAMA_CONCURRENCY` | Concurrent model calls. Default `1`, ceiling `8`. |
+| `OLLAMA_NUM_CTX` | Context window pinned on every model call. Default `8192`. Not a quality knob — see **The model layer**. |
 | `SIGHTLINE_ESCALATION_BASE_URL` | Optional OpenAI-compatible endpoint. Sightline runs fully without it. |
 | `SIGHTLINE_ESCALATION_API_KEY` | Key for the above. |
 | `SIGHTLINE_TOKENS_CSS` | Override the location of `docs/tokens.css`. |
@@ -691,11 +773,13 @@ src/sightline/   the application
   canvas/        the Canvas connector: client, connection test, reference resolution, sanitizer
   acquire/       acquisition and normalization: the API reader, the fetch/unzip layer, the cache
   detect/        the detector framework and the accessibility cluster D21-D30
+  llm/           the Ollama client, the capability filter, and the curated model manifest
   rubric/        the pack format, its JSON Schema, the importer, the mapping file, the projection
   capabilities.yaml  the capability-tag vocabulary: the one thing detectors and packs share
   model.py       the normalized document model every detector reads
 tests/           the suite
-  fixtures/      synthetic recorded Canvas responses and synthetic rubric packs — never anything real
+  fixtures/      synthetic Canvas responses and rubric packs — never anything real
+  fixtures/ollama/  captured /api/show payloads: model metadata only, guarded by a key allowlist
 ```
 
 ## Licence

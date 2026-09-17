@@ -150,11 +150,23 @@ def test_the_export_setting_is_described_in_english_not_as_a_field_name(
     assert "reads an export the course already has" in visible
 
 
+def _export_checkbox(body: str) -> str:
+    """The export checkbox element alone.
+
+    Asserted on the element rather than on the whole page: "checked" is an ordinary English word
+    that appears elsewhere on this screen — the model-host section says a host "has not been
+    checked" — and a page-wide substring search for it was a test that read the wrong thing and
+    happened to be right.
+    """
+    start = body.index('id="request_export"')
+    return body[body.rindex("<input", 0, start) : body.index(">", start) + 1]
+
+
 def test_switching_the_export_setting_off_persists_and_is_confirmed(client: TestClient) -> None:
     response = client.post("/settings/export", data={})
     assert "will not ask Canvas to build an export" in response.text
     body = client.get("/settings").text
-    assert "checked" not in body
+    assert "checked" not in _export_checkbox(body)
     assert ">off<" in body
 
 
@@ -162,7 +174,7 @@ def test_switching_it_back_on_persists_too(client: TestClient) -> None:
     client.post("/settings/export", data={})
     response = client.post("/settings/export", data={"request_export": "on"})
     assert "will ask Canvas to build a fresh export" in response.text
-    assert "checked" in client.get("/settings").text
+    assert "checked" in _export_checkbox(client.get("/settings").text)
 
 
 def test_saving_a_credential_does_not_silently_switch_the_export_setting_off(

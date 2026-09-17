@@ -1,0 +1,152 @@
+# Recommended models — a curated manifest, not a catalogue.
+#
+# Ollama exposes no library-search endpoint, so there is nothing to query and a browser over
+# every published model is not what this screen is for (SPEC §06). This file is twelve candidates
+# sized for the target class of host, each with a reason to be on the list.
+#
+# THREE RULES GOVERN WHAT MAY BE WRITTEN HERE.
+#
+# 1. This file is never a capability source. `expected_capabilities` is an expectation that
+#    Sightline confirms against `/api/show` once a model is installed, and the capability filter
+#    reads only `/api/show`. An entry whose expectation turns out to be wrong shows up on the
+#    settings screen as a stated difference, not as a wrong answer.
+#
+# 2. `evidence` says how the expectation was arrived at, per entry, and there are only two
+#    honest values. `api-show` means the payload was read from a running host and is recorded in
+#    tests/fixtures/ollama/. `expected` means nobody here has run it, and the screen says so.
+#
+# 3. `download_bytes` comes from registry.ollama.ai, read on 2026-09-17 by summing the layer
+#    sizes in each model's manifest. That is Ollama's own registry, which is where `ollama pull`
+#    gets the bytes from, so the number is the download — not an estimate of it.
+#
+# WHY NOT SEED THIS FROM A COMMUNITY CATALOGUE. The mirror at ollama-models.zwz.workers.dev was
+# probed on 2026-09-17 as the freshness test SPEC §06 describes: it serves 170 models, it carries
+# names, descriptions and size tags and NO capability data at all, and it does not contain
+# `gemma4` — the model running on the target host. A list that cannot answer "does this model
+# have tools?" and does not know about the best model available is a seed for a human writing
+# this file, never a runtime source. Ollama's own registry does know about `gemma4`, and has no
+# search: you can only ask it about a name you already have.
+#
+# MEMORY IS NOT THE DOWNLOAD SIZE. Ollama sizes its allocation from the context window as well as
+# the weights, and on the target host a 2 GB model was refused for 52.2 GiB because it declares a
+# 131 072-token window. Sightline pins the window on every call for that reason
+# (sightline.llm.client.DEFAULT_CONTEXT_TOKENS). Read `download_bytes` as the disk and network
+# cost of installing, and nothing more.
+
+version: 1
+sizes_read_from: registry.ollama.ai
+sizes_read_on: 2026-09-17
+
+models:
+  - name: llama3.2:3b
+    role: review
+    download_bytes: 2019392628
+    expected_capabilities: [completion, tools]
+    evidence: api-show
+    why: >-
+      The smallest model here that passes the filter. Worth installing first: it proves the whole
+      path end to end — host reachable, capabilities read, a call completed and logged — in under
+      four seconds, which is a far better first test than waiting on a 9 GB download.
+
+  - name: qwen3:4b
+    role: review
+    download_bytes: 2497293444
+    expected_capabilities: [completion, tools, thinking]
+    evidence: expected
+    why: >-
+      A small model that is expected to report thinking, which the larger Qwen3 builds do. Useful
+      for exercising the thinking pin without loading a large model.
+
+  - name: llama3.1:8b
+    role: review
+    download_bytes: 4920752841
+    expected_capabilities: [completion, tools]
+    evidence: api-show
+    why: >-
+      A dependable general model with a long declared context. Reports no thinking, which makes it
+      the straightforward case: what it writes into content is the answer.
+
+  - name: granite3.3:8b
+    role: review
+    download_bytes: 4942891236
+    expected_capabilities: [completion, tools]
+    evidence: expected
+    why: >-
+      IBM's instruction-following build at 8B, an alternative to the Llama family for the
+      disagreement router, where two models from the same family agreeing is weaker evidence than
+      two from different ones.
+
+  - name: qwen3:8b
+    role: review
+    download_bytes: 5225387677
+    expected_capabilities: [completion, tools, thinking]
+    evidence: expected
+    why: >-
+      The middle Qwen3 build. Expected to report thinking, so calls to it pin the field explicitly
+      and read the reasoning out of the separate field rather than out of the answer.
+
+  - name: qwen2.5:14b
+    role: review
+    download_bytes: 8988123581
+    expected_capabilities: [completion, tools]
+    evidence: expected
+    why: >-
+      A larger general model for the escalation-shaped work that stays local — the criteria where
+      a small model's extraction was thin and the passage is long.
+
+  - name: qwen2.5-coder:14b
+    role: review
+    download_bytes: 8988123810
+    expected_capabilities: [completion, tools, insert]
+    evidence: api-show
+    why: >-
+      Reads markup closely, which is most of what a course page is. It also reports a capability
+      called insert that this filter neither requires nor excludes, and the settings screen names
+      it rather than hiding it.
+
+  - name: qwen3:14b
+    role: review
+    download_bytes: 9276198077
+    expected_capabilities: [completion, tools, thinking]
+    evidence: expected
+    why: >-
+      The largest Qwen3 dense build that still leaves room for a pinned context window on a 64 GB
+      host.
+
+  - name: gemma4:e4b
+    role: review
+    download_bytes: 9608350245
+    expected_capabilities: [completion, vision, audio, tools, thinking]
+    evidence: api-show
+    why: >-
+      Multimodal, and the best model measured on the target host. It is the reason the filter
+      selects on what the work needs rather than excluding vision: an "exclude anything with
+      vision" rule would throw this one away. It declares a minimum Ollama version of 0.20.0.
+
+  - name: mistral-small3.1:24b
+    role: review
+    download_bytes: 15486898622
+    expected_capabilities: [completion, vision, tools]
+    evidence: expected
+    why: >-
+      A larger multimodal option for hosts with memory to spare. Expected to report vision
+      alongside tools, which is admitted, not excluded.
+
+  - name: qwen3:30b
+    role: review
+    download_bytes: 18556698820
+    expected_capabilities: [completion, tools, thinking]
+    evidence: expected
+    why: >-
+      The largest candidate on this list. A mixture-of-experts build, so it runs faster than its
+      download size suggests; it is still the one most likely to need the context window lowered.
+
+  - name: nomic-embed-text:latest
+    role: embedding
+    download_bytes: 274302030
+    expected_capabilities: [embedding]
+    evidence: api-show
+    why: >-
+      Here to be excluded, and to be installed anyway. The capability filter rejects it for review
+      work because it cannot generate, and that is the point of excluding embedding rather than
+      excluding vision: it stays installed and available for background embedding use.

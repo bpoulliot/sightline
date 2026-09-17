@@ -33,6 +33,7 @@ from urllib.parse import urlsplit
 from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from .llm.client import DEFAULT_CONTEXT_TOKENS
 from .paths import DataPaths
 from .redaction import register_secret
 
@@ -71,8 +72,23 @@ class Settings(BaseSettings):
     data_dir: Path = Field(default=Path("./data"), validation_alias="SIGHTLINE_DATA_DIR")
 
     # -- Local model host --------------------------------------------------------------------
+    #: The environment fallback for the endpoint. Normally set on the Settings screen, and
+    #: resolved by :mod:`sightline.preferences` like the export preference above. Unlike the
+    #: Canvas base URL it is **not** registered as a secret: it names a machine on the operator's
+    #: own network, and every model call logs which host served it on purpose (SPEC §06).
     ollama_base_url: str | None = Field(default=None, validation_alias="OLLAMA_BASE_URL")
+
+    #: Concurrent model calls. Default 1, and the ceiling is deliberately low: an earlier local-AI
+    #: pipeline on this network died from 48-way concurrency against capacity that could not
+    #: sustain it, and it died silently.
     ollama_concurrency: int = Field(default=1, ge=1, le=8, validation_alias="OLLAMA_CONCURRENCY")
+
+    #: The context window pinned on every model call. Not a tuning knob for output quality — it
+    #: is what stops Ollama sizing its allocation from a model's declared window, which on the
+    #: target host refuses a 2 GB model for 52.2 GiB. See :mod:`sightline.llm.client`.
+    ollama_context_tokens: int = Field(
+        default=DEFAULT_CONTEXT_TOKENS, ge=512, le=1_048_576, validation_alias="OLLAMA_NUM_CTX"
+    )
 
     # -- Optional escalation (OpenAI-compatible) ---------------------------------------------
     escalation_base_url: str | None = Field(
@@ -186,7 +202,10 @@ class Settings(BaseSettings):
                 "name": "Ollama endpoint",
                 "env": "OLLAMA_BASE_URL",
                 "state": state(bool(self.ollama_base_url)),
-                "note": f"Concurrency {self.ollama_concurrency}.",
+                "note": (
+                    f"Concurrency {self.ollama_concurrency}, "
+                    f"{self.ollama_context_tokens:,}-token context pinned on every call."
+                ),
             },
             {
                 "name": "Escalation endpoint",

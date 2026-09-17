@@ -1,4 +1,4 @@
-"""The one preference that is a choice rather than a credential, and who wins when they disagree.
+"""The preferences that are choices rather than credentials, and who wins when they disagree.
 
 Precedence is the credential store's — stored beats environment beats default — and it matters
 here for a reason a credential does not have: switching the fresh-export request off is how an
@@ -11,9 +11,12 @@ from __future__ import annotations
 import pytest
 
 from sightline.config import Settings
+from sightline.llm.errors import ModelHostNotConfiguredError
 from sightline.paths import DataPaths
 from sightline.preferences import (
+    MODEL_HOST_ENDPOINT,
     REQUEST_CONTENT_EXPORT,
+    REVIEW_MODEL,
     ExportPreference,
     PreferenceSource,
     PreferenceStore,
@@ -100,3 +103,91 @@ def test_the_prose_is_specific_about_what_canvas_will_do() -> None:
     for sentence in (on.consequence, off.consequence, ExportPreference.title):
         assert "grade" not in sentence.lower()
         assert "score" not in sentence.lower()
+
+
+# ---------------------------------------------------------------------------------------------
+# The model host
+# ---------------------------------------------------------------------------------------------
+
+ENDPOINT = "http://model-host.example.lan:11434"
+
+
+def test_no_model_host_is_configured_by_default(store: RunStore) -> None:
+    """No default that points at a host. A hardcoded LAN address here would be a bug (SPEC §04)."""
+    preference = PreferenceStore(store).model_host()
+    assert preference.endpoint is None
+    assert not preference.configured
+    assert preference.source is PreferenceSource.DEFAULT
+
+
+def test_a_stored_endpoint_beats_the_environment(store: RunStore) -> None:
+    preferences = PreferenceStore(
+        store, env_model_host_endpoint="http://from-the-env.example.lan:11434"
+    )
+    assert preferences.model_host().source is PreferenceSource.ENVIRONMENT
+    preferences.set_model_host(ENDPOINT)
+    assert preferences.model_host().endpoint == ENDPOINT
+    assert preferences.model_host().source is PreferenceSource.STORED
+
+
+def test_forgetting_the_endpoint_returns_to_the_environment(store: RunStore) -> None:
+    preferences = PreferenceStore(
+        store, env_model_host_endpoint="http://from-the-env.example.lan:11434"
+    )
+    preferences.set_model_host(ENDPOINT)
+    assert preferences.clear_model_host() is True
+    assert preferences.model_host().source is PreferenceSource.ENVIRONMENT
+    assert preferences.clear_model_host() is False
+
+
+def test_an_endpoint_is_normalized_on_the_way_in(store: RunStore) -> None:
+    """Stored as it will be called, so the row and the log line are the same string."""
+    preferences = PreferenceStore(store)
+    preferences.set_model_host("model-host.example.lan:11434/api/tags")
+    assert store.get_setting(MODEL_HOST_ENDPOINT) == ENDPOINT
+    assert preferences.model_host().host == "model-host.example.lan:11434"
+
+
+def test_a_malformed_endpoint_is_not_stored(store: RunStore) -> None:
+    preferences = PreferenceStore(store)
+    with pytest.raises(ModelHostNotConfiguredError):
+        preferences.set_model_host("nonsense here")
+    assert store.get_setting(MODEL_HOST_ENDPOINT) is None
+
+
+# ---------------------------------------------------------------------------------------------
+# The model chosen to do the work
+# ---------------------------------------------------------------------------------------------
+
+
+def test_no_model_is_chosen_by_default(store: RunStore) -> None:
+    preference = PreferenceStore(store).review_model()
+    assert preference.name is None
+    assert not preference.chosen
+
+
+def test_choosing_a_model_stores_its_name(store: RunStore) -> None:
+    preferences = PreferenceStore(store)
+    preferences.set_review_model("  gemma4:e4b  ")
+    assert store.get_setting(REVIEW_MODEL) == "gemma4:e4b"
+    assert preferences.review_model().source is PreferenceSource.STORED
+    assert preferences.clear_review_model() is True
+    assert not preferences.review_model().chosen
+
+
+def test_choosing_nothing_is_refused_with_a_remedy(store: RunStore) -> None:
+    with pytest.raises(ModelHostNotConfiguredError) as caught:
+        PreferenceStore(store).set_review_model("   ")
+    assert caught.value.remedy
+
+
+def test_a_model_name_is_not_capability_checked_here(store: RunStore) -> None:
+    """Capabilities are a live reading of the host; this store cannot make one (SPEC §06).
+
+    Storing an uninstalled name is therefore allowed on purpose. The screen offers only models
+    that passed the filter and the client checks again at call time; a third answer taken here
+    from data that had to be stale to exist would be the one that is wrong.
+    """
+    preferences = PreferenceStore(store)
+    preferences.set_review_model("nothing-installed:1b")
+    assert preferences.review_model().name == "nothing-installed:1b"
