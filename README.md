@@ -161,6 +161,68 @@ python -m sightline.acquire --bundle examples/sample-course
 See `examples/sample-course/README.md` for what is planted in it, and for the four detectors it
 cannot exercise yet and why.
 
+## Detectors
+
+Stage 3 of the pipeline in SPEC §04. A `CourseDocument` goes in; typed findings come out. A finding
+is a **computed count, a verbatim quote with a location, or an explicit record that something could
+not be read** — never a judgement, and never a bare number without the thing it was measured on.
+
+```sh
+python -m sightline.detect --bundle examples/sample-course
+```
+
+**Every detector reports what it examined, and zero examined is an error.** SPEC §11 names the
+failure this prevents: the dangerous bug is not a red test, it is a detector that quietly finds
+nothing because it broke, handed to a designer as a course with nothing wrong. It is enforced
+structurally rather than by care — a detector never touches the document, the only way it can reach
+an artifact is through the `Survey` it is handed, and the survey counts every artifact it gives
+out. `Detector.run` is final; a subclass that tries to override it fails at class-definition time.
+
+A zero count is then checked against what acquisition recorded. A collection that could not be read
+is reported as that, with the remedy. Every declared collection recorded `empty` is a course that
+genuinely has none of these. A collection recorded `ok` paired with a detector that opened none of
+it explains nothing, and raises. None of the three is a pass: `DetectorResult.clean` is true only
+when a detector actually ran, found nothing, and had nothing left it could not read.
+
+**A finding says what it could not tell you.** `Undetermined` is a first-class record beside the
+findings — a PDF whose bytes were never downloaded is not an accessible PDF and is not an
+inaccessible one, and reporting it as either is a fabrication. So is reporting it as silence.
+
+**A detector never names a rubric criterion.** Detectors emit facts about artifacts; a rubric pack
+projects them onto its own rows, which is what makes adding a rubric a mapping file rather than
+code (SPEC §04). The criteria column in SPEC §05 is documentation of the 3.1.3 pack.
+
+### The accessibility cluster, D21–D30
+
+| | |
+|---|---|
+| D21 | images with no alt text, a filename as alt text, over-long alt text, contradictory decorative marking |
+| D22 | headings absent, skipping a level, empty, or bold text standing in for one |
+| D23 | links labelled "click here", labelled with an address, with no text, or repeated to different places; addresses typed as prose |
+| D24 | tables of data with no header cells or no scope, tables with no caption, tables used to position things |
+| D25 | text whose declared colour misses the contrast threshold, reported with the background it was measured against |
+| D26 | colour apparently carrying meaning on its own — tier B, located and quoted for a person to judge |
+| D27 | audio and video with no caption track; hosted players whose caption state the course does not record |
+| D28 | type below the minimum size, and typefaces that are not sans-serif, in pages and in attached Word files |
+| D29 | images named like a document, and pages carrying more picture than prose — tier B |
+| D30 | PDFs with no tag tree or no text layer, Word files formatted by hand, decks with missing, repeated or timed slides |
+
+**The scope boundary, and it is not negotiable** (SPEC §11). Sightline checks that alt text
+*exists*, is not a filename, and is not empty on an image nothing marks decorative. It does not
+judge whether alt text is good, and it sends no image to a vision model. D29 reads filenames and
+counts words; it never looks inside a picture, and its findings say so.
+
+**PDF, DOCX and PPTX are read with the standard library.** `zipfile` and `defusedxml` for the
+Office formats, and a structural probe over the decompressed streams for PDF. The obvious reason is
+that a course attachment is a file somebody else wrote and every parser added is another one
+pointed at untrusted bytes. The reason that decides it is licensing: this repository is MIT, and
+the PDF library these tools reach for first is AGPL.
+
+**Two detectors are tier B, and the difference is in the wording rather than in who computed it.**
+D26 and D29 look for signals a person has to confirm. They locate and quote a passage and stop
+there; SPEC §02 puts them at tier B for that, and a parser that quotes is a stricter form of the
+same contract than a model that quotes, because a parser cannot invent the quote.
+
 ## Canvas token scopes
 
 So an institution can issue a least-privilege token rather than an administrative one, here is
@@ -387,6 +449,7 @@ scripts/         dev.sh (container-backed test/lint/format), scan-secrets.sh
 src/sightline/   the application
   canvas/        the Canvas connector: client, connection test, reference resolution, sanitizer
   acquire/       acquisition and normalization: the API reader, the fetch/unzip layer, the cache
+  detect/        the detector framework and the accessibility cluster D21-D30
   model.py       the normalized document model every detector reads
 tests/           the suite
   fixtures/      synthetic recorded Canvas responses — never anything real
