@@ -151,3 +151,70 @@ class CanvasResponseError(CanvasError):
         "Canvas answered with JSON of an unexpected shape. This is a Sightline bug or a Canvas "
         "version difference; the endpoint and status are recorded above."
     )
+
+
+# ---------------------------------------------------------------------------------------------
+# Asking Canvas to build a content export
+# ---------------------------------------------------------------------------------------------
+#
+# These four are separate from the HTTP mapping above because they are failures of the *export*,
+# not of the request that asked for it: Canvas answers 200 and then reports the export as failed,
+# or never finishes it, or reports it in a state this code has never heard of. Each is reported as
+# a failure with its own remedy. A failed export normalized into a document with no files would be
+# the silent under-detection SPEC §11 is about — every detector downstream would then see a course
+# with no documents in it and report it as clean.
+
+
+class CanvasExportNotPermittedError(CanvasPermissionError):
+    """The token may read the course and may not ask Canvas to package it.
+
+    A subclass of :class:`CanvasPermissionError` because it *is* one — but the remedy is different
+    enough to be worth its own class. Reading a course and exporting it are different permissions
+    in Canvas, so the remedy for a 403 here is not the remedy for a 403 on a ``GET``.
+    """
+
+    default_remedy = (
+        "This token can read the course but is not permitted to ask Canvas to package it. "
+        "Exporting needs the permission behind Canvas's own Settings -> Export Course Content "
+        "button, which a reader, observer or student enrolment does not carry. Either give the "
+        "token's user a role that can export content in this course, use an account-level token "
+        "with that permission, or switch 'Ask Canvas to build a fresh export' off on the Settings "
+        "screen — Sightline then reads an export the course already has."
+    )
+
+
+class CanvasExportFailedError(CanvasError):
+    """Canvas reported ``workflow_state: failed``. Not an empty export — a failed one."""
+
+    default_remedy = (
+        "Canvas reported the export as failed, so no document bytes were read. This is not an "
+        "empty course: nothing was examined. Open the course in Canvas, choose Settings -> Export "
+        "Course Content and run the export by hand to see what Canvas reports — a very large "
+        "course, or one file the instance cannot read, is the usual cause."
+    )
+
+
+class CanvasExportStateError(CanvasError):
+    """Canvas reported a ``workflow_state`` this code does not recognise.
+
+    Treated as a failure rather than as "keep waiting". An unknown state polled forever is a run
+    that looks frozen, and the state is named in the message so the next person does not have to
+    reproduce it to find out what it was.
+    """
+
+    default_remedy = (
+        "Sightline stopped rather than polling a state it does not recognise. Check the course's "
+        "export list in Canvas under Settings -> Export Course Content. If this state is a normal "
+        "part of exporting on this instance, it belongs in the list of states Sightline waits on."
+    )
+
+
+class CanvasExportTimeoutError(CanvasError):
+    """The export did not finish inside the poll ceiling."""
+
+    default_remedy = (
+        "Canvas had not finished the export when Sightline stopped waiting. The export may still "
+        "finish: check the course's export list in Canvas under Settings -> Export Course "
+        "Content, and run the review again once it is complete. Very large courses can take "
+        "several minutes."
+    )

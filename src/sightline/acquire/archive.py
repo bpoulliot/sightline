@@ -140,13 +140,27 @@ async def download_archive(
             f"The archive exceeded the {max_bytes // (1024 * 1024)} MB download limit.",
             remedy="Raise the limit, or review this course from the Canvas API alone.",
         )
+    # The host that served the bytes is *not* logged, and that is the one field here worth a
+    # comment. A download link points at the Canvas host and Canvas redirects it to a storage back
+    # end, so the serving host is frequently not the configured one — which means redaction has
+    # never seen it and cannot scrub it, unlike every other host this package handles. The fact
+    # that matters downstream is whether Canvas served the file itself, and that is a boolean.
     log.info(
         "archive_downloaded",
         bytes=result.bytes_written,
         content_type=result.content_type,
-        served_by=result.served_by,
+        served_by_canvas_host=_is_canvas_host(result.served_by, canvas_base_url),
     )
     return target, result
+
+
+def _is_canvas_host(served_by: str | None, canvas_base_url: str) -> bool | None:
+    """Whether the bytes came from the configured Canvas host. ``None`` when nothing said."""
+    if not served_by:
+        return None
+    canvas_host = (urlsplit(canvas_base_url).hostname or "").lower()
+    host = served_by.lower()
+    return bool(canvas_host) and (host == canvas_host or host.endswith(f".{canvas_host}"))
 
 
 # ---------------------------------------------------------------------------------------------

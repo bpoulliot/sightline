@@ -183,12 +183,38 @@ every request Sightline makes today. `sightline.canvas.scopes` is the source of 
 | `url:GET\|/api/v1/courses/:course_id/rubrics` | `GET /api/v1/courses/{id}/rubrics` | Reads the rubrics defined in the course, so an unattached one is still visible. |
 | `url:GET\|/api/v1/courses/:course_id/tabs` | `GET /api/v1/courses/{id}/tabs` | Reads the course navigation menu, including which entries are hidden from learners. |
 | `url:GET\|/api/v1/courses/:course_id/files` | `GET /api/v1/courses/{id}/files` | Lists the course's files, so a document with no bytes in the export is still named. |
-| `url:GET\|/api/v1/courses/:course_id/content_exports` | `GET /api/v1/courses/{id}/content_exports` | Finds a content export the course already has. Sightline reads one; it never asks Canvas to create one, because creating one is a write. |
+| `url:GET\|/api/v1/courses/:course_id/content_exports` | `GET /api/v1/courses/{id}/content_exports` | Finds a content export the course already has. This is the path taken when the fresh-export request is switched off on the Settings screen. |
+| `url:POST\|/api/v1/courses/:course_id/content_exports` | `POST /api/v1/courses/{id}/content_exports` | Asks Canvas to package a copy of the course under review. It does not modify course content: an export artifact appears in the course's export list and nothing a learner or instructor sees changes. A setting turns this request off. |
+| `url:GET\|/api/v1/courses/:course_id/content_exports/:id` | `GET /api/v1/courses/{id}/content_exports/{export_id}` | Polls one export until Canvas finishes building it. An export is asynchronous and a large course takes minutes, so the state has to be read back rather than assumed. |
 
-**Every one is a `GET`, and nothing in Sightline writes to Canvas.** That is a decision rather
-than a coincidence. Asking Canvas to build a content export is a `POST`, so acquisition *reads* an
-export the course already has and tells you what to do when there is none, rather than creating
-one. `tests/test_canvas_scopes.py` fails the build if a non-`GET` scope ever appears in the list.
+**Sightline does not modify course content; it asks Canvas to package a copy of the course it is
+reviewing.** Exactly one request in that table is not a `GET` — the `POST` that asks for a content
+export — and `tests/test_canvas_scopes.py` fails the build if a **second** write ever appears.
+The guard is a count that must stay at one, not a ban: a ban gets deleted the first time it is
+inconvenient, while a number has to be changed in front of a reviewer.
+
+The write is there because the checks that read a document's own bytes — whether a PDF is tagged,
+whether a Word file uses real headings — have nothing to read without an export, and the Canvas
+API does not hand those bytes over. What appears in Canvas is an export artifact in the course's
+own export list, the same one a teacher creates with **Settings → Export Course Content**. Nothing
+a learner or an instructor sees changes.
+
+**A setting turns it off, and off is a supported configuration.** Uncheck *Ask Canvas to build a
+fresh export of the course* on the Settings screen, or set
+`SIGHTLINE_REQUEST_CONTENT_EXPORT=false`, and Sightline reads an export the course already has and
+reports the steps to create one when there is none — every request it makes is then a read. An
+institution with a no-writes policy keeps a working tool; what it loses is the checks that need a
+document's own bytes, and those report that they had nothing to examine rather than reporting the
+course as clean.
+
+**A fresh export is always requested, never a recent one reused.** Canvas does not bump a course's
+`updated_at` when a page inside it is edited, so an existing export cannot be shown to match the
+course as it is now, and reviewing last week's course as though it were this week's is exactly the
+silent wrongness this tool exists to avoid.
+
+Requesting an export needs a permission that reading does not — the one behind Canvas's own
+**Export Course Content** button — so a token that can read a course may still be refused one. The
+refusal says so and names what to change.
 
 Two kinds of Canvas token exist and they behave differently:
 
@@ -239,7 +265,8 @@ repository is a bug, and `tests/test_config.py` fails the build over one.
 | Variable | Meaning |
 |---|---|
 | `CANVAS_BASE_URL` | Base URL of your Canvas instance. **Treated as a secret**: it identifies the institution. |
-| `CANVAS_API_TOKEN` | Canvas API token. Read-only access is sufficient — see **Canvas token scopes**. |
+| `CANVAS_API_TOKEN` | Canvas API token. Read access, plus permission to export course content when the setting below is on — see **Canvas token scopes**. |
+| `SIGHTLINE_REQUEST_CONTENT_EXPORT` | Whether to ask Canvas to build a fresh content export of each course reviewed. Default `true`. Fallback for the setting of the same name on the Settings screen, which wins over it. |
 | `SIGHTLINE_SECRET_KEY` | Key for credentials entered in the UI. Unset means Sightline manages a key file under the data root. |
 | `SIGHTLINE_DATA_DIR` | Root for everything downloaded or generated. Default `./data`; `/data` in the container. |
 | `OLLAMA_BASE_URL` | Ollama endpoint. No default. |

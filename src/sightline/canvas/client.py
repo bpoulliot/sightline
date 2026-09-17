@@ -358,6 +358,48 @@ class CanvasClient:
         self._raise_for_status(response, endpoint)
         return response
 
+    async def _post(self, path: str, *, data: dict[str, Any]) -> httpx.Response:
+        """One POST, mapped through exactly the same errors and remedies as :meth:`_get`.
+
+        There is one route this is ever called for — see :meth:`post_json` — but the transport
+        half is written as a peer of ``_get`` rather than inlined there, so a write inherits the
+        401/403/404 discrimination above instead of re-deriving it. Canvas takes form-encoded
+        parameters on this endpoint, which is what ``data`` is.
+        """
+        endpoint = f"POST {path}"
+        try:
+            response = await self._client.post(path, data=data)
+        except httpx.TimeoutException as exc:
+            raise CanvasUnreachableError(
+                f"{self.host} did not answer in time.",
+                detail=f"{endpoint} timed out after {DEFAULT_TIMEOUT:.0f}s.",
+                endpoint=endpoint,
+                remedy=(
+                    f"Check that {self.host} is reachable from this machine. A container on an "
+                    "isolated network sees a timeout, not a refusal, when a firewall drops its "
+                    "traffic."
+                ),
+            ) from exc
+        except httpx.ConnectError as exc:
+            raise CanvasUnreachableError(
+                f"Nothing answered at {self.host}.",
+                detail=f"{endpoint} could not open a connection.",
+                endpoint=endpoint,
+                remedy=(
+                    f"Check {self.host} for a typo, then check DNS and that this machine may "
+                    "reach it on the port in the base URL."
+                ),
+            ) from exc
+        except httpx.TransportError as exc:
+            raise CanvasUnreachableError(
+                f"The connection to {self.host} failed.",
+                detail=f"{endpoint}: {type(exc).__name__}.",
+                endpoint=endpoint,
+            ) from exc
+
+        self._raise_for_status(response, endpoint)
+        return response
+
     def _raise_for_status(self, response: httpx.Response, endpoint: str) -> None:
         status = response.status_code
         if status < 400:
@@ -582,14 +624,31 @@ class CanvasClient:
     # -- acquisition primitives --------------------------------------------------------------
     #
     # Item 03 reads whole collections rather than probing them, and it does so from
-    # :mod:`sightline.acquire`. These three are the entire surface it uses: one object, one
-    # collection, one download. Keeping them here means every Canvas request in the package still
-    # goes through the error mapping and the redaction above.
+    # :mod:`sightline.acquire`. These four are the entire surface it uses: one object, one
+    # collection, one download, and — since item 23 — one write, the request that asks Canvas to
+    # package a copy of the course. Keeping them here means every Canvas request in the package
+    # still goes through the error mapping and the redaction above.
 
     async def get_json(self, path: str, **params: Any) -> Any:
         """One GET returning parsed JSON, with the typed errors and remedies of :meth:`_get`."""
         endpoint = f"GET {path}"
         return self._json(await self._get(path, **params), endpoint)
+
+    async def post_json(self, path: str, **data: Any) -> Any:
+        """The one request Sightline makes that is not a ``GET``.
+
+        It asks Canvas to package a copy of the course being reviewed
+        (:mod:`sightline.canvas.exports`). Sightline does not modify course content: nothing a
+        learner or an instructor sees changes, and what appears is an export artifact in the
+        course's own export list.
+
+        That this is the *only* write is not enforced here — a runtime guard on a path would be a
+        second place to look. It is enforced by the scope list, which carries exactly one non-
+        ``GET`` entry, and by ``tests/test_canvas_scopes.py``, which fails the build on a second
+        one. A later item that wants another write changes that number in front of a reviewer.
+        """
+        endpoint = f"POST {path}"
+        return self._json(await self._post(path, data=data), endpoint)
 
     async def get_list(self, path: str, **params: Any) -> Listing:
         """Walk a paginated collection to its end, or to :data:`MAX_LIST_PAGES`.

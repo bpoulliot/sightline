@@ -119,6 +119,36 @@
   {% endif %}
 </section>
 
+<section class="panel" aria-labelledby="h-export">
+  <h2 id="h-export">Course content export</h2>
+  <p class="note">
+    Some checks need a document's own bytes — whether a PDF is tagged, whether a Word file uses
+    real headings, whether a handout can be downloaded. The Canvas API does not hand those over;
+    they come from a content export.
+  </p>
+
+  <form method="post" action="/settings/export" class="form">
+    <div class="field field-check">
+      <label for="request_export">
+        <input type="checkbox" id="request_export" name="request_export" value="on"
+               {% if export.enabled %}checked{% endif %}>
+        <span>{{ export.title }}</span>
+      </label>
+      <p class="hint">{{ export.when_on }}</p>
+      <p class="hint">With it off: {{ export.when_off }}</p>
+    </div>
+    <div class="actions">
+      <button type="submit" class="button button-primary">Save export setting</button>
+      <span class="hint">
+        Currently
+        <span class="state {% if export.enabled %}state-on{% else %}state-off{% endif %}">{{ export.state }}</span>,
+        from the {{ export.source.value }} setting. The environment fallback is
+        <code>SIGHTLINE_REQUEST_CONTENT_EXPORT</code>.
+      </span>
+    </div>
+  </form>
+</section>
+
 <section class="panel" aria-labelledby="h-scopes">
   <h2 id="h-scopes">Canvas token scopes</h2>
   <p class="note">
@@ -144,6 +174,14 @@
       </tbody>
     </table>
   </div>
+  <p class="note">
+    {% for scope in writes %}<code>{{ scope.scope }}</code>{% if not loop.last %}, {% endif %}{% endfor %}
+    is the one request here that is not a <code>GET</code>: it asks Canvas to package a copy of the
+    course being reviewed. Sightline does not modify course content. It is what the setting above
+    turns off, and the test suite fails the build if a second write ever appears in this table.
+    Requesting an export needs a permission that reading does not, so a token that can read a
+    course may still be refused one — the refusal says so and names what to change.
+  </p>
   <p class="note">
     A scope grants access to a route; it does not grant the underlying permission. The token's user
     also needs these Canvas permissions in each course under review:

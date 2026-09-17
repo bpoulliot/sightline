@@ -208,9 +208,14 @@ async def test_an_empty_syllabus_still_produces_an_artifact(partial: CourseDocum
 # -- the recorded traffic ---------------------------------------------------------------------
 
 
-async def test_acquisition_makes_only_the_requests_the_scopes_declare() -> None:
+async def test_reading_a_course_makes_only_the_requests_the_scopes_declare() -> None:
     """The transport refuses an unrecorded request, so this passing at all is the assertion. What
-    is checked here is the shape: every call is a GET, and nothing writes to Canvas."""
+    is checked here is the shape: reading a course's structure is every bit a ``GET``.
+
+    The one write Sightline makes is not here. It is the request that asks Canvas to package a
+    copy of the course, it belongs to acquisition rather than to reading, and it is asserted in
+    ``tests/test_acquire_service.py`` and ``tests/test_canvas_exports.py``.
+    """
     recording = load("course-acquisition")
     await acquire(recording, "4411")
     assert recording.calls

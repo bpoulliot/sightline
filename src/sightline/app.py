@@ -26,6 +26,7 @@ from .assets import TokensNotFoundError, resolve_tokens_css
 from .config import Settings, get_settings
 from .credentials import CredentialStore
 from .logging import configure_logging, get_logger
+from .preferences import PreferenceStore
 from .runner import BackgroundRunner
 from .store import RunStore
 from .views import build_router
@@ -85,17 +86,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             ),
             key=(resolved.secret_key.get_secret_value() if resolved.secret_key else None),
         )
+        preferences = PreferenceStore(
+            store, env_request_content_export=resolved.request_content_export_from_env
+        )
         application.state.settings = resolved
         application.state.paths = paths
         application.state.store = store
         application.state.runner = runner
         application.state.credentials = credentials
+        application.state.preferences = preferences
         interrupted = runner.recover()
         log.info(
             "startup",
             version=__version__,
             data_root=str(paths.root),
             canvas_configured=resolved.canvas_configured,
+            request_content_export=preferences.request_content_export().enabled,
             ollama_configured=resolved.ollama_configured,
             escalation_configured=resolved.escalation_configured,
             interrupted_runs=len(interrupted),

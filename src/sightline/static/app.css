@@ -292,6 +292,29 @@ td.num { font-family: var(--f-mono); }
 }
 .field textarea { resize: vertical; min-height: 6rem; }
 
+/* A checkbox and the sentence that says what it does. The caption treatment above is a field
+   NAME, which is right for a text input and wrong for a switch: a toggle labelled with a field
+   name tells nobody what turning it on will do. */
+.field-check label {
+  display: flex;
+  gap: .55rem;
+  align-items: flex-start;
+  font-family: var(--f-body);
+  font-size: 1rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink);
+  margin: 0 0 .45rem;
+}
+
+.field-check input[type="checkbox"] {
+  flex: none;
+  width: 1.05rem;
+  height: 1.05rem;
+  margin: .15rem 0 0;
+}
+
 .field input[type="file"] {
   font-family: var(--f-mono);
   font-size: .82rem;

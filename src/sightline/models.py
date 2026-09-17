@@ -4,7 +4,7 @@ Run state lives in SQLite so a restart resumes rather than loses (SPEC §04). Th
 and no worker: background work is an asyncio task in the same process, and this table set is the
 only thing that survives it.
 
-Three tables, deliberately flat:
+Five tables, deliberately flat:
 
 ``runs``
     One row per batch a designer started.
@@ -17,6 +17,9 @@ Three tables, deliberately flat:
     Credentials entered on the settings screen, stored as ciphertext. The key is never in this
     table — see :mod:`sightline.credentials` for where it lives and what that does and does not
     protect against.
+``app_settings``
+    Preferences set on the settings screen. Plaintext, deliberately: a preference nobody can read
+    is a preference nobody can audit. Nothing secret goes in it — that is what ``app_secrets`` is.
 """
 
 from __future__ import annotations
@@ -144,6 +147,27 @@ class AppSecret(Base):
 
     name: Mapped[str] = mapped_column(String(64), primary_key=True)
     ciphertext: Mapped[bytes] = mapped_column(LargeBinary)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
+
+
+class AppSetting(Base):
+    """A preference the designer set on the settings screen, in plain text.
+
+    Separate from ``app_secrets`` rather than sharing it, because the two have opposite
+    requirements. A credential must be unreadable without a key; a preference must be readable by
+    anyone looking at the database, or "why did this deployment not ask Canvas for an export?"
+    becomes unanswerable from the artifact that travels.
+
+    **Nothing secret belongs here.** A value in this table is readable by anyone who can read the
+    run store.
+    """
+
+    __tablename__ = "app_settings"
+
+    name: Mapped[str] = mapped_column(String(64), primary_key=True)
+    value: Mapped[str] = mapped_column(String(256))
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, onupdate=utcnow
     )

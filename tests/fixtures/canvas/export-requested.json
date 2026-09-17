@@ -1,0 +1,264 @@
+{
+  "name": "export-requested",
+  "description": "The whole fresh-export path over one course: the index reads, the POST that asks Canvas to build a common cartridge, a poll that sees 'exporting' before 'exported', and the download of the finished archive. The course's exports are never listed, because this path never reads one it did not ask for. Every value is synthetic; see tests/canvas_recordings.py.",
+  "interactions": [
+    {
+      "method": "GET",
+      "path": "/api/v1/courses/4414",
+      "query": {
+        "include[]": "syllabus_body"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
+        "json": {
+          "id": 4414,
+          "name": "Sample Course 4414",
+          "course_code": "SYN-4414",
+          "workflow_state": "available",
+          "syllabus_body": "<p>Synthetic syllabus, written for the test suite.</p>"
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/courses/4414/tabs",
+      "query": {
+        "per_page": 100
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
+        "json": []
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/courses/4414/assignment_groups",
+      "query": {
+        "per_page": 100
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
+        "json": []
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/courses/4414/rubrics",
+      "query": {
+        "per_page": 100
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
+        "json": []
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/courses/4414/modules",
+      "query": {
+        "per_page": 100,
+        "include[]": "items"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
+        "json": []
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/courses/4414/pages",
+      "query": {
+        "per_page": 100
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
+        "json": [
+          {
+            "page_id": 9001,
+            "url": "synthetic-overview",
+            "title": "Synthetic overview"
+          }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/courses/4414/assignments",
+      "query": {
+        "per_page": 100
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
+        "json": []
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/courses/4414/quizzes",
+      "query": {
+        "per_page": 100
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
+        "json": []
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/courses/4414/discussion_topics",
+      "query": {
+        "per_page": 100,
+        "only_announcements": "false"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
+        "json": []
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/courses/4414/discussion_topics",
+      "query": {
+        "per_page": 100,
+        "only_announcements": "true"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
+        "json": []
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/courses/4414/files",
+      "query": {
+        "per_page": 100
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
+        "json": []
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/courses/4414/pages/synthetic-overview",
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
+        "json": {
+          "page_id": 9001,
+          "url": "synthetic-overview",
+          "title": "Synthetic overview",
+          "body": "<h2>Synthetic overview</h2><p>From the API.</p>"
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/courses/4414/content_exports",
+      "form": {
+        "export_type": "common_cartridge"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
+        "json": {
+          "id": 8801,
+          "workflow_state": "created",
+          "export_type": "common_cartridge",
+          "created_at": "2026-02-01T09:00:00Z",
+          "progress": 0
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/courses/4414/content_exports/8801",
+      "responses": [
+        {
+          "status": 200,
+          "headers": {
+            "Content-Type": "application/json; charset=utf-8"
+          },
+          "json": {
+            "id": 8801,
+            "workflow_state": "exporting",
+            "export_type": "common_cartridge",
+            "created_at": "2026-02-01T09:00:00Z",
+            "progress": 40
+          }
+        },
+        {
+          "status": 200,
+          "headers": {
+            "Content-Type": "application/json; charset=utf-8"
+          },
+          "json": {
+            "id": 8801,
+            "workflow_state": "exported",
+            "export_type": "common_cartridge",
+            "created_at": "2026-02-01T09:00:00Z",
+            "progress": 100,
+            "attachment": {
+              "id": 9101,
+              "filename": "synthetic-course-export.imscc",
+              "content-type": "application/zip",
+              "url": "https://canvas.example.edu/files/9101/download?download_frd=1&verifier=synthetic"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/files/9101/download",
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/zip"
+        },
+        "zip": {
+          "imsmanifest.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\"?><manifest identifier=\"synthetic-cartridge\"><organizations><organization><item><item><title>Synthetic module one</title><item identifierref=\"r1\"><title>Synthetic overview</title></item></item></item></organization></organizations><resources><resource identifier=\"r1\" href=\"wiki_content/synthetic-overview.html\"/><resource identifier=\"r2\" href=\"web_resources/synthetic-handout.pdf\"/></resources></manifest>",
+          "wiki_content/synthetic-overview.html": "<h2>Synthetic overview</h2><p>Written for the test suite, not taken from a course.</p>",
+          "web_resources/synthetic-handout.pdf": "%PDF-1.4 synthetic handout, not a real document"
+        }
+      }
+    }
+  ]
+}

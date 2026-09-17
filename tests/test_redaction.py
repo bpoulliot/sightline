@@ -57,6 +57,28 @@ def test_placeholder_in_env_example_is_not_mistaken_for_a_token() -> None:
     assert scrub("0000~replace_me_with_a_real_token") == "0000~replace_me_with_a_real_token"
 
 
+def test_a_url_origin_is_scrubbed_even_when_nothing_registered_it() -> None:
+    """The registry covers the configured Canvas host. It cannot cover the storage back end a
+    Canvas download redirects to: that host differs per deployment and nothing configures it, yet
+    the HTTP client logs it by name. The path has to survive, or a log line stops saying what was
+    fetched."""
+    clear_registry()
+    line = 'HTTP Request: GET https://content-storage.example/bundles/8801 "HTTP/1.1 200 OK"'
+    scrubbed = scrub(line)
+    assert "content-storage.example" not in scrubbed
+    assert "/bundles/8801" in scrubbed
+    assert "HTTP Request" in scrubbed
+
+
+def test_a_download_link_credential_is_scrubbed() -> None:
+    """A Canvas file link carries its credential in the query string, so the query string is a
+    credential surface and not merely a URL."""
+    clear_registry()
+    scrubbed = scrub("/files/9101/download?download_frd=1&verifier=synthetic-not-a-real-one")
+    assert "synthetic-not-a-real-one" not in scrubbed
+    assert "download_frd=1" in scrubbed
+
+
 def test_ordinary_prose_survives() -> None:
     clear_registry()
     sentence = "Examined 41 pages; 3 images have no alt text."

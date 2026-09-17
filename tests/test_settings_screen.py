@@ -113,6 +113,69 @@ def test_the_scope_table_is_on_the_screen_not_only_in_the_readme(client: TestCli
     assert "Course Content - view" in body
 
 
+def test_the_one_write_is_named_on_the_screen_rather_than_buried_in_the_table(
+    client: TestClient,
+) -> None:
+    """A row in a table of seventeen is not disclosure. The screen says which one is the write,
+    what it does, and that it does not modify course content."""
+    body = client.get("/settings").text
+    assert "url:POST|/api/v1/courses/:course_id/content_exports" in body
+    assert "does not modify course content" in body
+
+
+# -- the content-export setting -----------------------------------------------------------------
+
+
+def test_the_export_setting_is_on_by_default_and_says_what_that_means(client: TestClient) -> None:
+    body = client.get("/settings").text
+    assert "Ask Canvas to build a fresh export of the course" in body
+    # Not the whole sentence: Jinja escapes the apostrophe in "course's", and an assertion that
+    # fails on an HTML entity is an assertion about escaping rather than about wording.
+    assert "export list under Settings" in body
+    assert 'name="request_export"' in body
+    assert "checked" in body
+
+
+def test_the_export_setting_is_described_in_english_not_as_a_field_name(
+    client: TestClient,
+) -> None:
+    """A toggle labelled with its variable name tells nobody what turning it on will do. The
+    environment variable is still named — underneath, as the fallback it is."""
+    body = client.get("/settings").text
+    label_start = body.index('name="request_export"')
+    label_end = body.index("Save export setting")
+    visible = body[label_start:label_end]
+    assert "SIGHTLINE_REQUEST_CONTENT_EXPORT" not in visible
+    assert "No course content is modified" in visible
+    assert "reads an export the course already has" in visible
+
+
+def test_switching_the_export_setting_off_persists_and_is_confirmed(client: TestClient) -> None:
+    response = client.post("/settings/export", data={})
+    assert "will not ask Canvas to build an export" in response.text
+    body = client.get("/settings").text
+    assert "checked" not in body
+    assert ">off<" in body
+
+
+def test_switching_it_back_on_persists_too(client: TestClient) -> None:
+    client.post("/settings/export", data={})
+    response = client.post("/settings/export", data={"request_export": "on"})
+    assert "will ask Canvas to build a fresh export" in response.text
+    assert "checked" in client.get("/settings").text
+
+
+def test_saving_a_credential_does_not_silently_switch_the_export_setting_off(
+    client: TestClient,
+) -> None:
+    """The failure mode of merging a checkbox into another form: an unchecked box is simply not
+    submitted, so every save of that form would read as "off"."""
+    configure(client)
+    assert "checked" in client.get("/settings").text
+    client.post("/settings", data={"canvas_base_url": EXAMPLE_BASE_URL, "canvas_token": ""})
+    assert "checked" in client.get("/settings").text
+
+
 # -- the connection test ----------------------------------------------------------------------
 
 

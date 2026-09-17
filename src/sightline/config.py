@@ -5,6 +5,11 @@ configuration with an environment fallback and no default that points at any ins
 Canvas base URL, Canvas API token, Ollama endpoint, optional OpenAI-compatible escalation
 endpoint. A hardcoded university domain or LAN address anywhere in this package is a bug.
 
+One value here is a *preference* rather than a connection detail: whether Sightline asks Canvas to
+build a fresh content export of the course it is reviewing. It lives here as the environment
+fallback, and the value in force is resolved by :mod:`sightline.preferences`, which lets a person
+set it on the Settings screen.
+
 Constructing :class:`Settings` registers its secret values with :mod:`sightline.redaction`, so
 they are scrubbed from logs and error surfaces without any call site opting in. That includes the
 Canvas **base URL**, which is treated as a secret because it identifies the institution.
@@ -46,6 +51,13 @@ class Settings(BaseSettings):
     # -- Canvas ------------------------------------------------------------------------------
     canvas_base_url: str | None = Field(default=None, validation_alias="CANVAS_BASE_URL")
     canvas_api_token: SecretStr | None = Field(default=None, validation_alias="CANVAS_API_TOKEN")
+
+    #: Whether to ask Canvas to build a fresh export of each course under review. The fallback
+    #: for the preference of the same name; normally set on the Settings screen. Default on —
+    #: without an export, every check that reads a document's own bytes has nothing to read.
+    request_content_export: bool = Field(
+        default=True, validation_alias="SIGHTLINE_REQUEST_CONTENT_EXPORT"
+    )
 
     # -- Working data ------------------------------------------------------------------------
     data_dir: Path = Field(default=Path("./data"), validation_alias="SIGHTLINE_DATA_DIR")
@@ -115,6 +127,19 @@ class Settings(BaseSettings):
         return bool(self.canvas_base_url and self.canvas_api_token)
 
     @property
+    def request_content_export_from_env(self) -> bool | None:
+        """The environment's answer, or ``None`` when the environment did not answer.
+
+        A plain ``bool`` cannot carry that difference, and the difference is the whole of the
+        precedence rule: an unset variable must fall through to the built-in default rather than
+        looking like somebody deliberately chose it. ``model_fields_set`` is what pydantic records
+        for exactly this.
+        """
+        if "request_content_export" not in self.model_fields_set:
+            return None
+        return self.request_content_export
+
+    @property
     def ollama_configured(self) -> bool:
         return bool(self.ollama_base_url)
 
@@ -144,7 +169,10 @@ class Settings(BaseSettings):
                 "name": "Canvas API token",
                 "env": "CANVAS_API_TOKEN",
                 "state": state(self.canvas_api_token is not None),
-                "note": "Read-only access is sufficient.",
+                "note": (
+                    "Read access, plus permission to export course content when Sightline is "
+                    "asked to build one."
+                ),
             },
             {
                 "name": "Ollama endpoint",

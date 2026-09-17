@@ -1,10 +1,15 @@
-"""The documented scopes and the code cannot drift apart.
+"""The documented scopes and the code cannot drift apart, and the writes stay at one.
 
 The item asks for the minimum read scopes to be determined and documented so an institution can
 issue a least-privilege token. A README that says one thing while the client calls another is
 worse than no documentation: it is a promise the tool breaks silently. So the README is checked
 against :data:`sightline.canvas.scopes.REQUIRED_SCOPES`, in both directions, and every declared
 scope is checked to correspond to a request the client actually makes.
+
+Since item 23 this file also carries the guard on the one thing Sightline sends that is not a
+``GET``: the request that asks Canvas to package a copy of the course under review. The guard is a
+**count** rather than a ban, and the test below it fires that guard over a tampered tuple instead
+of assuming it works.
 """
 
 from __future__ import annotations
@@ -14,9 +19,19 @@ from pathlib import Path
 
 import pytest
 
-from sightline.canvas.scopes import REQUIRED_PERMISSIONS, REQUIRED_SCOPES, scope_strings
+from sightline.canvas.scopes import (
+    REQUIRED_PERMISSIONS,
+    REQUIRED_SCOPES,
+    Scope,
+    scope_strings,
+    write_scopes,
+)
 
-SCOPE_PATTERN = re.compile(r"url:GET\|/api/v1/[^\s`|]+")
+SCOPE_PATTERN = re.compile(r"url:(?:GET|POST)\|/api/v1/[^\s`|]+")
+
+#: The one write, spelled out here rather than derived from the tuple. Deriving it would make the
+#: test agree with whatever the code says, which is not a test.
+CONTENT_EXPORT_POST = "url:POST|/api/v1/courses/:course_id/content_exports"
 
 
 @pytest.fixture
@@ -91,16 +106,47 @@ def test_every_declared_scope_is_a_request_the_package_makes(repo_root: Path) ->
 def test_every_scope_says_why_it_is_needed() -> None:
     for scope in REQUIRED_SCOPES:
         assert len(scope.reason) > 30
-        assert scope.scope.startswith("url:GET|")
+        assert scope.scope.startswith(("url:GET|", "url:POST|"))
 
 
-def test_the_scopes_are_all_read_only() -> None:
-    """Sightline never writes to Canvas. A scope list with a POST in it would be a bug worth
-    catching here rather than in a security review.
+def test_exactly_one_scope_is_a_write_and_it_is_the_content_export_post() -> None:
+    """Sightline does not modify course content; it asks Canvas to package a copy of the course it
+    is reviewing. That is one ``POST``, and this is the count that keeps it at one.
 
-    Item 03 kept this true deliberately. Asking Canvas to build a content export is a ``POST``, so
-    acquisition reads an export the course already has instead, and says what to do when there is
-    none. Making that one write is a product decision, and it belongs to a person rather than to
-    whichever item next finds it convenient."""
-    assert all(scope.scope.startswith("url:GET|") for scope in REQUIRED_SCOPES)
-    assert all(scope.request.startswith("GET ") for scope in REQUIRED_SCOPES)
+    This test used to assert that every scope was a ``GET``. Item 23 inverted it rather than
+    deleting it, deliberately: a blanket ban that gets removed the first time it is inconvenient
+    teaches nothing, while a number that must stay at one makes the next write a thing somebody
+    has to change in front of a reviewer.
+    """
+    writes = write_scopes()
+    assert [scope.scope for scope in writes] == [CONTENT_EXPORT_POST]
+    assert writes[0].request == "POST /api/v1/courses/{id}/content_exports"
+    assert all(scope.scope.startswith("url:GET|") for scope in REQUIRED_SCOPES if not scope.writes)
+    assert all(scope.request.startswith("GET ") for scope in REQUIRED_SCOPES if not scope.writes)
+
+
+def test_the_write_count_guard_fires_on_a_second_write() -> None:
+    """A guard nobody has seen fail is indistinguishable from a guard that cannot fail.
+
+    So the invariant is run over a tuple with a second write added, and the count is checked to
+    move. If this passes while the test above is broken, the test above proves nothing.
+    """
+    second_write = Scope(
+        scope="url:POST|/api/v1/courses/:course_id/pages",
+        request="POST /api/v1/courses/{id}/pages",
+        reason="A hypothetical second write, which exists only inside this test.",
+    )
+    tampered = (*REQUIRED_SCOPES, second_write)
+    assert len(write_scopes(tampered)) == 2
+    assert [scope.scope for scope in write_scopes(tampered)] != [CONTENT_EXPORT_POST]
+
+
+def test_a_row_whose_two_spellings_disagree_counts_as_a_write() -> None:
+    """``writes`` reads the scope string and the request. A row edited halfway — the scope
+    changed to a POST, the request still saying GET — must not read as a GET."""
+    halfway = Scope(
+        scope="url:POST|/api/v1/courses/:course_id/pages",
+        request="GET /api/v1/courses/{id}/pages",
+        reason="A half-edited row, which exists only inside this test.",
+    )
+    assert halfway.writes

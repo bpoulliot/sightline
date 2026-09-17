@@ -1,0 +1,45 @@
+{
+  "name": "export-unknown-state",
+  "description": "Canvas reports the export in a workflow state Sightline has never heard of. The poll must terminate and name the state rather than waiting on it forever, which is how a run comes to look frozen. Every value is synthetic; see tests/canvas_recordings.py.",
+  "interactions": [
+    {
+      "method": "POST",
+      "path": "/api/v1/courses/4416/content_exports",
+      "form": {
+        "export_type": "common_cartridge"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
+        "json": {
+          "id": 8803,
+          "workflow_state": "created",
+          "export_type": "common_cartridge",
+          "created_at": "2026-02-01T09:00:00Z",
+          "progress": 0
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/courses/4416/content_exports/8803",
+      "responses": [
+        {
+          "status": 200,
+          "headers": {
+            "Content-Type": "application/json; charset=utf-8"
+          },
+          "json": {
+            "id": 8803,
+            "workflow_state": "quiesced",
+            "export_type": "common_cartridge",
+            "created_at": "2026-02-01T09:00:00Z",
+            "progress": null
+          }
+        }
+      ]
+    }
+  ]
+}

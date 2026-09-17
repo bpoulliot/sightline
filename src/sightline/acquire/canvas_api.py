@@ -105,9 +105,11 @@ INDEX_ENDPOINTS: tuple[tuple[str, str, dict[str, Any]], ...] = (
         {"only_announcements": "true"},
     ),
     ("files", "/courses/{course_id}/files", {}),
-    # Listing exports is a read. Sightline uses an export somebody already made and never asks
-    # Canvas to make one, because requesting an export is a write and this client makes none —
-    # see README, "Canvas token scopes".
+    # Listing the course's exports. Read only when Sightline is NOT asking Canvas to build a
+    # fresh one — see read_index's `include_content_exports`, which is not a micro-optimisation
+    # but a correctness rule: Sightline's own export appears in this listing, the listing feeds
+    # the cache signature, and a signature that moves because Sightline ran is a cache that can
+    # never hit and a fresh export on every single run.
     ("content_exports", "/courses/{course_id}/content_exports", {}),
 )
 
@@ -120,8 +122,18 @@ class CourseReader:
 
     # -- phase one: the index ----------------------------------------------------------------
 
-    async def read_index(self, course_id: str) -> CourseIndex:
-        """Fetch the course and every collection listing. Always run; never expensive."""
+    async def read_index(
+        self, course_id: str, *, include_content_exports: bool = True
+    ) -> CourseIndex:
+        """Fetch the course and every collection listing. Always run; never expensive.
+
+        ``include_content_exports`` is off when the caller is going to ask Canvas for a fresh
+        export. Two reasons, and the second is the one that matters. Sightline never reads an
+        export it did not ask for on that path, so the listing would be unused — and the listing
+        contains Sightline's *own* previous exports, so including it would move the cache
+        signature every time Sightline ran. The cache would then never hit and every run would ask
+        Canvas to build another export.
+        """
         course = await self._client.get_json(
             f"{API_ROOT}/courses/{course_id}", **{"include[]": "syllabus_body"}
         )
@@ -130,6 +142,8 @@ class CourseReader:
 
         collections: dict[str, Collection] = {}
         for name, template, params in INDEX_ENDPOINTS:
+            if name == "content_exports" and not include_content_exports:
+                continue
             path = f"{API_ROOT}{template.format(course_id=course_id)}"
             collections[name] = await self._collection(name, path, params)
 

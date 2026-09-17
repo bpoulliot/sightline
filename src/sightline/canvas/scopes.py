@@ -1,10 +1,23 @@
-"""The minimum Canvas read scopes Sightline needs, and nothing beyond them.
+"""The minimum Canvas scopes Sightline needs, and nothing beyond them.
 
 An institution should be able to issue a least-privilege token rather than an admin one, so the
 set of endpoints this package touches is declared here rather than being discoverable only by
 reading the client. ``tests/test_canvas_scopes.py`` asserts that the README lists exactly this set,
 so the documentation cannot drift away from the code, and that every scope named here is exercised
 by at least one client method.
+
+**Sightline does not modify course content; it asks Canvas to package a copy of the course it is
+reviewing.** That is the whole of the claim, and it is deliberately narrower than the one this
+module carried until item 23. Every scope below is a ``GET`` except one: a ``POST`` to
+``content_exports``, which asks Canvas to build an export of the course under review. Nothing a
+learner or an instructor sees changes; an export artifact appears in the course's export list.
+A setting turns the request off, and off is a supported configuration — acquisition then reads an
+export the course already has (see :mod:`sightline.acquire.service`).
+
+The count is the guard. ``test_exactly_one_scope_is_a_write`` asserts there is **exactly one**
+non-``GET`` entry and that it is that ``POST``, so a second write cannot arrive quietly: it has to
+change a number in front of a reviewer. A blanket ban that gets deleted the first time it is
+inconvenient teaches nothing.
 
 Two kinds of Canvas token exist and they behave differently, which matters when someone is trying
 to hand Sightline the smallest possible credential:
@@ -34,16 +47,25 @@ class Scope:
     #: Why this item needs it. Kept short enough to sit in a README table cell.
     reason: str
 
+    @property
+    def writes(self) -> bool:
+        """Whether this scope grants a request that is not a ``GET``.
+
+        Read off the scope string *and* the request, because they are two spellings of the same
+        fact and a row where they disagree is a row somebody edited halfway.
+        """
+        return not (self.scope.startswith("url:GET|") and self.request.startswith("GET "))
+
 
 #: Every scope Sightline requires, connection test and acquisition together. One tuple, extended
 #: by each item that calls a new endpoint, so there is one place to look — and ``tests/
 #: test_canvas_scopes.py`` fails the build when the README table and this tuple disagree.
 #:
-#: **Every entry is a GET.** Sightline reads Canvas and never writes to it. That is not an
-#: accident of the current feature set: requesting a content export is a ``POST``, and item 03
-#: chose to *use* an export a course already has rather than ask Canvas to build one, precisely so
-#: this list could stay read-only. ``test_the_scopes_are_all_read_only`` is what keeps it that way,
-#: and flipping it is a product decision recorded in ``docs/ROADMAP.md``.
+#: **Every entry is a GET except one**, and the exception is the ``POST`` that asks Canvas to
+#: package a copy of the course under review. Sightline does not modify course content. Whether to
+#: make that one request was a product decision, taken deliberately and recorded in
+#: ``docs/ROADMAP.md``; keeping the count of writes at exactly one is what
+#: ``test_exactly_one_scope_is_a_write`` enforces.
 REQUIRED_SCOPES: tuple[Scope, ...] = (
     Scope(
         scope="url:GET|/api/v1/users/:id",
@@ -133,8 +155,31 @@ REQUIRED_SCOPES: tuple[Scope, ...] = (
         scope="url:GET|/api/v1/courses/:course_id/content_exports",
         request="GET /api/v1/courses/{id}/content_exports",
         reason=(
-            "Finds a content export the course already has. Sightline reads one; it never asks "
-            "Canvas to create one, because creating one is a write."
+            "Finds a content export the course already has. This is the path taken when the "
+            "fresh-export request is switched off on the Settings screen."
+        ),
+    ),
+    # -- the content export (item 23) --------------------------------------------------------
+    #
+    # The one write, and the only one. Detectors that read a document's own bytes — whether a PDF
+    # is tagged, whether a Word file uses real headings — have nothing to read without an export,
+    # and asking a designer to export every course by hand before reviewing it is the friction
+    # that decides whether a tool gets used at all.
+    Scope(
+        scope="url:POST|/api/v1/courses/:course_id/content_exports",
+        request="POST /api/v1/courses/{id}/content_exports",
+        reason=(
+            "Asks Canvas to package a copy of the course under review. It does not modify course "
+            "content: an export artifact appears in the course's export list and nothing a "
+            "learner or instructor sees changes. A setting turns this request off."
+        ),
+    ),
+    Scope(
+        scope="url:GET|/api/v1/courses/:course_id/content_exports/:id",
+        request="GET /api/v1/courses/{id}/content_exports/{export_id}",
+        reason=(
+            "Polls one export until Canvas finishes building it. An export is asynchronous and a "
+            "large course takes minutes, so the state has to be read back rather than assumed."
         ),
     ),
 )
@@ -149,3 +194,13 @@ REQUIRED_PERMISSIONS: tuple[str, ...] = (
 
 def scope_strings() -> tuple[str, ...]:
     return tuple(item.scope for item in REQUIRED_SCOPES)
+
+
+def write_scopes(scopes: tuple[Scope, ...] = REQUIRED_SCOPES) -> tuple[Scope, ...]:
+    """Every scope in ``scopes`` that is not a ``GET``.
+
+    Takes the tuple as an argument so the invariant can be *fired* rather than merely asserted:
+    ``tests/test_canvas_scopes.py`` runs it over a copy with a second write added and checks that
+    the count goes to two. A guard nobody has seen fail is indistinguishable from one that cannot.
+    """
+    return tuple(item for item in scopes if item.writes)

@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from sightline.acquire.__main__ import main
+from sightline.acquire.__main__ import build_parser, main
 
 
 @pytest.fixture
@@ -92,3 +92,24 @@ def test_a_canvas_run_without_configuration_says_what_to_set(
     err = capsys.readouterr().err
     assert "CANVAS_BASE_URL" in err
     assert "--bundle" in err
+
+
+def test_the_fresh_export_request_can_be_turned_off_for_one_run() -> None:
+    """A deployment with a no-writes policy sets the preference. Somebody debugging one course
+    wants it for one run, and should not have to change a stored setting to get it."""
+    args = build_parser().parse_args(["4410", "--no-request-export"])
+    assert args.no_request_export is True
+    assert build_parser().parse_args(["4410"]).no_request_export is False
+
+
+def test_the_two_export_flags_are_different_things_and_say_so() -> None:
+    """``--no-export`` uses no export at all; ``--no-request-export`` uses one that already
+    exists. Conflating them would silently drop document bytes that were available."""
+    # Read off the actions rather than the formatted help: argparse wraps, and an assertion that
+    # fails on a line break is an assertion about terminal width.
+    described = {
+        action.dest: action.help or "" for action in build_parser()._actions  # noqa: SLF001
+    }
+    assert "no content export at all" in described["no_export"]
+    assert "already has" in described["no_request_export"]
+    assert described["no_export"] != described["no_request_export"]

@@ -36,7 +36,7 @@ Queue lives at `~/docker/overnight-sightline/`. Next free item number: **26**.
 | 20 | Multi-course comparison view | 3 | **DECIDED — not building it** | see 25 |
 | 21 | Detector integrity guard | 0 | READY | queued 05 |
 | 22 | Model-proposed bindings, human-confirmed | 3 | READY | blocked by 09/10 in code |
-| 23 | Canvas-requested content export | 1 | READY | queued 03a |
+| 23 | Canvas-requested content export | 1 | READY | **DONE** — PR #6 |
 | 24 | Agreement and near-boundary transparency | 2 | READY | staged 16 |
 | 25 | Returned-review ingestion | 3 | **BLOCKED** — needs reviews delivered and returned | — |
 
@@ -62,7 +62,7 @@ command runs verbatim (490 tests, clean lint and format, container healthy).
 **Batch 2 — in `queue/`, released 2026-09-08.**
 
 ```
-03a-sightline-item23-content-export-request.md  # before 06 — D30/D36 need document bytes
+03a-sightline-item23-content-export-request.md  # DONE — PR #6
 04-sightline-item06-detector-framework.md
 05-sightline-item21-detector-integrity-guard.md
 05a-sightline-item04-rubric-pack-format.md       # clears item 08's stop; unblocks 05 and 13
@@ -269,8 +269,31 @@ same discipline the calibration corpus already carries: **aggregate figures only
 directory**, and no course, person or institution is ever named in anything committed. It feeds
 12b and it does not block anything queued.
 
-**23 — Canvas-requested content export · READY, decided 2026-09-08.** Item 03 raised this and
-deliberately declined to settle it, which was right: it is a product call, not an item's.
+**23 — Canvas-requested content export · DONE 2026-09-17, PR #6.** Decided 2026-09-08; the
+decisions below stood and were built as written. Item 03 raised this and deliberately declined to
+settle it, which was right: it is a product call, not an item's.
+
+Three things the build found that the decision did not anticipate, all recorded here because they
+are the kind of thing the next item inherits:
+
+*The export listing had to leave the cache signature.* Sightline's own export appears in the
+course's ``content_exports`` listing, that listing feeds the cache signature, and a signature that
+moves because Sightline ran is a cache that can never hit — which would mean a **new export in the
+course on every single run, for ever**. The fresh path therefore does not list the course's exports
+at all, which it can afford because it never reads one it did not ask for. With the request off the
+listing is read exactly as item 03 read it, and a test asserts both halves.
+
+*Redaction could not reach the host that serves the bytes.* Canvas hands out a download link on its
+own host and redirects it to a storage back end that differs per deployment, which nothing
+configures and therefore nothing registers as a secret — and `httpx` logs every request URL by
+name. Registration cannot fix that, so `sightline.redaction` now scrubs the **origin of any
+absolute URL** as a pattern, keeping the path. The download `verifier` is scrubbed as a
+query-string credential alongside it.
+
+*The Canvas permission behind "Export Course Content" is not named anywhere in this repository,*
+deliberately. The remedy for a refused export points at the button a person can see in Canvas
+rather than asserting a permission constant that could not be verified without an instance to check
+it against. Worth confirming against a real Canvas and then naming.
 
 **Sightline requests the export.** It `POST`s to `/api/v1/courses/:id/content_exports`, polls until
 the export finishes, and downloads it. That is the normal acquisition path, not an optional extra —
