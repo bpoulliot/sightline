@@ -25,6 +25,7 @@ from . import __version__
 from .assets import TokensNotFoundError, resolve_tokens_css
 from .config import Settings, get_settings
 from .credentials import CredentialStore
+from .llm import PullRegistry
 from .logging import configure_logging, get_logger
 from .preferences import PreferenceStore
 from .runner import BackgroundRunner
@@ -87,14 +88,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             key=(resolved.secret_key.get_secret_value() if resolved.secret_key else None),
         )
         preferences = PreferenceStore(
-            store, env_request_content_export=resolved.request_content_export_from_env
+            store,
+            env_request_content_export=resolved.request_content_export_from_env,
+            env_model_host_endpoint=resolved.ollama_base_url,
         )
+        pulls = PullRegistry()
         application.state.settings = resolved
         application.state.paths = paths
         application.state.store = store
         application.state.runner = runner
         application.state.credentials = credentials
         application.state.preferences = preferences
+        application.state.pulls = pulls
         interrupted = runner.recover()
         log.info(
             "startup",
@@ -102,13 +107,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             data_root=str(paths.root),
             canvas_configured=resolved.canvas_configured,
             request_content_export=preferences.request_content_export().enabled,
-            ollama_configured=resolved.ollama_configured,
+            ollama_configured=preferences.model_host().configured,
+            ollama_concurrency=resolved.ollama_concurrency,
             escalation_configured=resolved.escalation_configured,
             interrupted_runs=len(interrupted),
         )
         try:
             yield
         finally:
+            # Installs are cancelled before the store closes: a pull task that outlived the
+            # process would be a download nobody can see the progress of.
+            await pulls.shutdown()
             await runner.shutdown()
             store.dispose()
             log.info("shutdown", version=__version__)
