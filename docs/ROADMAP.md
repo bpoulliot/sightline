@@ -42,8 +42,9 @@ Queue lives at `~/docker/overnight-sightline/`. Next free item number: **31**.
 | 26 | Wire document bytes from the export to the detectors | 1 | READY | queued 99 |
 | 27 | One detector's crash must not take the whole review with it | 1 | READY | queued 99a |
 | 28 | A binding says *relevant*; rating reads it as *sufficient* | 1 | READY | queued 99b — **now live**, 27 rows |
-| 29 | `Scan.text` fuses two words at every block seam | 1 | READY | queued 07a |
+| 29 | `Scan.text` fuses two words at every block seam | 1 | READY | **DONE** — PR #13 |
 | 30 | Every HTML detector re-parses every body | 2 | READY | queued 99c — **measure first** |
+| 31 | `plain_text()` reads a tag with a regex, and two shapes of course HTML defeat it | 1 | READY | queued 99c1 — take with 30 |
 
 ---
 
@@ -73,7 +74,7 @@ command runs verbatim (490 tests, clean lint and format, container healthy).
 05a-sightline-item04-rubric-pack-format.md       # DONE — PR #9. Item 08's stop is cleared.
 05b-sightline-item05-rubric-packs.md             # DONE — PR #10. 68 + 18 rows, no new reader.
 06-sightline-item07-canvas-structure-detectors.md   # DONE — PR #11
-07a-sightline-item29-scan-text-block-seam.md         # filed by item 07's session
+07a-sightline-item29-scan-text-block-seam.md     # DONE — PR #13. Nothing in the suite moved.
 07-sightline-item08-mobile-detectors.md          # DONE — PR #12. The pack flag was already there.
 08-sightline-item09-ollama-client.md
 09-sightline-item10-extraction-layer.md
@@ -439,6 +440,46 @@ worked around it with a local `plain_text()` that puts a space where each tag wa
 correct today. What is *not* fixed is `Scan.text` itself, which D26 and D29 read (and item 08's D35
 will), and `Element.text`/`Element.own_text`, which have the same join. Queued at `07a-` because it
 is silent wrongness in shipped code. Whoever takes it should expect word counts to move.
+
+**DONE 2026-09-17 — PR #13.** The rule is `html_scan.INLINE_TAGS`, stated once: a separator goes
+where the rendered page breaks one run of text from the next and nowhere else. So the block seam
+separates and `<em>un</em>likely` stays one word — and the span soup a word processor pastes into
+Canvas, `<span>Sch</span><span>edule</span>`, now reads `Schedule`, which a space-at-every-tag rule
+would have split. An unknown tag separates on purpose: fusing invents a word that matches nothing,
+separating leaves both halves findable.
+
+**No word count moved anywhere the project can currently see, and that is the finding.** 1171 tests
+passed before the change, and the 37 shipped detectors produce a byte-identical 64 findings over
+`examples/sample-course` after it — because every fixture and every sample body is pretty-printed,
+so whitespace already sits at every seam. The defect only appears in markup written the way an
+editor writes it. **A sample course that is easier to read than real course HTML cannot catch this
+class of bug**, which is worth knowing the next time a detector is proved on it. The numbers were
+therefore demonstrated on markup that has the shape, against the pre-change scanner run over the
+same fixtures: D26 read `...marked in redDue this week` across two table cells and `\bred\b` failed,
+so a page telling a learner to look for a colour reported nothing — it now fires; D29 counted 59
+words where a reader counts 60 and fired "more picture than prose" at two images, and now does not.
+`WORDS_PER_IMAGE = 30` was **not** re-fitted; it always meant what it says and was being applied to
+a short count, and a companion assertion pins 59 on the other side of the boundary.
+
+Item 07's `plain_text()` was not retired. It now imports the same `INLINE_TAGS` instead of putting a
+space at every tag, so the two helpers are one rule with two implementations, asserted over one
+shared list of cases from both test files. What keeps it is the parse it avoids — which is item 30's
+measurement, not this item's to pre-empt. The two places it still reads a tag worse than a parser
+does are item 31.
+
+**31 · FILED 2026-09-17 by item 29's session. `plain_text()` reads a tag with a regular
+expression, and two shapes of real course HTML defeat it — silently.** Found while checking item
+29's claim that the string helper and the scanner now agree, case by case, rather than asserting it:
+they agree on every seam, and they disagree in two places that have nothing to do with seams.
+`_ANY_TAG` is `</?([a-zA-Z][^\s/>]*)?[^>]*>`, so **a `>` inside a quoted attribute value ends the
+tag** — `<p class='a>b'>x</p>` reads as `b'>x` where the scanner reads `x`, putting markup into the
+prose that D01–D20 match vocabulary against. And **an unclosed `<script>` leaves its code in the
+prose**: `_SCRIPTISH` needs a closing tag to strip a block, so the scanner drops the code as CDATA
+and this helper hands it to a detector as words. Both are wrong text with no error. The natural fix
+is the one item 30 is already measuring — scan each body once and let the structure detectors read
+`Scan.text` — so this is queued at `99c1-`, immediately after it, and should be taken with it rather
+than before it. If item 30 lands the shared parse, this item is closed by it and says so; if item 30
+measures the parse as too expensive to share, this one narrows the regex instead.
 
 **28 · FILED 2026-09-17 by item 05's session.** **A pack's `bindings` list carries two different
 claims and the rating code can only read one of them.** Authoring the two shipped packs against
