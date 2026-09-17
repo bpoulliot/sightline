@@ -59,7 +59,7 @@ import csv
 import datetime as dt
 import re
 from collections.abc import Iterator, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -67,6 +67,7 @@ import openpyxl
 from openpyxl.worksheet.worksheet import Worksheet
 
 from ..detect.base import Tier
+from .mapping import PackMapping
 from .pack import Criterion, PackSource, RubricPack, Section, default_rating_scale
 
 #: A cell has to hold at least this much text to be a criterion rather than a label. Both
@@ -185,6 +186,13 @@ class ImportReport:
     notes: tuple[str, ...] = ()
     #: What the row codes were built from. ``positional_index`` is itself a warning.
     key_source: str = "authored"
+    #: The mapping file applied, if any, and how much of the import it reached.
+    mapping: str | None = None
+    rows_mapped: int = 0
+    #: Rows the mapping file said nothing about. Reported by code, never silently defaulted: a row
+    #: that appears in a revised instrument and is not in the mapping is the SPEC §11 case worth
+    #: seeing, and it imports unbound at the default tier rather than guessing.
+    rows_unmapped: tuple[str, ...] = ()
 
     def statement(self) -> str:
         lines = [
@@ -193,6 +201,15 @@ class ImportReport:
             f"  columns: {self.columns.statement()}",
             f"  row codes built from: {self.key_source}",
         ]
+        if self.mapping is not None:
+            lines.append(
+                f"  mapping: {self.mapping} reached {self.rows_mapped} of {self.rows_read} row(s)"
+            )
+            if self.rows_unmapped:
+                lines.append(
+                    f"  {len(self.rows_unmapped)} row(s) the mapping says nothing about, imported "
+                    f"unbound at the default tier: {', '.join(self.rows_unmapped)}"
+                )
         lines.extend(f"  {note}" for note in self.notes)
         return "\n".join(lines)
 
@@ -207,6 +224,9 @@ class ImportReport:
             "last_row": self.last_row,
             "notes": list(self.notes),
             "key_source": self.key_source,
+            "mapping": self.mapping,
+            "rows_mapped": self.rows_mapped,
+            "rows_unmapped": list(self.rows_unmapped),
         }
 
 
@@ -649,10 +669,18 @@ def build_pack(
     workbook: str,
     sheet: str,
     source_title: str | None = None,
+    description: str | None = None,
     notes: Sequence[str] = (),
     imported_at: dt.date | None = None,
+    mapping: PackMapping | None = None,
 ) -> Import:
-    """Turn a read grid into a pack with empty bindings, plus the report about the reading."""
+    """Turn a read grid into a pack, plus the report about the reading.
+
+    Without a ``mapping`` the pack comes out with **empty bindings**, which is finished and
+    usable: no rubric workbook has a column naming a detector, so nothing was lost. With one, the
+    tags, tiers and section flags an author knows are applied on top, and the mapping is checked
+    against what was actually read rather than trusted.
+    """
     columns = layout.columns
     body = layout.rows
     if not body:
@@ -663,6 +691,7 @@ def build_pack(
 
     headings = _headings(grid, columns)
     extra = list(notes)
+    join_column = _join_column(grid, body, mapping, workbook=workbook, sheet=sheet, notes=extra)
     criteria: list[Criterion] = []
     sections: dict[str, Section] = {}
     positional = 0
@@ -710,7 +739,7 @@ def build_pack(
                 tier=Tier.B,
                 priority=_text(grid.at(row, columns.priority)) if columns.priority else None,
                 bindings=(),
-                source_ids=_source_ids(grid, row, columns),
+                source_ids=_source_ids(grid, row, columns, join_column=join_column),
             )
         )
 
@@ -737,11 +766,19 @@ def build_pack(
                 "on the instrument."
             )
 
+    section_list = [sections[code] for code in sections]
+    unmapped: tuple[str, ...] = ()
+    if mapping is not None:
+        criteria, section_list, unmapped = _apply_mapping(
+            criteria, section_list, mapping, workbook=workbook, sheet=sheet, notes=extra
+        )
+
     pack = RubricPack(
         schema_version=1,
         id=pack_id,
         name=name,
         version=version,
+        description=description,
         source=PackSource(
             title=source_title,
             workbook=workbook,
@@ -756,7 +793,7 @@ def build_pack(
             if any(criterion.priority == label for criterion in criteria)
         ),
         rating_scale=default_rating_scale(),
-        sections=tuple(sections[code] for code in sections),
+        sections=tuple(section_list),
         criteria=tuple(criteria),
     )
     report = ImportReport(
@@ -764,13 +801,141 @@ def build_pack(
         sheet=sheet,
         columns=columns,
         rows_read=len(criteria),
-        sections_found=len(sections),
+        sections_found=len(section_list),
         first_row=body[0],
         last_row=body[-1],
         notes=tuple(extra),
         key_source=key_source,
+        mapping=mapping.origin if mapping is not None else None,
+        rows_mapped=len(criteria) - len(unmapped) if mapping is not None else 0,
+        rows_unmapped=unmapped,
     )
     return Import(pack=pack, report=report)
+
+
+def _join_column(
+    grid: _Grid,
+    body: Sequence[int],
+    mapping: PackMapping | None,
+    *,
+    workbook: str,
+    sheet: str,
+    notes: list[str],
+) -> int | None:
+    """The declared join-key column, checked against the sheet before it is believed.
+
+    **Declared, never guessed, and verified.** On the reference instrument the obvious-looking key
+    is the category code plus the within-category index, and it is wrong: that column mixes float
+    and int *inside one sheet* and differently between sheets, so ``COAL 1.0`` and ``COAL 1`` both
+    occur and a join between two sheets of the same workbook matches 7 rows out of 69. Column F
+    carries the instrument's own composite code as a string on every row and matches 69 of 69.
+    ``tests/test_rubric_packs.py`` reproduces both numbers from the committed file.
+
+    The check here is the cheap half of that: a column offered as a join key must be populated and
+    distinct on every criterion row, or it is not one.
+    """
+    if mapping is None or mapping.join_key_column is None:
+        return None
+    column = _column_number(mapping.join_key_column)
+    values = [_scalar_text(grid.at(row, column)) for row in body]
+    blank = sum(1 for value in values if not value)
+    distinct = len(set(values))
+    if blank or distinct != len(values):
+        raise RubricImportError(
+            f"{workbook} [{sheet}]: {mapping.origin} declares column "
+            f"{mapping.join_key_column} as the join key, but over the {len(values)} criterion "
+            f"row(s) read it holds {distinct} distinct value(s) and {blank} blank one(s). A join "
+            "key that repeats or is missing would silently attach a finding to the wrong row."
+        )
+    notes.append(
+        f"Join key: column {mapping.join_key_column}, {distinct} distinct value(s) over "
+        f"{len(values)} row(s). Declared in {mapping.origin} and checked here; it is what a "
+        "re-import of a revised edition diffs against, and it is carried on every row as "
+        "source_ids.join_key."
+    )
+    return column
+
+
+def _apply_mapping(
+    criteria: Sequence[Criterion],
+    sections: Sequence[Section],
+    mapping: PackMapping,
+    *,
+    workbook: str,
+    sheet: str,
+    notes: list[str],
+) -> tuple[list[Criterion], list[Section], tuple[str, ...]]:
+    """Lay an authored mapping over what was read. Disagreement raises; silence is reported.
+
+    **A mapping naming a row the import did not produce is fatal.** That is the whole point of
+    keeping the bindings in a separate file: when the instrument is revised and a criterion is
+    renumbered or removed, the binding written against it is now pointing at nothing, and SPEC §11
+    says the one outcome never to allow is for that to pass quietly. The reverse — a row the
+    mapping says nothing about — is not fatal, because a *new* row on a revised instrument is
+    exactly what an unbound row is for; it is reported by code instead.
+    """
+    by_code = {criterion.code: criterion for criterion in criteria}
+    missing = [code for code in mapping.criteria if code not in by_code]
+    if missing:
+        raise RubricImportError(
+            f"{workbook} [{sheet}]: {mapping.origin} maps {len(missing)} row code(s) this import "
+            f"did not produce: {', '.join(sorted(missing))}. Either the instrument has been "
+            "revised under the mapping or the codes were mistyped; nothing is guessed here."
+        )
+
+    section_codes = {section.code for section in sections}
+    stray = [code for code in mapping.sections if code not in section_codes]
+    if stray:
+        raise RubricImportError(
+            f"{workbook} [{sheet}]: {mapping.origin} overrides section(s) this import did not "
+            f"produce: {', '.join(sorted(stray))}."
+        )
+
+    mapped: list[Criterion] = []
+    unmapped: list[str] = []
+    for criterion in criteria:
+        row = mapping.criteria.get(criterion.code)
+        if row is None:
+            unmapped.append(criterion.code)
+            mapped.append(criterion)
+            continue
+        mapped.append(
+            replace(
+                criterion,
+                tier=row.tier if row.tier is not None else criterion.tier,
+                bindings=row.bindings,
+                note=row.note if row.note is not None else criterion.note,
+            )
+        )
+
+    rebuilt: list[Section] = []
+    for section in sections:
+        override = mapping.sections.get(section.code)
+        if override is None:
+            rebuilt.append(section)
+            continue
+        rebuilt.append(
+            replace(
+                section,
+                title=override.title if override.title is not None else section.title,
+                optional=override.optional if override.optional is not None else section.optional,
+                enabled=override.enabled if override.enabled is not None else section.enabled,
+                note=override.note if override.note is not None else section.note,
+            )
+        )
+
+    bound = sum(1 for criterion in mapped if criterion.bindings)
+    notes.append(
+        f"{mapping.origin} bound {bound} of {len(mapped)} row(s) to a capability tag and left "
+        f"{len(mapped) - bound} unbound. An unbound row is normal and permanent: nothing computed "
+        "bears on it, so its evidence is located and quoted instead."
+    )
+    if unmapped:
+        notes.append(
+            f"{len(unmapped)} row(s) are not named in {mapping.origin} and imported unbound at "
+            f"the default tier: {', '.join(unmapped)}."
+        )
+    return mapped, rebuilt, tuple(unmapped)
 
 
 def import_workbook(
@@ -779,9 +944,10 @@ def import_workbook(
     sheet: str | None = None,
     pack_id: str | None = None,
     name: str | None = None,
-    version: str = "imported",
+    version: str | None = None,
     source_title: str | None = None,
     imported_at: dt.date | None = None,
+    mapping: PackMapping | None = None,
 ) -> Import:
     """Import a rubric workbook. Raises rather than returning an empty pack.
 
@@ -799,7 +965,7 @@ def import_workbook(
         raise RubricImportError(f"{target.name} does not exist")
     book, open_notes = _load_workbook(target)
     try:
-        chosen, choice_notes = _pick_sheet(book, sheet)
+        chosen, choice_notes = _pick_sheet(book, sheet or _mapped(mapping, "sheet"))
         grid = _read_grid(book[chosen])
     finally:
         book.close()
@@ -809,14 +975,16 @@ def import_workbook(
     return build_pack(
         grid,
         layout,
-        pack_id=pack_id or _slug(target.stem),
-        name=name or target.stem,
-        version=version,
+        pack_id=pack_id or _mapped(mapping, "pack_id") or _slug(target.stem),
+        name=name or _mapped(mapping, "name") or target.stem,
+        version=version or _mapped(mapping, "version") or "imported",
         workbook=target.name,
         sheet=chosen,
-        source_title=source_title,
+        source_title=source_title or _mapped(mapping, "source_title"),
+        description=_mapped(mapping, "description"),
         notes=(*open_notes, *choice_notes),
-        imported_at=imported_at,
+        imported_at=imported_at or (mapping.imported_at if mapping else None),
+        mapping=mapping,
     )
 
 
@@ -825,10 +993,11 @@ def import_csv(
     *,
     pack_id: str | None = None,
     name: str | None = None,
-    version: str = "imported",
+    version: str | None = None,
     encoding: str = "utf-8",
     source_title: str | None = None,
     imported_at: dt.date | None = None,
+    mapping: PackMapping | None = None,
 ) -> Import:
     """Import from a CSV export. **A lossy fallback, taken explicitly.**
 
@@ -867,14 +1036,16 @@ def import_csv(
     return build_pack(
         grid,
         layout,
-        pack_id=pack_id or _slug(target.stem),
-        name=name or target.stem,
-        version=version,
+        pack_id=pack_id or _mapped(mapping, "pack_id") or _slug(target.stem),
+        name=name or _mapped(mapping, "name") or target.stem,
+        version=version or _mapped(mapping, "version") or "imported",
         workbook=target.name,
         sheet="(csv)",
-        source_title=source_title,
+        source_title=source_title or _mapped(mapping, "source_title"),
+        description=_mapped(mapping, "description"),
         notes=notes,
-        imported_at=imported_at,
+        imported_at=imported_at or (mapping.imported_at if mapping else None),
+        mapping=mapping,
     )
 
 
@@ -883,14 +1054,22 @@ def import_csv(
 # ---------------------------------------------------------------------------------------------
 
 
-def _source_ids(grid: _Grid, row: int, columns: ColumnMap) -> dict[str, str | float | int | None]:
+def _source_ids(
+    grid: _Grid, row: int, columns: ColumnMap, *, join_column: int | None = None
+) -> dict[str, str | float | int | None]:
     """The instrument's own identifiers for one row, verbatim.
 
     Kept so a re-import of a revised instrument diffs against something stable rather than
     silently renumbering criteria (SPEC §11). The spreadsheet row is in here for the same reason:
     it is what a person opens the file to.
+
+    ``join_key`` is the declared join column's value, named rather than carried as an anonymous
+    ``column_F``, because which identifier is the stable one is a fact about the instrument that
+    no importer can read off it.
     """
     payload: dict[str, str | float | int | None] = {"row": row}
+    if join_column is not None:
+        payload["join_key"] = _scalar_text(grid.at(row, join_column))
     for field_name in ("key", "letter", "category", "index", "origin"):
         column = getattr(columns, field_name)
         if column is None:
@@ -899,6 +1078,8 @@ def _source_ids(grid: _Grid, row: int, columns: ColumnMap) -> dict[str, str | fl
         if value is not None:
             payload[field_name] = _scalar_text(value)
     for column in columns.extra:
+        if column == join_column:
+            continue  # already carried, under its own name
         value = grid.at(row, column)
         if value is not None:
             payload[f"column_{_column_letter(column)}"] = _scalar_text(value)
@@ -982,6 +1163,19 @@ def _title_case(text: str) -> str:
 def _slug(text: str) -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", text.casefold()).strip("-")
     return slug or "imported-rubric"
+
+
+def _mapped(mapping: PackMapping | None, field_name: str) -> str | None:
+    """A field off the mapping file, when there is one. An explicit argument always wins."""
+    return getattr(mapping, field_name) if mapping is not None else None
+
+
+def _column_number(letters: str) -> int:
+    """``F`` to 6. The inverse of :func:`_column_letter`, for a column a human named."""
+    number = 0
+    for character in letters.strip().upper():
+        number = number * 26 + (ord(character) - ord("A") + 1)
+    return number
 
 
 def _column_letter(column: int) -> str:

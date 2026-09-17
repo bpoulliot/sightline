@@ -1,0 +1,158 @@
+# UCCS OSCQR RSI Review — the mapping file.
+#
+# WHAT THIS FILE IS. The same thing its sibling is, for a workbook shaped nothing like the other
+# one: one sheet instead of ten, section headings sitting in the index column instead of a category
+# column, no composite code, no OPEN SUNY number, no origin flag, no priority flag, and a file that
+# does not open in openpyxl's default mode at all. **No importer code was added for any of that.**
+# Shipping this pack cost this file and nothing else, which is the claim roadmap item 04 made and
+# the reason roadmap item 05 exists.
+#
+# THIS PACK IS NOT A PROJECTION OF THE 3.1.3 PACK, AND THERE IS NO CROSSWALK IN EITHER DIRECTION.
+# SPEC §03 observes that this instrument "collapses the 68 into 18" and that its criterion 8 is
+# ACD 5 verbatim. That observation is WHY detectors are primary and rubrics are projections over
+# them (SPEC §04) — it is not an instruction to express this pack in terms of the other. Criterion
+# 8 below binds `link_text` because its own text is about link text. It reaches the same capability
+# the other instrument's ACD 5 reaches, directly and independently, and neither file names the
+# other. A crosswalk would reintroduce OSCQR 3.1.3 as a required intermediate, which is exactly
+# what a third-party rubric must never need.
+#
+# ------------------------------------------------------------------------------------------------
+# HOW THE BINDINGS AND TIERS WERE CHOSEN
+#
+# Read off this instrument's own criterion text, against the vocabulary in
+# src/sightline/capabilities.yaml, by the same two questions the sibling file uses:
+#
+#   * which course-quality concepts is this row about?
+#   * if every capability bound here ran and found nothing, would this criterion be answered?
+#     yes -> tier A. no, but a passage of the course settles it -> tier B. a pedagogical judgement
+#     -> tier C. not determinable from course artifacts -> tier D.
+#
+# It comes out at A 7, B 9, C 2, D 0. Four rows are unbound, which is normal and permanent: they
+# route to the extraction layer for a quoted passage with a location.
+#
+# THE BANDS BELOW ARE THE INSTRUMENT'S OWN. This workbook prints "1/2 hour or less", "1/2-2 hours"
+# and "2+ hours" as column headers on rows 6-7, the same three the reference instrument prints.
+# Both packs declare them as pack data and neither hardcodes them; that two independent instruments
+# print the same three is a corroboration of SPEC §07's thresholds, not a reason to compile them in.
+#
+# ------------------------------------------------------------------------------------------------
+
+pack: uccs-oscqr-rsi
+name: UCCS OSCQR RSI Review
+version: "2026.1"
+source_title: UCCS OSCQR RSI Review — Course Review
+description: >-
+  A short-form review instrument of 18 criteria in six sections, used for regular and substantive
+  interaction review. Structurally unlike the 68-criterion instrument beside it and complete on its
+  own terms; it is not a subset of anything and is not read through another rubric.
+
+# Fixed rather than read off the clock, so regenerating the pack is byte-identical.
+imported_at: 2026-09-17
+
+sheet: Course Review
+
+# The criterion number in column A. It is distinct on all 18 rows and it is the only identifier
+# this instrument carries — which also makes it positional in substance: a revised edition that
+# inserts a criterion renumbers every one after it and a re-import will not diff cleanly. There is
+# nothing stabler in the file to use, so the import states it rather than leaving it to be
+# discovered later.
+join_key_column: A
+
+criteria:
+
+  # -- 1 · Course Alignment ------------------------------------------------------------------
+
+  "1":
+    # "Course objectives are clearly articulated, describe a single discrete behavior..." —
+    # recorded outcomes do not establish how they are worded.
+    tier: B
+    bindings: [outcomes_defined]
+  "2":
+    # "Assessments measure progress towards and/or achievement of module and course objectives."
+    # Alignment between two things the course states; settled by reading them, not by a count.
+    tier: B
+
+  # -- 2 · Getting Started and Overviews -----------------------------------------------------
+
+  "3":
+    # Required technology tools, requisite skills, support resources, privacy policy links. An
+    # inventory of the tools is one part of four.
+    tier: B
+    bindings: [external_tool_inventory]
+  "4":
+    # An overview for the course overall and for each module. The capability covers the modules.
+    tier: B
+    bindings: [module_overview]
+
+  # -- 3 · Organization and Representation ---------------------------------------------------
+
+  "5":
+    # "A variety of learning material types" — the capability is the row.
+    tier: A
+    bindings: [material_type_variety]
+
+  # -- 4 · Accessible Course Design ----------------------------------------------------------
+  # Every row in this section is answered by a detector that exists today (D21-D30, item 06),
+  # except 11, whose capabilities are specified here and not yet implemented.
+
+  "6":
+    # Contrast ratios and document font family and size, both stated numerically in the row.
+    tier: A
+    bindings: [colour_contrast, type_size_and_family]
+  "7":
+    # Preformatted styles across PDFs, slide decks, documents and pages.
+    tier: A
+    bindings: [heading_structure, document_accessibility, text_as_image]
+  "8":
+    # "Hyperlinks use descriptive text instead of raw URLs or phrases such as 'click here'."
+    tier: A
+    bindings: [link_text]
+  "9":
+    # Information carried without colour, and colour not used alone to convey meaning.
+    tier: A
+    bindings: [colour_as_sole_cue]
+  "10":
+    # Closed captioning on video, transcripts for audio.
+    tier: A
+    bindings: [captions_and_transcripts]
+  "11":
+    # Instructions, due dates and submission guidelines on every activity and assessment.
+    tier: A
+    bindings: [activity_instructions, due_date_coverage]
+
+  # -- 5 · Engagement and Interaction --------------------------------------------------------
+
+  "12":
+    # Getting to know the instructor, through materials, activities and planned interactions.
+    tier: B
+    bindings: [instructor_presence]
+  "13":
+    # Activities intended to build community and establish trust. An inventory of discussions
+    # locates candidates; the intent is read from them.
+    tier: B
+    bindings: [discussion_inventory]
+  "14":
+    # "Expectations for timely and regular interaction with the instructor are clearly stated."
+    # A passage of the course, quoted.
+    tier: B
+  "15":
+    # "Varied types of activities and options for learners to engage..." — a judgement about the
+    # range on offer.
+    tier: C
+  "16":
+    # "Varied learner interactions (self-reflection, one-on-one, small group, whole class)" — the
+    # same judgement at the level of one activity.
+    tier: C
+
+  # -- 6 · Assessment and Feedback -----------------------------------------------------------
+
+  "17":
+    # Evaluation criteria and articulated expectations. An attached rubric is one way of carrying
+    # them, and not the only one.
+    tier: B
+    bindings: [assignment_rubric_attached]
+  "18":
+    # Opportunities to provide formative feedback. Low-stakes practice is where those opportunities
+    # sit; whether feedback is actually offered on them is read from the course.
+    tier: B
+    bindings: [formative_opportunities]
