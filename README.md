@@ -223,6 +223,48 @@ D26 and D29 look for signals a person has to confirm. They locate and quote a pa
 there; SPEC §02 puts them at tier B for that, and a parser that quotes is a stricter form of the
 same contract than a model that quotes, because a parser cannot invent the quote.
 
+### Checking detector integrity
+
+The invariant above is only worth what the guard over it is worth, and **a guard that has never
+failed is indistinguishable from a guard that cannot fail**. One command checks it, and the same
+command prints what it measured rather than a word like *ok*:
+
+```sh
+./scripts/dev.sh pytest tests/test_detector_integrity.py -q -s
+```
+
+`-s` is not decoration. Without it the entire output is one line saying how many tests passed,
+which is the opaque green this check exists because of — on this network a 31-suite JS test set
+gated nothing for months because the obvious one-line runner pointed at a directory, printed one
+error and exited 0. With `-s` the command prints what it measured, which with the D21–D30 cluster
+in the registry reads:
+
+```
+10 detector(s) registered; 10 covered by 54 fixture test(s); 0 uncovered.
+Observed by calling 108 test function(s) across 7 module(s): …
+  1 registry sweep(s) credited to no detector: …
+  D21: 5 test(s)
+  …
+The zero-examined invariant holds for 10 of 10 registered detector(s).
+```
+
+Three guards, and each one is demonstrated failing in the same file, on purpose:
+
+- **Every registered detector is covered by a fixture test.** Coverage is *observed*, not read off
+  the source: the ledger calls the suite's detector tests with `Detector.run` instrumented and
+  records the ids that came through it. A detector with no test fails the build **by name**.
+- **A registry sweep is credited to nobody.** A test that runs every registered detector has tested
+  the registry, not any detector in it. This rule exists because the first version of the guard did
+  not have it, and a drill — a detector added to the shipping registry with no test, on purpose —
+  came back *covered*: one test in the suite iterates the registry, so every detector added after it
+  was born with a test nobody wrote.
+- **The zero-examined invariant still holds for every registered detector.** Each one is run against
+  a course holding nothing and required to refuse. Returning a result there is a fabricated count,
+  and returning a *clean* result there is a course reported as having nothing wrong.
+
+Without Docker: `uv run pytest tests/test_detector_integrity.py -q -s`. CI runs the same line as a
+step of its own, separate from the full suite, so the guard can be seen to go red on its own.
+
 ## Canvas token scopes
 
 So an institution can issue a least-privilege token rather than an administrative one, here is
@@ -298,6 +340,7 @@ These are the exact commands. Later roadmap items and prompts cite them.
 | Task | Command |
 |---|---|
 | Test | `./scripts/dev.sh pytest -q` |
+| Detector integrity | `./scripts/dev.sh pytest tests/test_detector_integrity.py -q -s` |
 | Lint | `./scripts/dev.sh ruff check .` |
 | Format check | `./scripts/dev.sh black --check .` |
 | Reformat | `./scripts/dev.sh black .` |

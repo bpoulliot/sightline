@@ -9,8 +9,10 @@ collects nothing and exits green.
 It is enforced structurally, not by care. A detector never touches the :class:`CourseDocument`; the
 only way it can reach an artifact is through the :class:`Survey` it is handed, and the survey counts
 every artifact it gives out. :meth:`Detector.run` is final — a subclass that tries to override it
-fails at class-definition time — so the count is taken on a path no detector can step around. Item
-21 builds the guard that fires this deliberately; this module is what makes that possible.
+fails at class-definition time — so the count is taken on a path no detector can step around.
+:mod:`sightline.detect.integrity` is the guard over it, and ``tests/test_detector_integrity.py``
+fires that guard deliberately, because a guard that has never failed is indistinguishable from a
+guard that cannot fail.
 
 **Zero examined is two different facts, and only one of them is an error.** A detector handed a
 document with no artifacts at all has been broken or starved, and raises :class:`NothingExamined`.
@@ -582,7 +584,7 @@ class Detector:
 # ---------------------------------------------------------------------------------------------
 #
 # Populated by ``__init_subclass__``, so importing a detector module registers it and there is no
-# second list to forget to update. Item 21's coverage guard walks this.
+# second list to forget to update. The coverage guard in `integrity.py` walks this.
 
 _REGISTRY: dict[str, type[Detector]] = {}
 

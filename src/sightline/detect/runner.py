@@ -2,8 +2,8 @@
 
 The framework raises :class:`~sightline.detect.base.NothingExamined` at the detector boundary,
 which is where the invariant belongs: it fires whether the detector was called by the pipeline, by
-a test or by item 21's guard. This module is the one place that catches it, and what it turns it
-into is a *reported* non-result — a detector named, in the ``NOT_EXAMINED`` state, carrying the
+a test or by the integrity guard. This module is the one place that catches it, and what it turns
+it into is a *reported* non-result — a detector named, in the ``NOT_EXAMINED`` state, carrying the
 reason. It never turns into a detector quietly missing from the list, and it never turns into a
 pass, because :attr:`DetectorResult.clean` is false for that state by construction.
 """
