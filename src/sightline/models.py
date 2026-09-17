@@ -40,6 +40,20 @@ def new_id() -> str:
     return uuid.uuid4().hex
 
 
+def as_utc(value: datetime | None) -> datetime | None:
+    """Attach UTC to a timestamp read back from SQLite.
+
+    SQLite has no timezone type, so a column declared ``DateTime(timezone=True)`` is written from
+    an aware value and read back naive. Every timestamp this package stores is UTC — :func:`utcnow`
+    is the only writer — so the tzinfo is restored rather than guessed at. Without this, the value
+    a setter returns and the value the next read returns do not compare equal, which is a bug
+    waiting in whichever surface subtracts them.
+    """
+    if value is None or value.tzinfo is not None:
+        return value
+    return value.replace(tzinfo=UTC)
+
+
 class Base(DeclarativeBase):
     pass
 
@@ -50,12 +64,18 @@ class RunStatus(enum.StrEnum):
     ``interrupted`` is the state a run lands in when the process stopped while it was running. It
     is distinct from ``failed`` on purpose: a run that was interrupted is resumable and nothing is
     known to be wrong with it.
+
+    ``partial`` is the state a batch lands in when some courses were reviewed and others failed,
+    and it exists because the alternatives both lie. ``succeeded`` over a batch with a failed
+    course is the silent half of SPEC §11 — a glance at the run list would say the work is done.
+    ``failed`` over the same batch throws away two finished reviews. Roadmap item 17.
     """
 
     PENDING = "pending"
     RUNNING = "running"
     INTERRUPTED = "interrupted"
     SUCCEEDED = "succeeded"
+    PARTIAL = "partial"
     FAILED = "failed"
     CANCELLED = "cancelled"
 
@@ -65,8 +85,20 @@ RESUMABLE_STATUSES: frozenset[RunStatus] = frozenset({RunStatus.PENDING, RunStat
 
 #: States that mean the run is over, one way or another.
 TERMINAL_STATUSES: frozenset[RunStatus] = frozenset(
-    {RunStatus.SUCCEEDED, RunStatus.FAILED, RunStatus.CANCELLED}
+    {RunStatus.SUCCEEDED, RunStatus.PARTIAL, RunStatus.FAILED, RunStatus.CANCELLED}
 )
+
+#: What each status is called on a screen. A mapping rather than a string transformation, because
+#: "Partial" is not what a person needs to read about a batch that reviewed two courses of three.
+STATUS_LABELS: dict[RunStatus, str] = {
+    RunStatus.PENDING: "Pending",
+    RunStatus.RUNNING: "Running",
+    RunStatus.INTERRUPTED: "Interrupted",
+    RunStatus.SUCCEEDED: "Completed",
+    RunStatus.PARTIAL: "Completed with failures",
+    RunStatus.FAILED: "Failed",
+    RunStatus.CANCELLED: "Cancelled",
+}
 
 
 class Run(Base):
@@ -97,7 +129,8 @@ class Run(Base):
     @property
     def status_label(self) -> str:
         """Human-facing status. The column is a plain string, so normalise on the way out."""
-        return RunStatus(self.status).value.replace("_", " ").capitalize()
+        status = RunStatus(self.status)
+        return STATUS_LABELS.get(status, status.value.replace("_", " ").capitalize())
 
 
 class RunCourse(Base):
@@ -109,9 +142,15 @@ class RunCourse(Base):
     #: What the designer typed: a course id or a Canvas course URL. Not resolved here.
     course_ref: Mapped[str] = mapped_column(String(512))
     status: Mapped[RunStatus] = mapped_column(String(16), default=RunStatus.PENDING)
-    #: Pipeline stage, one of the seven in SPEC §04. Free text until item 03 names them.
+    #: The unattended stage this course reached. The names are :class:`sightline.batch.Stage`.
     stage: Mapped[str | None] = mapped_column(String(32), default=None)
     error: Mapped[str | None] = mapped_column(Text, default=None)
+    #: When a person opened this course's review. **Null is the normal state and it is a gate.**
+    #: Nothing may be exported for a course until this is set, and only a human action sets it
+    #: (SPEC §09: nothing exports until a human has opened the review). The column lives here
+    #: rather than on the run because a report is per course, and a batch where one course has
+    #: been reviewed must not let the other fifteen out. See :mod:`sightline.batch.gate`.
+    review_opened_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, onupdate=utcnow
     )

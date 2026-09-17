@@ -37,6 +37,14 @@ from .llm.client import DEFAULT_CONTEXT_TOKENS
 from .paths import DataPaths
 from .redaction import register_secret
 
+#: How many courses one run may hold. SPEC §09 caps a batch at sixteen; typical batches are one or
+#: two courses and the largest expected is eight to fifteen. The number is not an arbitrary limit
+#: to be raised when somebody has more courses — the design behind it is that courses are reviewed
+#: **one after another** against a single local model host (SPEC §04), so a larger batch buys a
+#: longer wait rather than more throughput, and the thing that would change that is distributed
+#: execution, which this project has decided against.
+DEFAULT_BATCH_CAP = 16
+
 
 class Settings(BaseSettings):
     """Runtime configuration, read from the environment and an optional ``.env`` file."""
@@ -70,6 +78,13 @@ class Settings(BaseSettings):
 
     # -- Working data ------------------------------------------------------------------------
     data_dir: Path = Field(default=Path("./data"), validation_alias="SIGHTLINE_DATA_DIR")
+
+    #: Courses per run. Configurable because a deployment may want *fewer* — a reviewer who wants
+    #: results this afternoon sets it to two — and bounded above because the sequential design
+    #: behind :data:`DEFAULT_BATCH_CAP` does not stop being true at seventeen.
+    batch_cap: int = Field(
+        default=DEFAULT_BATCH_CAP, ge=1, le=64, validation_alias="SIGHTLINE_BATCH_CAP"
+    )
 
     # -- Local model host --------------------------------------------------------------------
     #: The environment fallback for the endpoint. Normally set on the Settings screen, and
