@@ -469,6 +469,10 @@ runs returned different spans is marked *needs attention*.
 - **The disagreement set is recorded as a document** — per flagged subject, the extractor id or the
   whole rubric-row request, plus exactly the artifacts that differed — so escalation re-runs that
   subset rather than the course.
+- **Where the flag is surfaced.** The extraction screen names it, and the serialized comparison
+  carries a `needs_attention` object — present only when the runs differed, absent rather than
+  false when they agreed, so a renderer cannot read the key as a boolean to sort on. The review
+  screen of §09 is roadmap item 16 and is not built yet; that payload is what it renders.
 
 ### Escalation
 
