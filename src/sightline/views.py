@@ -43,6 +43,7 @@ from .canvas import (
 )
 from .credentials import CanvasCredentials, CredentialError, CredentialStore
 from .logging import get_logger
+from .preferences import ExportPreference, PreferenceStore
 
 log = get_logger("sightline.views")
 
@@ -84,6 +85,23 @@ def build_router(templates: Jinja2Templates) -> APIRouter:
             return _render_settings(request, templates, credential_error=exc)
         saved = "normalized" if normalized and normalized != canvas_base_url.strip() else "yes"
         return RedirectResponse(f"/settings?saved={saved}", status_code=303)
+
+    @router.post("/settings/export", include_in_schema=False)
+    async def save_export_setting(
+        request: Request,
+        request_export: Annotated[str, Form()] = "",
+    ) -> Any:
+        """Turn the fresh-export request on or off.
+
+        An unchecked checkbox is not submitted at all, so absence is what "off" looks like in a
+        form post. That is why this is its own action rather than a field on the credential form:
+        a checkbox merged into that form would read as "off" every time somebody saved a token.
+        """
+        enabled = bool(request_export)
+        _preferences(request).set_request_content_export(enabled)
+        return RedirectResponse(
+            f"/settings?saved={'export_on' if enabled else 'export_off'}", status_code=303
+        )
 
     @router.post("/settings/forget", include_in_schema=False)
     async def forget_settings(request: Request) -> Any:
@@ -173,6 +191,13 @@ def _credentials(request: Request) -> CredentialStore:
     store: CredentialStore | None = getattr(request.app.state, "credentials", None)
     if store is None:  # pragma: no cover - only reachable without the app lifespan
         raise RuntimeError("the credential store is not initialised")
+    return store
+
+
+def _preferences(request: Request) -> PreferenceStore:
+    store: PreferenceStore | None = getattr(request.app.state, "preferences", None)
+    if store is None:  # pragma: no cover - only reachable without the app lifespan
+        raise RuntimeError("the preference store is not initialised")
     return store
 
 
@@ -311,6 +336,14 @@ _SAVED_MESSAGES = {
         "The stored Canvas credential has been deleted. Any value in the environment still "
         "applies."
     ),
+    "export_on": (
+        "Saved. Sightline will ask Canvas to build a fresh export of each course it reviews. The "
+        "export appears in that course's export list; no course content is changed."
+    ),
+    "export_off": (
+        "Saved. Sightline will not ask Canvas to build an export. It will read an export the "
+        "course already has, and report the steps to create one when there is none."
+    ),
 }
 
 
@@ -328,6 +361,7 @@ def _render_settings(
         credentials = _credentials(request).canvas()
     except CredentialError as exc:
         error = error or exc
+    export: ExportPreference = _preferences(request).request_content_export()
     return templates.TemplateResponse(
         request=request,
         name="settings.html",
@@ -340,6 +374,8 @@ def _render_settings(
             "credential_error": error,
             "scopes": REQUIRED_SCOPES,
             "permissions": REQUIRED_PERMISSIONS,
+            "export": export,
+            "writes": [scope for scope in REQUIRED_SCOPES if scope.writes],
         },
     )
 

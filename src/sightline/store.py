@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from .logging import get_logger
 from .models import (
     AppSecret,
+    AppSetting,
     Base,
     Run,
     RunCourse,
@@ -235,6 +236,35 @@ class RunStore:
         with self.session() as session:
             row = session.get(AppSecret, name)
             return None if row is None else row.updated_at
+
+    # -- preferences -------------------------------------------------------------------------
+    #
+    # Plain text, and the opposite of the block above on purpose: a preference must be readable
+    # from the database or nobody can answer "why did this deployment behave that way?". Nothing
+    # secret goes through here — see sightline.models.AppSetting.
+
+    def get_setting(self, name: str) -> str | None:
+        with self.session() as session:
+            row = session.get(AppSetting, name)
+            return None if row is None else row.value
+
+    def put_setting(self, name: str, value: str) -> None:
+        with self.session() as session:
+            row = session.get(AppSetting, name)
+            if row is None:
+                session.add(AppSetting(name=name, value=value))
+            else:
+                row.value = value
+                row.updated_at = utcnow()
+
+    def delete_setting(self, name: str) -> bool:
+        """Forget a preference so the environment fallback applies again."""
+        with self.session() as session:
+            row = session.get(AppSetting, name)
+            if row is None:
+                return False
+            session.delete(row)
+            return True
 
     # -- restart semantics -------------------------------------------------------------------
 

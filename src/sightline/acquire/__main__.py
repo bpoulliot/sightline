@@ -9,6 +9,10 @@ The second reads the configured Canvas instance. It prints counts, the examinati
 sample deep links; it never prints a body, because a course body is instructor-authored content
 and a terminal is a place things get pasted from. ``--json`` writes the whole document to stdout
 for anyone who does want it.
+
+It also honours the fresh-export preference set on the settings screen, and says so while it
+waits: an export takes minutes on a large course, and a command that prints nothing for that long
+looks like one that has hung. ``--no-request-export`` overrides the preference for one run.
 """
 
 from __future__ import annotations
@@ -20,8 +24,11 @@ from pathlib import Path
 
 from ..canvas.client import CanvasClient
 from ..canvas.errors import CanvasError
+from ..canvas.exports import ExportProgress
 from ..config import get_settings
 from ..model import CourseDocument
+from ..preferences import PreferenceStore
+from ..store import RunStore
 from .bundle import BundleError, load_bundle
 from .service import CourseAcquisition
 
@@ -50,7 +57,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--no-export",
         action="store_true",
-        help="Do not read an existing content export, even if the course has one.",
+        help="Use no content export at all: no request, and no existing one read.",
+    )
+    parser.add_argument(
+        "--no-request-export",
+        action="store_true",
+        help=(
+            "Do not ask Canvas to build a fresh export; read one the course already has. "
+            "Overrides the setting for this run only."
+        ),
     )
     return parser
 
@@ -83,6 +98,15 @@ def describe(document: CourseDocument) -> str:
     return "\n".join(lines)
 
 
+def _announce(progress: ExportProgress) -> None:
+    """Say that the wait is a wait.
+
+    An export takes minutes on a large course, and a command that prints nothing for six minutes
+    is indistinguishable from one that has hung. Goes to stderr so ``--json`` stays pipeable.
+    """
+    print(progress.message, file=sys.stderr, flush=True)
+
+
 async def _from_canvas(args: argparse.Namespace) -> int:
     settings = get_settings()
     if not settings.canvas_configured:
@@ -93,8 +117,28 @@ async def _from_canvas(args: argparse.Namespace) -> int:
         )
         return 2
     token = settings.canvas_api_token.get_secret_value() if settings.canvas_api_token else None
+    paths = settings.paths.ensure()
+
+    # The preference is read from the run store, not from the environment alone: a deployment
+    # that switched the fresh-export request off on the settings screen must stay off here too.
+    # That is the whole point of a no-writes policy, and a CLI that ignored it would be a hole
+    # in one.
+    store = RunStore.open(paths)
+    try:
+        preference = PreferenceStore(
+            store, env_request_content_export=settings.request_content_export_from_env
+        ).request_content_export()
+    finally:
+        store.dispose()
+    request_export = preference.enabled and not args.no_request_export
+
     async with CanvasClient(settings.canvas_base_url, token) as client:
-        acquisition = CourseAcquisition(client, settings.paths.ensure())
+        acquisition = CourseAcquisition(
+            client,
+            paths,
+            request_export=request_export,
+            on_export_progress=_announce,
+        )
         try:
             result = await acquisition.acquire(
                 args.course,

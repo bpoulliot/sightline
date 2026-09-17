@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pytest
 
+from sightline.canvas.exports import CEILING_SECONDS, PollPacing
 from sightline.config import Settings, reset_settings_cache
 from sightline.paths import DataPaths
 from sightline.redaction import clear_registry
@@ -22,6 +23,7 @@ from sightline.redaction import clear_registry
 SETTING_ENV_VARS = (
     "CANVAS_BASE_URL",
     "CANVAS_API_TOKEN",
+    "SIGHTLINE_REQUEST_CONTENT_EXPORT",
     "SIGHTLINE_DATA_DIR",
     "OLLAMA_BASE_URL",
     "OLLAMA_CONCURRENCY",
@@ -72,3 +74,39 @@ def settings(data_root: Path, repo_root: Path) -> Settings:
         tokens_css_path=repo_root / "docs" / "tokens.css",
         log_format="json",
     )
+
+
+class SimulatedClock:
+    """A clock that moves only when something sleeps on it.
+
+    Waiting for a content export is the one thing in Sightline measured in minutes, and the poll's
+    ceiling has to be tested. A test that actually waited for it is a test somebody deletes, and a
+    deleted test is how a ceiling stops working — so the wait is simulated and the elapsed time is
+    real arithmetic over fake seconds.
+    """
+
+    def __init__(self) -> None:
+        self.now = 0.0
+        #: Every delay slept, in order. Assertions about backoff read this.
+        self.slept: list[float] = []
+
+    def __call__(self) -> float:
+        return self.now
+
+    async def sleep(self, seconds: float) -> None:
+        self.slept.append(seconds)
+        self.now += seconds
+
+    def pacing(self, ceiling_seconds: float = CEILING_SECONDS) -> PollPacing:
+        return PollPacing(ceiling_seconds=ceiling_seconds, sleep=self.sleep, clock=self)
+
+
+@pytest.fixture
+def simulated_clock() -> SimulatedClock:
+    return SimulatedClock()
+
+
+@pytest.fixture
+def instant_pacing(simulated_clock: SimulatedClock) -> PollPacing:
+    """Poll pacing whose waits cost nothing, for the tests that are not about the ceiling."""
+    return simulated_clock.pacing()

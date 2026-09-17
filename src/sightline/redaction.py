@@ -26,10 +26,22 @@ _PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"\b\d{3,6}~[A-Za-z0-9]{20,}\b"),
     # Authorization headers, however they are spelled.
     re.compile(r"(?i)\b(bearer|token)\s+[A-Za-z0-9\-._~+/]{16,}=*"),
-    # Query-string credentials.
-    re.compile(r"(?i)\b(access_token|api_key|apikey|token|password)=[^\s&\"']+"),
+    # Query-string credentials. ``verifier`` is Canvas's: a file or content-export download link
+    # carries one, and it is a bearer credential written into a URL — anyone holding the link can
+    # fetch the file. ``X-Amz-Signature`` is the same thing on the storage back end Canvas
+    # redirects to, which nothing registers because nothing configures it.
+    re.compile(
+        r"(?i)\b(access_token|api_key|apikey|token|password|verifier|x-amz-signature)=[^\s&\"']+"
+    ),
     # OpenAI-compatible keys.
     re.compile(r"\bsk-[A-Za-z0-9\-_]{16,}\b"),
+    # The origin of any absolute URL. The registry covers the configured Canvas host, and it
+    # cannot cover the storage back end Canvas redirects a download to: that host differs per
+    # deployment, nothing configures it, and the HTTP client logs it by name. A pattern reaches
+    # it where registration cannot. The path survives the substitution, so a log line still says
+    # what was fetched — only where from is removed, which is the part that identifies an
+    # institution.
+    re.compile(r"(?i)\bhttps?://[^/\s\"'<>]+"),
 )
 
 _registry: set[str] = set()

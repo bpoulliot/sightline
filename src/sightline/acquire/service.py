@@ -7,15 +7,25 @@ The index phase is a dozen requests and is what the signature is computed from, 
 consulted with a key that reflects the course as it is *now* rather than as it was when the entry
 was written. Everything expensive sits after that decision.
 
-**Sightline does not ask Canvas to build an export.** Creating one is a ``POST``, and every request
-this package makes is a ``GET`` — an invariant the README states and ``tests/test_canvas_scopes.py``
-enforces. What acquisition does instead is *use* an export that already exists in the course, which
-is a read, and say plainly what to do when there is none. Whether Sightline should ever make that
-one write is a product decision, recorded in ``docs/ROADMAP.md`` rather than settled here.
+**Sightline does not modify course content; it asks Canvas to package a copy of the course it is
+reviewing.** That request is the only thing this package sends that is not a ``GET``, and
+``tests/test_canvas_scopes.py`` keeps the count of writes at exactly one. It is the normal path:
+without an export, every check that reads a document's own bytes has nothing to read.
 
-An existing export can be older than the course. So the API stays authoritative for structure and
-for page bodies; the export contributes document bytes and fills in a body the API would not hand
-over, and its age is recorded in the document's provenance so a reviewer can weigh it.
+**A setting turns it off, and off is a supported configuration.** With it off acquisition does what
+item 03 did — reads an export the course already has, and says plainly what to do when there is
+none. An institution with a no-writes policy keeps a working tool. The two paths differ in one more
+way worth knowing: the fresh path does not list the course's exports at all, because it never reads
+one it did not ask for and because its own exports would otherwise move the cache signature on
+every run.
+
+**A fresh export is never traded for a faster one.** There is no "reuse a recent export" shortcut
+here and there is not supposed to be. Canvas does not bump a course's ``updated_at`` when a page
+inside it is edited, so an existing export cannot be shown to match the course as it is now, and a
+review of last week's course reported as this week's is the silent wrongness this project exists to
+avoid. On the opt-out path an export can still be older than the course, so the API stays
+authoritative for structure and page bodies and the export's age is recorded in the document's
+provenance for a reviewer to weigh.
 """
 
 from __future__ import annotations
@@ -25,8 +35,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from ..canvas.client import CanvasClient
+from ..canvas.client import API_ROOT, CanvasClient
 from ..canvas.errors import CanvasError
+from ..canvas.exports import (
+    DEFAULT_PACING,
+    ContentExport,
+    PollPacing,
+    ProgressCallback,
+    build_fresh_export,
+)
 from ..canvas.refs import parse_course_ref
 from ..logging import get_logger
 from ..model import CourseDocument, Examination, ExaminationState, Source
@@ -50,8 +67,20 @@ USABLE_EXPORT_TYPES = frozenset({"common_cartridge", "zip"})
 
 REMEDY_NO_EXPORT = (
     "No finished content export exists for this course, so document bytes were not read. "
-    "Create one in Canvas — Settings, then Export Course Content — and run the review again. "
-    "Sightline never creates one itself: every request it makes to Canvas is a read."
+    "Create one in Canvas — Settings, then Export Course Content — and run the review again, or "
+    "switch 'Ask Canvas to build a fresh export' on under Settings and Sightline will ask Canvas "
+    "for one itself."
+)
+
+#: Said when the fresh-export path failed. It never falls back to an export the course already
+#: has: that export cannot be shown to match the course as it is now, and quietly reviewing older
+#: bytes is the failure this whole item is arranged against.
+REMEDY_FRESH_EXPORT_FAILED = (
+    "Sightline asked Canvas to build an export of this course and did not get one, so document "
+    "bytes were not read. It did not fall back to an older export: an existing export cannot be "
+    "shown to match the course as it is now. Fix what the message above names, or switch 'Ask "
+    "Canvas to build a fresh export' off under Settings to review whatever export the course "
+    "already has."
 )
 
 
@@ -82,11 +111,26 @@ class CourseAcquisition:
         paths: DataPaths,
         *,
         cache: DocumentCache | None = None,
+        request_export: bool = True,
+        on_export_progress: ProgressCallback | None = None,
+        export_pacing: PollPacing = DEFAULT_PACING,
     ) -> None:
         self._client = client
         self._paths = paths
         self._reader = CourseReader(client)
         self._cache = cache or DocumentCache(paths)
+        self._request_export = request_export
+        self._on_export_progress = on_export_progress
+        self._export_pacing = export_pacing
+
+    @property
+    def request_export(self) -> bool:
+        """Whether this acquisition will ask Canvas to build an export.
+
+        Resolved by the caller from :mod:`sightline.preferences`, never read from configuration
+        here: one place decides, and it is the place a person can change.
+        """
+        return self._request_export
 
     @property
     def base_url(self) -> str:
@@ -102,7 +146,8 @@ class CourseAcquisition:
     ) -> AcquisitionResult:
         """Normalize one course, reusing a cached document when nothing has changed."""
         ref = parse_course_ref(reference, expected_host=self._client.host)
-        index = await self._reader.read_index(ref.api_segment)
+        fresh = include_export and archive is None and self._request_export
+        index = await self._reader.read_index(ref.api_segment, include_content_exports=not fresh)
         course_id = str(index.course.get("id") or ref.api_segment)
         signature = signature_of(index)
         entry = self._cache.entry(self.base_url, course_id, signature)
@@ -125,6 +170,8 @@ class CourseAcquisition:
         export_note: Examination | None = None
         if archive is not None:
             export, export_note = self._unpack(archive, entry.course_key)
+        elif fresh:
+            export, export_note = await self._fresh_export(course_id, entry.course_key)
         elif include_export:
             export, export_note = await self._existing_export(index, course_id, entry.course_key)
 
@@ -133,9 +180,14 @@ class CourseAcquisition:
             base_url=self.base_url,
             bodies=bodies,
             export=export,
-            provenance=_provenance(index, signature, export_note),
+            provenance=_provenance(index, signature, export_note, requested=fresh),
         )
-        if export_note is not None and export is None:
+        # Recorded whether or not there are bytes. On failure the note is the whole explanation;
+        # on success it says *where the bytes came from* — requested now, or already sitting in
+        # the course — which is the one question about them a reviewer cannot answer from the
+        # document otherwise. Its collection name differs from the one the normalizer writes, so
+        # the two sit side by side rather than one overwriting the other.
+        if export_note is not None:
             document = _with_examination(document, export_note)
 
         self._cache.store(entry, document)
@@ -144,12 +196,60 @@ class CourseAcquisition:
             signature=signature[:8],
             counts=document.counts(),
             export=bool(export),
+            export_requested=fresh,
         )
         return AcquisitionResult(
             document=document, signature=signature, from_cache=False, entry=entry
         )
 
     # -- content exports ---------------------------------------------------------------------
+
+    async def _fresh_export(
+        self, course_id: str, key: str
+    ) -> tuple[UnpackedExport | None, Examination | None]:
+        """Ask Canvas to package the course, wait for it, unpack what comes back.
+
+        Every failure lands as an :class:`~sightline.model.Examination` that is *not* usable, which
+        is the mechanism that stops a detector reporting "no untagged PDFs" over a course whose
+        documents were never examined. A failed export recorded as an empty one is the silent
+        under-detection SPEC §11 is about, so the state here is ``REFUSED`` and it carries what
+        Canvas said and what to do about it.
+        """
+        endpoint = f"POST {API_ROOT}/courses/{course_id}/content_exports"
+
+        async def fetch(export: ContentExport) -> Path:
+            archive, _ = await download_archive(
+                self._client,
+                export.attachment_url or "",
+                paths=self._paths,
+                destination=("exports", key, f"{export.id}.imscc"),
+                canvas_base_url=self.base_url,
+            )
+            return archive
+
+        try:
+            fresh = await build_fresh_export(
+                self._client,
+                course_id,
+                download=fetch,
+                on_progress=self._on_export_progress,
+                pacing=self._export_pacing,
+            )
+        except (CanvasError, ArchiveError) as exc:
+            summary = getattr(exc, "summary", str(exc))
+            detail = getattr(exc, "detail", None)
+            return None, Examination(
+                collection="content_export",
+                state=ExaminationState.REFUSED,
+                examined=0,
+                source=Source.EXPORT,
+                endpoint=endpoint,
+                detail=" ".join(filter(None, (str(summary), detail))),
+                remedy=" ".join(
+                    filter(None, (getattr(exc, "remedy", None), REMEDY_FRESH_EXPORT_FAILED))
+                ),
+            )
+        return self._unpack(fresh.archive, key, detail=fresh.detail())
 
     async def _existing_export(
         self, index: CourseIndex, course_id: str, key: str
@@ -206,8 +306,15 @@ class CourseAcquisition:
         return self._unpack(archive, key, created_at=str(candidate.get("created_at") or ""))
 
     def _unpack(
-        self, archive: Path, key: str, *, created_at: str = ""
+        self, archive: Path, key: str, *, created_at: str = "", detail: str = ""
     ) -> tuple[UnpackedExport | None, Examination | None]:
+        """Extract an archive already on disk and record where it came from.
+
+        ``detail`` is the sentence describing the archive's origin. It is a parameter because the
+        three origins are genuinely different facts — Canvas built this one on request, this one
+        already existed in the course, this one was handed over on the command line — and one
+        sentence covering all three would be true of none of them.
+        """
         if not self._paths.contains(archive):
             return None, Examination(
                 collection="content_export",
@@ -244,7 +351,8 @@ class CourseAcquisition:
             examined=1,
             source=Source.EXPORT,
             endpoint=str(archive.name),
-            detail=(
+            detail=detail
+            or (
                 "Read an export that already existed in the course"
                 + (f", created {created_at}." if created_at else ".")
                 + " An export can be older than the course, so the API stays authoritative for"
@@ -271,13 +379,20 @@ def _newest_finished_export(items: tuple[Any, ...]) -> Mapping[str, Any] | None:
 
 
 def _provenance(
-    index: CourseIndex, signature: str, export_note: Examination | None
+    index: CourseIndex, signature: str, export_note: Examination | None, *, requested: bool
 ) -> dict[str, Any]:
     """Facts about the acquisition itself. No wall-clock value: the document must serialize
-    identically on a second run (see :mod:`sightline.model`)."""
+    identically on a second run (see :mod:`sightline.model`).
+
+    ``content_export_requested`` is recorded on every document, both ways round. Whether the bytes
+    under review came from an export Sightline asked Canvas to build, or from one that was already
+    sitting in the course, is a fact about how old they might be — and it belongs on the artifact
+    rather than in whoever remembers how the deployment was configured that week.
+    """
     provenance: dict[str, Any] = {
         "acquired_from": "canvas-api",
         "signature": signature,
+        "content_export_requested": requested,
         "collections_readable": sorted(
             name for name, item in index.collections.items() if item.usable
         ),
@@ -321,6 +436,7 @@ def _with_examination(document: CourseDocument, entry: Examination) -> CourseDoc
 
 
 __all__ = [
+    "REMEDY_FRESH_EXPORT_FAILED",
     "REMEDY_NO_EXPORT",
     "USABLE_EXPORT_TYPES",
     "AcquisitionResult",
