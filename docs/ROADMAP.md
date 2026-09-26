@@ -5,7 +5,8 @@ Canonical for item status. `docs/SPEC.md` is canonical for design.
 Labels: **READY** · **NEEDS DISCUSSION** · **NEEDS MEASUREMENT** · **BLOCKED**.
 Nothing unready enters the queue. One item per conversation, one PR per item.
 
-Queue lives at `~/docker/overnight-sightline/`. Next free item number: **34**.
+Queue lives at `~/docker/overnight/projects/sightline/` (moved from `~/docker/overnight-sightline/`
+on 2026-09-22). Next free item number: **34**.
 
 ---
 
@@ -24,7 +25,7 @@ Queue lives at `~/docker/overnight-sightline/`. Next free item number: **34**.
 | 09 | Ollama client, capability filter, model picker | 1 | READY | **DONE** — PR #14 |
 | 10 | Extraction layer with verified quotes | 1 | READY | **DONE** — PR #15 |
 | 11 | Three-run disagreement router | 1 | READY | **DONE** — PR #17 |
-| 12a | Effort model — ship it | 1 | READY | queued 11a |
+| 12a | Effort model — ship it | 1 | READY | **DONE** — PR #20 |
 | 12b | Effort model — fit the costs | 1 | **BLOCKED** — item 06/07/08 detectors have all landed; unblocked in code, still needs the calibration corpus | — |
 | 13 | XLSX writer | 2 | READY | staged 13 |
 | 14 | PDF course report | 2 | READY | staged 14 |
@@ -83,7 +84,7 @@ command runs verbatim (490 tests, clean lint and format, container healthy).
 09a-sightline-item32-dotenv-leaks-into-tests.md  # DONE — PR #16. Two holes, not one.
 10-sightline-item11-disagreement-router.md      # DONE — PR #17. Union, not intersection.
 11-sightline-item17-batch-runner.md              # DONE — PR #18. The gate landed with it.
-11a-sightline-item12a-effort-model.md            # LAST in batch 2, before anything renders a band
+11a-sightline-item12a-effort-model.md            # DONE — PR #20. Keyed on the detector, not severity.
 ```
 
 Item 21 runs immediately after 06 by design: 06 builds the under-detection invariant into the
@@ -395,6 +396,41 @@ default `/24` collides.
   settled; a later move toward stock OSCQR 3.1 / 4.0 is a pack change, not a code change.
 
 ## Notes carried forward
+
+**12a · DONE 2026-09-25 (PR #20). The effort model: detector-keyed costs, a near-boundary marker,
+and the override record.**
+
+**The cost key is the detector id, not the severity.** Item 04 keyed its throwaway table on
+severity to avoid a parameter per finding code. Severity describes the learner's experience; cost
+describes the work, and the two diverge by an order of magnitude inside one severity (an alt
+attribute versus a caption file). The registry is enumerable before a course is read, so an
+unpriced detector can be reported on the pack; finding codes are not declared anywhere. Thirty-seven
+entries, two round values (0.05 h, 0.1 h), every line marked uncalibrated, in
+`src/sightline/rubric/costs.yaml`. `SIGHTLINE_EFFORT_COSTS` overrides entry by entry. **12b may
+find a detector is too coarse** — D01 prices "no syllabus" and "syllabus without headings" alike —
+and the answer then is a per-code entry, not a per-row policy.
+
+**What later items inherit.**
+
+- **`RowResult.near_boundary`** is persisted in the review file's row dictionary: `below`,
+  `above`, `threshold_hours`, `hours`, `distance_hours`, `margin_hours`, `lowest`. Items 13, 14, 16
+  render it or ignore it; **item 24 surfaces it**. It is a distance, never a confidence, and
+  Sufficiently Present rows carry none. Margins: 0.25 h at the lowest boundary, 0.1 h between bands.
+- **`rating_overrides`** is a new table (from `create_all`, no `ADDED_COLUMNS` entry needed) and
+  `sightline.rubric.overrides.record_override` is the write path item 16 calls.
+  `MachineProposal.from_review(review["projection"], code)` builds the machine side from the
+  persisted review file. Append-only: the store has no update or delete for it.
+- **The rollup no longer carries `hours`.** Item 17 shipped a course-level total of hours in the
+  score stage; it was the aggregate §11 forbids with a clock face on it, and 12a removed it.
+  `rows_with_hours` (a count of rows) remains. `tests/test_rubric_effort.py` reads the effort path's
+  code for the arithmetic that would bring it back.
+- **`Band` refuses a rating outside minor/moderate/major**, so no banding arithmetic can produce
+  Sufficiently Present — by construction, not only by the schema.
+- **`_rate`'s zero-cost branch is now unreachable** (a zero cost is refused at load) and was left
+  in place for item 28, which owns `_rate` next.
+- **The Major-is-hard property** holds the shipped table to "no row of the reference pack reaches
+  Major on fewer than twenty findings from its costliest detector". 12b's fitted table must pass it
+  or argue it down with the corpus in hand.
 
 **17 · DONE 2026-09-17 (PR #18). The batch runner, and the export gate that landed with it.**
 
@@ -893,8 +929,8 @@ to this.**
   for every row — not worst-of, not a per-row policy, so item 12b calibrates one model. Band
   thresholds are pack data (`RatingScale.bands`, from the ranges printed on the instrument);
   per-defect costs are global config and are currently a labelled placeholder in
-  `sightline.rubric.effort` with `calibrated=False`. **Item 12a replaces `EffortModel.cost_of` and
-  nothing else.**
+  `sightline.rubric.effort` with `calibrated=False`. **Item 12a replaced `EffortModel.cost_of` and
+  left the bands and the roll-up as they were** (PR #20).
 - **Tiers override the arithmetic, checked before the bands.** A Tier C row stays at `No Response`
   however many findings its bindings produced — the findings ride along as context. A Tier D row
   defaults to `Not Applicable` with a note and is **never routed to extraction**.

@@ -1,0 +1,84 @@
+# THE PER-DEFECT COST TABLE. THIS IS THE FILE TO EDIT.
+#
+# EVERY NUMBER BELOW IS AN UNCALIBRATED ESTIMATE. Nothing in either source workbook prices a defect,
+# and nothing here was measured. Roadmap item 12b fits these numbers against completed human reviews;
+# until it does, `calibrated` stays false and every surface that shows a band says it is an estimate.
+#
+# DO NOT SEED THIS FROM CONFIG!timeToFix. `CONFIG!$H$15:$K$19` maps RATING -> HOURS, the inverse of
+# what this table does (DEFECT -> HOURS), and its VALUE column (Major 1 ... Sufficiently Present 4) is
+# an inverted scale that exists to be averaged into a course score. SPEC §07 and §11.
+#
+# What the table is keyed on: the DETECTOR ID, and the value is hours per finding that detector
+# reports. Remediation effort is a property of the work, and the work is set by what a detector
+# checks — writing an alt attribute, captioning a video, restructuring a document — far more than by
+# the finding's severity, which is a statement about the learner. See sightline.rubric.effort for
+# the rest of that reasoning.
+#
+# Override without a code change: point SIGHTLINE_EFFORT_COSTS at a YAML file of this same shape.
+# Its `costs` entries replace these one by one; anything it does not name keeps the value here.
+#
+# The bands these hours fall into are NOT here. They are printed on the instrument, so they are pack
+# data (`rating_scale.bands` in each rubric pack).
+
+# Flip to true only when item 12b has fitted the table. An override file may set it; nothing else does.
+calibrated: false
+
+# What a finding from a detector with NO entry below costs. NOT ZERO: an unpriced detector reported as
+# free is silent under-detection with a price tag (SPEC §11). The coverage report names every
+# detector priced this way. UNCALIBRATED estimate.
+default_hours: 0.1
+
+# The near-boundary marker (see sightline.rubric.effort). A row whose rolled-up hours fall within
+# this many hours of a band threshold carries a marker saying so. `lowest` is the Sufficiently Present /
+# first-band boundary and is WIDER on purpose: in five hand-completed reviews, 29 of 34 disagreements
+# between independent reviewers were Sufficiently Present versus Minor Revision. UNCALIBRATED.
+near_boundary:
+  lowest: 0.25
+  between_bands: 0.1
+
+# Hours per finding. Two round values on purpose — a table of plausible-looking decimals reads as
+# though somebody measured it. 0.05 h (three minutes) is a one-element edit on a page; 0.1 h (six
+# minutes) is an edit to a whole item, document, setting or piece of media. Absence findings
+# ("no syllabus found") are the most obviously underpriced entries here, and that is left for
+# 12b to measure rather than guessed at.
+costs:
+  # -- Canvas structure -------------------------------------------------------------------------
+  D01: 0.1   # syllabus_presence            UNCALIBRATED estimate
+  D02: 0.1   # syllabus_printability        UNCALIBRATED estimate
+  D03: 0.1   # module_overview              UNCALIBRATED estimate
+  D04: 0.1   # course_schedule              UNCALIBRATED estimate
+  D05: 0.1   # welcome_announcement         UNCALIBRATED estimate
+  D06: 0.05  # navigation_pruning           UNCALIBRATED estimate
+  D07: 0.1   # gradebook_structure          UNCALIBRATED estimate
+  D08: 0.1   # assignment_rubric_attached   UNCALIBRATED estimate
+  D09: 0.1   # activity_instructions        UNCALIBRATED estimate
+  D10: 0.05  # due_date_coverage            UNCALIBRATED estimate
+  D11: 0.1   # outcomes_defined             UNCALIBRATED estimate
+  D12: 0.1   # external_tool_inventory      UNCALIBRATED estimate
+  D13: 0.05  # policy_links                 UNCALIBRATED estimate
+  D14: 0.05  # support_resource_links       UNCALIBRATED estimate
+  D15: 0.05  # timed_assessment_disclosure  UNCALIBRATED estimate
+  D16: 0.1   # formative_opportunities      UNCALIBRATED estimate
+  D17: 0.1   # discussion_inventory         UNCALIBRATED estimate
+  D18: 0.1   # instructor_presence          UNCALIBRATED estimate
+  D19: 0.1   # assessment_scaffolding       UNCALIBRATED estimate
+  D20: 0.1   # course_feedback_mechanism    UNCALIBRATED estimate
+  # -- Content accessibility --------------------------------------------------------------------
+  D21: 0.05  # alt_text                     UNCALIBRATED estimate
+  D22: 0.05  # heading_structure            UNCALIBRATED estimate
+  D23: 0.05  # link_text                    UNCALIBRATED estimate
+  D24: 0.05  # table_semantics              UNCALIBRATED estimate
+  D25: 0.05  # colour_contrast              UNCALIBRATED estimate
+  D26: 0.05  # colour_as_sole_cue           UNCALIBRATED estimate
+  D27: 0.1   # captions_and_transcripts     UNCALIBRATED estimate
+  D28: 0.05  # type_size_and_family         UNCALIBRATED estimate
+  D29: 0.1   # text_as_image                UNCALIBRATED estimate
+  D30: 0.1   # document_accessibility       UNCALIBRATED estimate
+  # -- Mobile -----------------------------------------------------------------------------------
+  D39: 0.05  # embed_fallback_link          UNCALIBRATED estimate
+  D40: 0.05  # table_semantics (layout)     UNCALIBRATED estimate
+  D41: 0.05  # text_float_beside_media      UNCALIBRATED estimate
+  D42: 0.05  # fixed_width_layout           UNCALIBRATED estimate
+  D43: 0.05  # legacy_embeds                UNCALIBRATED estimate
+  D44: 0.1   # attachment_formats           UNCALIBRATED estimate
+  D45: 0.1   # mobile_app_availability      UNCALIBRATED estimate

@@ -204,7 +204,9 @@ def test_the_rollup_carries_no_aggregate_quality_number() -> None:
 
     fields = set(Rollup.__dataclass_fields__)
     assert not fields & {"score", "grade", "percent", "percentage", "quality", "average", "mean"}
-    assert fields >= {"by_rating", "by_coverage", "hours", "action_plan"}
+    # Nor a course-level hours total: effort is not a schedule (roadmap item 12a took it out).
+    assert not fields & {"hours", "total_hours", "total"}
+    assert fields >= {"by_rating", "by_coverage", "rows_with_hours", "action_plan"}
 
 
 # ---------------------------------------------------------------------------------------------

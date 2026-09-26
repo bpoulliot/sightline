@@ -82,6 +82,17 @@ class Band:
     #: The range as the instrument prints it, quoted rather than derived.
     range_label: str | None = None
 
+    def __post_init__(self) -> None:
+        # Sufficiently Present is "no qualifying defects found", not a range of hours, so no band
+        # may carry it. Refused here rather than only in the schema, because the banding
+        # arithmetic returning a clean reading for a row nobody examined is the collapse
+        # SPEC §11 names — and a Band built in code never passes through the schema.
+        if self.rating not in BAND_RATINGS:
+            raise ValueError(
+                f"a band's rating must be one of {BAND_RATINGS}, not {self.rating!r}; "
+                "Sufficiently Present is the no-qualifying-defects outcome and has no band"
+            )
+
     def holds(self, hours: float) -> bool:
         return self.up_to_hours is None or hours <= self.up_to_hours
 
@@ -618,10 +629,15 @@ def _source(payload: Any, *, origin: str) -> PackSource:
 def default_rating_scale() -> RatingScale:
     """The reference instrument's own bands, which are printed on it (SPEC §07).
 
-    Not a guess and not a calibration: ``Instructional Designer`` row 3 carries the rating names
-    and row 4 the ranges directly beneath them, and the RSI instrument prints the same three on its
-    rows 6–7. Sufficiently Present has no band, because it means "no qualifying defects found"
-    rather than zero hours. A pack that prints different ranges declares its own.
+    Not a guess and not a calibration. On sheet ``Instructional Designer`` of
+    ``rubrics/source/UCCS OSCQR 3.1.3.xlsx``, row 3 names the ratings — `S3` "Sufficiently
+    Present", `T3` "Minor Revision", `U3` "Moderate Revision", `V3` "Major Revision" — and row 4
+    prints the ranges beneath them after `R4` "Estimated time needed for revision:": `T4` "1/2 hour
+    or less", `U4` "1/2-2 hours", `V4` "2+ hours". `S4` is empty: Sufficiently Present has no band,
+    because it means "no qualifying defects found" rather than zero hours. The RSI instrument prints
+    the same three on its rows 6–7, and `CONFIG!$H$15:$K$19`'s point estimates fall inside these
+    ranges — a corroboration only, since `CONFIG` is never a source (SPEC §03). A pack that prints
+    different ranges declares its own.
     """
     return RatingScale(
         bands=(

@@ -522,6 +522,16 @@ null.
 > seed costs from it. Costs ship as a labelled placeholder (roadmap item 12a); bands display as
 > estimates and are trivially overridable until item 12b fits them.
 
+**As built (item 12a).** The cost table is keyed on the **detector id** — cost follows the work,
+which the detector's check fixes far better than the finding's learner-facing severity does — and
+lives in one file, `src/sightline/rubric/costs.yaml`, overridable by `SIGHTLINE_EFFORT_COSTS`. An
+unpriced detector costs a documented non-zero default and is named in the pack coverage report. A
+banded row carries a **near-boundary marker** when its hours fall within a margin of a threshold,
+with a wider margin at Sufficiently Present / Minor, where independent human reviewers disagree
+most; it is a computed distance, never a confidence. Overrides persist beside the machine proposal
+in the run store's `rating_overrides` table (§09). No course-level total of hours is computed: a
+sum of effort across rows is an aggregate score with a clock face on it (§11).
+
 ---
 
 ## §08 Outputs and voice

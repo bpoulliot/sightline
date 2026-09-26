@@ -58,7 +58,7 @@ from typing import Any
 from ..capabilities import Vocabulary, vocabulary
 from ..detect.base import Detector, DetectorResult, Finding, ResultState, Tier, detectors
 from ..detect.runner import DetectionReport
-from .effort import EffortModel, placeholder_effort_model
+from .effort import EffortModel, NearBoundary, default_effort_model
 from .pack import Criterion, RatingScale, RubricPack
 from .routing import routes_to_extraction
 from .states import Coverage, Rating, coverage_of
@@ -167,6 +167,9 @@ class Contribution:
     state: ResultState
     #: Things it opened and could not read. A row carrying one of these is not clean either.
     undetermined: int = 0
+    #: The cost table has no entry for this detector, so its findings were priced at the table's
+    #: default. Never free — see :mod:`sightline.rubric.effort`.
+    unpriced: bool = False
 
     @property
     def clean(self) -> bool:
@@ -186,6 +189,7 @@ class Contribution:
             "examined": self.examined,
             "state": self.state.value,
             "undetermined": self.undetermined,
+            "unpriced": self.unpriced,
             "clean": self.clean,
         }
 
@@ -218,6 +222,10 @@ class RowResult:
     notes: tuple[str, ...] = ()
     #: Whether this row needs the extraction layer. See :mod:`sightline.rubric.routing`.
     needs_extraction: bool = False
+    #: Set when a *banded* row's hours sit within a margin of a band threshold. Computed once here
+    #: and persisted with the row so every surface shows the same thing; a distance, never a
+    #: confidence. See :mod:`sightline.rubric.effort`.
+    near_boundary: NearBoundary | None = None
 
     @property
     def findings(self) -> tuple[Finding, ...]:
@@ -245,7 +253,7 @@ class RowResult:
             f"found {found} observation(s)",
         ]
         if self.hours is not None and found:
-            parts.append(f"{self.hours:g} h of rolled-up effort")
+            parts.append(f"an estimated {self.hours:g} h of rolled-up effort")
         return f"{head} — " + ", ".join(parts) + "."
 
     def to_dict(self) -> dict[str, Any]:
@@ -266,6 +274,7 @@ class RowResult:
             "contributions": [entry.to_dict() for entry in self.contributions],
             "notes": list(self.notes),
             "needs_extraction": self.needs_extraction,
+            "near_boundary": self.near_boundary.to_dict() if self.near_boundary else None,
             "clean": self.clean,
         }
 
@@ -301,7 +310,7 @@ class Projection:
     #: The instrument's own priority labels, most important first. Carried so ordering needs the
     #: projection and not the pack.
     priority_order: tuple[str, ...] = ()
-    effort: EffortModel = field(default_factory=placeholder_effort_model)
+    effort: EffortModel = field(default_factory=default_effort_model)
 
     def row(self, code: str) -> RowResult | None:
         """The row with this code. Keyed on the code, never on a position."""
@@ -377,6 +386,9 @@ class Projection:
             "statement": self.statement(),
             "effort_calibrated": self.effort.calibrated,
             "effort_note": self.effort.note,
+            "effort_default_hours": self.effort.default_hours,
+            "effort_margins": self.effort.margins.to_dict(),
+            "effort_sources": list(self.effort.sources),
             "rows": [row.to_dict() for row in self.rows],
             "warnings": [warning.to_dict() for warning in self.warnings],
             "omitted": list(self.omitted),
@@ -393,11 +405,11 @@ def project(
     """Project one detection report onto one pack.
 
     A pure function of its arguments. ``tags`` defaults to the shipped detector registry and
-    ``effort`` to the labelled placeholder cost table; both are parameters so the suite can prove
+    ``effort`` to the shipped, uncalibrated cost table; both are parameters so the suite can prove
     the arithmetic without the registry and without pretending the costs are calibrated.
     """
     index = tags or TagIndex.build()
-    model = effort or placeholder_effort_model()
+    model = effort or default_effort_model()
     results_by_tag = _results_by_tag(report)
 
     rows: list[RowResult] = []
@@ -489,6 +501,7 @@ def _row(
                     examined=result.examined,
                     state=result.state,
                     undetermined=len(result.undetermined),
+                    unpriced=not model.priced(result.detector),
                 )
             )
 
@@ -507,6 +520,18 @@ def _row(
 
     rating, hours, rating_notes = _rate(criterion, coverage, contributions, pack, model)
     notes.extend(rating_notes)
+    near = None
+    if rating.is_band and hours is not None:
+        # Only a banded row has an effort figure to measure from. Sufficiently Present is "no
+        # qualifying defects found", and every other reading did no arithmetic at all.
+        near = model.near_boundary(hours, [(band.rating, band.up_to_hours) for band in scale.bands])
+        for entry in contributions:
+            if entry.unpriced and entry.findings:
+                notes.append(
+                    f"{entry.detector} has no entry in the cost table, so its "
+                    f"{len(entry.findings)} observation(s) are priced at the table's default of "
+                    f"{model.default_hours:g} h each rather than at nothing."
+                )
     if criterion.note:
         notes.append(criterion.note)
 
@@ -527,6 +552,7 @@ def _row(
         contributions=tuple(contributions),
         notes=tuple(notes),
         needs_extraction=routes_to_extraction(criterion.tier, coverage),
+        near_boundary=near,
     )
     return row, warnings
 

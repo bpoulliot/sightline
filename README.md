@@ -450,8 +450,50 @@ fed by several detectors **sums their effort and bands the total** — one globa
 never worst-of, so there is one effort model to calibrate rather than sixty-eight.
 
 Band thresholds are *pack* data, because they are printed on the instrument. The per-defect costs
-summed into them are global configuration and are currently a labelled placeholder
-(`src/sightline/rubric/effort.py`); a band shows as an estimate while that is true.
+summed into them are global configuration — see the effort model below.
+
+### The effort model — an estimate, and it says so
+
+Findings become hours, hours become a band, and the band is the rating. Three parts, three homes:
+
+| Part | Where | Status |
+|---|---|---|
+| **Bands** (≤ ½ h / ½–2 h / 2 h +) | the pack's `rating_scale.bands` | The instrument's own: `Instructional Designer` `T4`–`V4`. Sufficiently Present has no band. |
+| **Per-defect costs** | `src/sightline/rubric/costs.yaml` | **An uncalibrated placeholder**, every line marked. Roadmap item 12b fits it. |
+| **Near-boundary margins** | the same file | Uncalibrated; the lowest margin is wider on purpose (below). |
+
+**The cost table is keyed on the detector id**, not on the finding's severity: severity says what
+a defect means for a learner, cost is what fixing it takes, and an uncaptioned video and a missing
+alt attribute are both barriers an order of magnitude apart in work. Override any entry without a
+code change by pointing `SIGHTLINE_EFFORT_COSTS` at a YAML file of the same shape; its entries
+replace the shipped ones one by one. A cost of zero is refused. **A detector with no entry is not
+free** — its findings cost the table's `default_hours`, the row says so by name, and
+`python -m sightline.rubric coverage` lists every detector priced that way.
+
+**Major Revision is deliberately hard to reach.** In five hand-completed reviews, humans rated 326
+criterion instances and said Major twice. A suite property (`tests/test_rubric_effort.py`) holds
+the shipped table to it: no row of the reference pack reaches Major on fewer than twenty findings
+from its costliest detector, and ten missing alt attributes read Minor Revision.
+
+**The near-boundary marker.** A banded row whose hours fall within a margin of a threshold carries
+`near_boundary` — the threshold, the ratings either side, the distance in hours and the margin
+applied. The margin at the **Sufficiently Present / Minor** boundary is wider than the others,
+because that is where independent human reviewers disagree most (29 of 34 disagreements in the same
+corpus) and where the arithmetic is smallest and so looks most certain. It is **a computed
+distance, not a confidence score**: no percentage, no probability, checkable against the row's own
+findings. It is computed once and persisted with the row in the review file, so every output
+surface shows the same marker; nothing renders it yet (roadmap item 24 does). A row reading
+Sufficiently Present carries none — it has no effort figure to measure from.
+
+**Overrides are the calibration data.** `sightline.rubric.overrides.record_override` appends a
+record to the run store's `rating_overrides` table: the machine proposal (rating, hours, marker,
+the findings that were summed) beside the human rating, who set it, when, and the pack id and
+version. Append-only — an override never overwrites the proposal. A run nobody overrode writes
+nothing. The review screen (item 16) is what calls it.
+
+**There is no course-level figure.** No score, index or percentage, and no total of hours across
+rows: effort is not a schedule, and a course total is an aggregate score with a clock face on it.
+A test reads the effort path's code for the arithmetic that would produce one.
 
 ### Validation is asymmetric, on purpose
 
@@ -876,6 +918,7 @@ repository is a bug, and `tests/test_config.py` fails the build over one.
 | `SIGHTLINE_RESOLVE_LINKS` | Whether the policy-link check may request the addresses a course links to. Default `false` — the only traffic Sightline makes outside Canvas. With it off the check reports which policy links are present and claims nothing about where they go; a request that fails is reported as unknown, never as a broken link. |
 | `SIGHTLINE_SECRET_KEY` | Key for credentials entered in the UI. Unset means Sightline manages a key file under the data root. |
 | `SIGHTLINE_DATA_DIR` | Root for everything downloaded or generated. Default `./data`; `/data` in the container. |
+| `SIGHTLINE_EFFORT_COSTS` | A YAML file overriding entries of the per-defect cost table (`src/sightline/rubric/costs.yaml`). Unset means the shipped, uncalibrated table. See *The effort model*. |
 | `SIGHTLINE_BATCH_CAP` | Courses per run. Default `16` (SPEC §09). Lower it if you want results sooner; raising it buys a longer wait rather than more throughput, because courses are reviewed one after another. |
 | `OLLAMA_BASE_URL` | Ollama endpoint. No default. Fallback for the endpoint on the Settings screen, which wins over it. |
 | `OLLAMA_CONCURRENCY` | Concurrent model calls. Default `1`, ceiling `8`. |

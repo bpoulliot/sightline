@@ -14,6 +14,11 @@ and nothing else. So it can be shown on the screen where a rubric is uploaded, w
 question "will this actually work?" is asked, and it is the number roadmap item 22 shows moving
 when a human accepts a proposed binding.
 
+**It also names every detector feeding the pack that the cost table does not price** (roadmap item
+12a). Such a detector is not free — its findings cost the table's documented default — but a gap in
+the table is information of the same kind as a gap in the bindings, and it is reported here rather
+than discovered in a band.
+
 **A pack with no bindings reports 0 deterministic and every row evidence-only, and that is a
 success line, not a failure line.** The wording here is held to that: nothing in this module says
 degraded, incomplete, unsupported or missing about an unbound row.
@@ -26,6 +31,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from ..detect.base import Tier
+from .effort import EffortModel, default_effort_model
 from .pack import Criterion, RubricPack
 from .project import TagIndex
 from .states import Coverage, coverage_of
@@ -81,6 +87,10 @@ class PackCoverage:
     rows: tuple[RowCoverage, ...]
     #: Codes omitted because their section is switched off. Reported, not dropped.
     omitted: tuple[str, ...] = ()
+    #: Detectors feeding a rendered row that have no entry in the cost table.
+    unpriced: tuple[str, ...] = ()
+    #: What each of their findings costs instead. Never zero.
+    default_hours: float = 0.0
 
     @property
     def deterministic(self) -> tuple[RowCoverage, ...]:
@@ -158,6 +168,11 @@ class PackCoverage:
             parts.append(f"{tally['not_determinable']} are not determinable from course artifacts")
         if tally["omitted"]:
             parts.append(f"{tally['omitted']} more are omitted with a switched-off section")
+        if self.unpriced:
+            parts.append(
+                f"{len(self.unpriced)} detector(s) feeding it have no entry in the cost table and "
+                f"are priced at the default {self.default_hours:g} h per observation"
+            )
         return f"{self.pack_name} {self.pack_version}: " + ", ".join(parts) + "."
 
     def detail(self) -> str:
@@ -176,6 +191,11 @@ class PackCoverage:
                 f"  bound to {len(self.unknown_tags)} tag(s) this build does not recognise: "
                 f"{', '.join(self.unknown_tags)}. Those rows gather evidence instead."
             )
+        if self.unpriced:
+            lines.append(
+                f"  priced at the cost table's default of {self.default_hours:g} h per "
+                f"observation: {', '.join(self.unpriced)}"
+            )
         if not self.ok:
             lines.append("  the buckets above do not account for every row, which is a bug here.")
         return "\n".join(lines)
@@ -191,18 +211,26 @@ class PackCoverage:
             "rows": [row.to_dict() for row in self.rows],
             "omitted": list(self.omitted),
             "unknown_tags": list(self.unknown_tags),
+            "unpriced": list(self.unpriced),
+            "default_hours": self.default_hours,
         }
 
 
-def pack_coverage(pack: RubricPack, *, tags: TagIndex | None = None) -> PackCoverage:
-    """What this build can answer of one pack. No course involved."""
+def pack_coverage(
+    pack: RubricPack, *, tags: TagIndex | None = None, effort: EffortModel | None = None
+) -> PackCoverage:
+    """What this build can answer of one pack, and price. No course involved."""
     index = tags or TagIndex.build()
+    model = effort or default_effort_model()
+    rows = tuple(_row(criterion, index) for criterion in pack.rendered_criteria())
     return PackCoverage(
         pack_id=pack.id,
         pack_name=pack.name,
         pack_version=pack.version,
-        rows=tuple(_row(criterion, index) for criterion in pack.rendered_criteria()),
+        rows=rows,
         omitted=tuple(criterion.code for criterion in pack.omitted_criteria()),
+        unpriced=model.unpriced(detector for row in rows for detector in row.detectors),
+        default_hours=model.default_hours,
     )
 
 
