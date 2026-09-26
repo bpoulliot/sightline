@@ -312,12 +312,14 @@ rating_scale:
 **Band thresholds are pack data; per-defect costs are not.** The bands belong to the instrument —
 the reference one prints these three ranges as column headers, and the RSI instrument prints the
 same three. The per-defect costs summed into them are one global effort model, calibrated once, and
-they are currently an obvious placeholder (`src/sightline/rubric/effort.py`). A band shows as an
-estimate while that is true.
+they are currently an obvious, uncalibrated placeholder in `src/sightline/rubric/costs.yaml`, keyed
+on the detector id and overridable with `SIGHTLINE_EFFORT_COSTS` (README, *The effort model*). A
+band shows as an estimate while that is true. A pack does not carry costs.
 
 `up_to_hours` is an *inclusive* ceiling — "1/2 hour or less" includes a half hour — and must be
 `null` on the last band, which is open-ended. Sufficiently Present has no band, because it means
-"no qualifying defects found" rather than zero hours.
+"no qualifying defects found" rather than zero hours — and `rating` accepts only `minor`,
+`moderate` and `major`, so no band can be named after it.
 
 ---
 

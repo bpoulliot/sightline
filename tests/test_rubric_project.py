@@ -39,7 +39,7 @@ from sightline.detect.base import (
     registry_snapshot,
 )
 from sightline.detect.runner import DetectionReport
-from sightline.rubric.effort import EffortModel, placeholder_effort_model
+from sightline.rubric.effort import EffortModel, default_effort_model
 from sightline.rubric.pack import RubricPack, load, loads
 from sightline.rubric.project import (
     Coverage,
@@ -54,10 +54,10 @@ FIXTURES = Path(__file__).resolve().parent / "fixtures" / "rubric"
 TINY = FIXTURES / "tiny-pack.yaml"
 UNBOUND = FIXTURES / "unbound-pack.yaml"
 
-#: A cost table with round numbers, so a band boundary can be crossed on purpose. Uncalibrated,
-#: like the shipped placeholder, and stated as such by ``calibrated=False``.
+#: A cost table with round numbers, so a band boundary can be crossed on purpose. Keyed on the
+#: detector id, like the shipped table, and uncalibrated like it, stated by ``calibrated=False``.
 PROBE_COSTS = EffortModel(
-    costs={Severity.BARRIER: 0.25, Severity.FRICTION: 0.1, Severity.ADVISORY: 0.05},
+    costs=dict.fromkeys(("P01", "P02", "P03", "P04", "P05"), 0.25),
     calibrated=False,
 )
 
@@ -766,15 +766,15 @@ def test_an_uncalibrated_band_says_so_on_the_row_that_carries_it() -> None:
 
 
 def test_the_shipped_effort_model_is_labelled_uncalibrated() -> None:
-    model = placeholder_effort_model()
+    model = default_effort_model()
     assert model.calibrated is False
     assert "uncalibrated" in model.note
     assert "12b" in model.note
 
 
-def test_findings_that_price_at_zero_still_do_not_read_as_clean() -> None:
-    """Findings exist, so "no qualifying defects found" is false whatever the cost table says.
-    A cost of zero is a fact about the table, not about the course."""
+def test_a_detector_the_cost_table_does_not_price_is_not_free() -> None:
+    """Findings exist, so "no qualifying defects found" is false whatever the cost table says. A
+    detector with no entry costs the table's documented default, and the row says so by name."""
     pack = pack_from(
         [
             {
@@ -786,13 +786,16 @@ def test_findings_that_price_at_zero_still_do_not_read_as_clean() -> None:
             }
         ]
     )
-    free = EffortModel(costs={}, calibrated=False)
-    entry = row(project(pack, probe_report("P01"), tags=probe_index("P01"), effort=free), "S 1")
+    unpriced = EffortModel(costs={}, default_hours=0.1, calibrated=False)
+    entry = row(project(pack, probe_report("P01"), tags=probe_index("P01"), effort=unpriced), "S 1")
     assert entry.findings
-    assert entry.hours == 0.0
+    assert entry.hours == pytest.approx(0.1 * len(entry.findings))
+    assert entry.hours > 0
     assert entry.rating is Rating.MINOR
     assert entry.clean is False
-    assert any("prices them at zero" in note for note in entry.notes)
+    assert [contribution.unpriced for contribution in entry.contributions] == [True]
+    assert any("P01 has no entry in the cost table" in note for note in entry.notes)
+    assert entry.to_dict()["contributions"][0]["unpriced"] is True
 
 
 def test_the_row_dictionary_carries_the_coverage_state_and_never_only_a_rating() -> None:

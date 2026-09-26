@@ -21,6 +21,7 @@ from .models import (
     AppSecret,
     AppSetting,
     Base,
+    RatingOverride,
     Run,
     RunCourse,
     RunEvent,
@@ -30,6 +31,7 @@ from .models import (
 )
 from .paths import DataPaths
 from .redaction import scrub, scrub_object
+from .rubric.states import Rating
 
 log = get_logger("sightline.store")
 
@@ -249,6 +251,92 @@ class RunStore:
                     data=scrub_object(data) if data else None,
                 )
             )
+
+    # -- rating overrides --------------------------------------------------------------------
+    #
+    # Append-only on purpose: there is a write and there are reads, and there is no update and no
+    # delete. See sightline.models.RatingOverride for why the record is the calibration data.
+
+    def record_override(
+        self,
+        course_id: str,
+        *,
+        criterion: str,
+        pack_id: str,
+        pack_version: str,
+        machine_rating: str,
+        machine_hours: float | None,
+        machine_near_boundary: dict[str, Any] | None,
+        machine_findings: Sequence[dict[str, Any]],
+        effort_calibrated: bool,
+        human_rating: str,
+        reviewer: str,
+        note: str | None = None,
+    ) -> int:
+        """Append one override beside the proposal it replaces. Returns the new record's id.
+
+        Both ratings must be internal rating names; a label ("Minor Revision") is refused rather
+        than stored, because a record 12b cannot key on is a record lost.
+        """
+        for field_name, value in (
+            ("machine_rating", machine_rating),
+            ("human_rating", human_rating),
+        ):
+            if value not in {rating.value for rating in Rating}:
+                raise ValueError(f"{field_name} {value!r} is not a rating name")
+        if not reviewer or not reviewer.strip():
+            raise ValueError("an override records who made it; reviewer is empty")
+        with self.session() as session:
+            course = session.get(RunCourse, course_id)
+            if course is None:
+                raise KeyError(course_id)
+            record = RatingOverride(
+                run_id=course.run_id,
+                course_id=course_id,
+                criterion=criterion,
+                pack_id=pack_id,
+                pack_version=pack_version,
+                machine_rating=machine_rating,
+                machine_hours=machine_hours,
+                machine_near_boundary=machine_near_boundary,
+                machine_findings=list(machine_findings),
+                effort_calibrated=effort_calibrated,
+                human_rating=human_rating,
+                reviewer=reviewer.strip(),
+                note=note,
+            )
+            session.add(record)
+            session.add(
+                RunEvent(
+                    run_id=course.run_id,
+                    course_id=course_id,
+                    event="rating_overridden",
+                    data=scrub_object(
+                        {
+                            "criterion": criterion,
+                            "machine_rating": machine_rating,
+                            "human_rating": human_rating,
+                        }
+                    ),
+                )
+            )
+            session.flush()
+            return record.id
+
+    def list_overrides(
+        self, *, run_id: str | None = None, course_id: str | None = None
+    ) -> list[RatingOverride]:
+        """Override records, oldest first. Filtered by run or course when either is given."""
+        with self.session() as session:
+            statement = select(RatingOverride).order_by(RatingOverride.id)
+            if run_id is not None:
+                statement = statement.where(RatingOverride.run_id == run_id)
+            if course_id is not None:
+                statement = statement.where(RatingOverride.course_id == course_id)
+            records = list(session.scalars(statement))
+            for record in records:
+                record.created_at = as_utc(record.created_at)  # type: ignore[assignment]
+            return records
 
     # -- reads -------------------------------------------------------------------------------
 

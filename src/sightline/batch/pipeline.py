@@ -16,11 +16,13 @@ normalized course somebody already acquired, not a second acquisition implementa
 
 WHAT THE SCORE STAGE IS AND IS NOT
 -----------------------------------
-It rolls up: how many rows carry each rating, how many hours the bands add to, which rows lead the
-action plan. It computes no aggregate quality number and there is no field here for one — SPEC §11
+It rolls up: how many rows carry each rating and coverage state, and which rows lead the action
+plan. It computes no aggregate quality number and there is no field here for one — SPEC §11
 forbids it explicitly, and the reference instrument's own inverted ``VALUE`` column is the
-cautionary example. Every number the rollup carries is a count of rows or a sum of hours, and the
-uncalibrated-costs note travels with it so no surface can render a band as a measurement.
+cautionary example. **Nor does it add hours across rows.** Item 17 shipped a course-level hours
+total here and item 12a took it out: a total remediation time is an aggregate score with a clock
+face on it, and effort is not a schedule. Hours live on the row they were computed for, with the
+uncalibrated-costs note beside them. Every number the rollup carries is a count of rows.
 """
 
 from __future__ import annotations
@@ -48,6 +50,7 @@ from ..llm.client import ModelCard, OllamaClient
 from ..llm.errors import ModelHostError, ModelHostNotConfiguredError
 from ..logging import get_logger
 from ..model import CourseDocument
+from ..rubric.effort import EffortModel
 from ..rubric.pack import RubricPack
 from ..rubric.project import Projection, project
 from ..rubric.routing import RoutingManifest, manifest
@@ -91,17 +94,17 @@ class CourseWork:
 
 @dataclass(frozen=True, kw_only=True, slots=True)
 class Rollup:
-    """The score stage's product: counts of rows and a sum of hours. Never a grade.
+    """The score stage's product: counts of rows. Never a grade, and never a course-level total.
 
-    ``hours`` is the total of the per-row rolled-up effort the projection computed, and
-    ``calibrated`` says whether the cost table behind it has been fitted to anything (it has not —
-    roadmap item 12b). Any surface rendering an hour figure renders ``note`` beside it.
+    ``rows_with_hours`` counts rows that carry a per-row effort estimate; the estimates themselves
+    stay on those rows. ``calibrated`` says whether the cost table behind them has been fitted to
+    anything (it has not — roadmap item 12b), and any surface rendering a row's hours renders
+    ``note`` beside them.
     """
 
     rows: int
     by_rating: Mapping[str, int]
     by_coverage: Mapping[str, int]
-    hours: float
     rows_with_hours: int
     calibrated: bool
     note: str
@@ -116,8 +119,7 @@ class Rollup:
         )
         return (
             f"{self.rows} row(s) rolled up: {ordered or 'none rated'}; "
-            f"{self.hours:g} h across {self.rows_with_hours} row(s) that carry an estimate. "
-            f"{self.note}"
+            f"{self.rows_with_hours} row(s) carry an effort estimate. {self.note}"
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -126,7 +128,6 @@ class Rollup:
             "rows": self.rows,
             "by_rating": dict(self.by_rating),
             "by_coverage": dict(self.by_coverage),
-            "hours": self.hours,
             "rows_with_hours": self.rows_with_hours,
             "calibrated": self.calibrated,
             "note": self.note,
@@ -222,9 +223,12 @@ class ReviewPipeline:
         model: str | None = None,
         files: FileSource | None = None,
         links: LinkResolver | None = None,
+        effort: EffortModel | None = None,
     ) -> None:
         self.source = source
         self.pack = pack
+        #: The cost table, loaded by whoever built the pipeline. ``None`` is the shipped table.
+        self.effort = effort
         self.client = client
         self.model = model
         self.files = files
@@ -301,7 +305,7 @@ class ReviewPipeline:
     def _project(self, work: CourseWork) -> StageOutcome:
         document = _require(work.document, Stage.PROJECT, "the course was never acquired")
         report = _require(work.detection, Stage.PROJECT, "nothing was detected")
-        projection = project(self.pack, report)
+        projection = project(self.pack, report, effort=self.effort)
         work.projection = projection
         routing = manifest(projection.rows)
         work.routing = routing
@@ -414,13 +418,11 @@ class ReviewPipeline:
         by_coverage = {
             coverage.value: len(projection.by_coverage(coverage)) for coverage in Coverage
         }
-        with_hours = [row for row in projection.rows if row.hours]
         rollup = Rollup(
             rows=len(projection.rows),
             by_rating=by_rating,
             by_coverage=by_coverage,
-            hours=round(sum(row.hours or 0.0 for row in with_hours), 2),
-            rows_with_hours=len(with_hours),
+            rows_with_hours=len([row for row in projection.rows if row.hours]),
             calibrated=projection.effort.calibrated,
             note=projection.effort.note,
             action_plan=tuple(row.code for row in projection.action_plan_order()),
@@ -431,7 +433,7 @@ class ReviewPipeline:
             stage=Stage.SCORE,
             examined=rollup.rows,
             statement=rollup.statement(),
-            detail={"hours": rollup.hours, "calibrated": rollup.calibrated},
+            detail={"rows_with_hours": rollup.rows_with_hours, "calibrated": rollup.calibrated},
         )
 
     # -- what a reviewer opens ----------------------------------------------------------------

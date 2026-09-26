@@ -34,6 +34,7 @@ from ..llm.client import OllamaClient
 from ..logging import configure_logging
 from ..paths import DataPaths
 from ..preferences import PreferenceStore
+from ..rubric.effort import load_effort_model
 from ..rubric.shipped import shipped_pack, shipped_packs
 from ..store import RunStore
 from .gate import ExportGate
@@ -158,7 +159,13 @@ def _bundle_factory(
         )
         try:
             yield Narrating(
-                ReviewPipeline(source=BundleSource(), pack=pack, client=client, model=model)
+                ReviewPipeline(
+                    source=BundleSource(),
+                    pack=pack,
+                    client=client,
+                    model=model,
+                    effort=load_effort_model(settings.effort_costs),
+                )
             )
         finally:
             if client is not None:

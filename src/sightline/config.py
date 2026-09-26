@@ -79,6 +79,11 @@ class Settings(BaseSettings):
     # -- Working data ------------------------------------------------------------------------
     data_dir: Path = Field(default=Path("./data"), validation_alias="SIGHTLINE_DATA_DIR")
 
+    #: A YAML file overriding entries of the shipped per-defect cost table, same shape as
+    #: ``src/sightline/rubric/costs.yaml``. Unset means the shipped, uncalibrated table. The one
+    #: way to change what a finding costs without a code change; see :mod:`sightline.rubric.effort`.
+    effort_costs: Path | None = Field(default=None, validation_alias="SIGHTLINE_EFFORT_COSTS")
+
     #: Courses per run. Configurable because a deployment may want *fewer* — a reviewer who wants
     #: results this afternoon sets it to two — and bounded above because the sequential design
     #: behind :data:`DEFAULT_BATCH_CAP` does not stop being true at seventeen.

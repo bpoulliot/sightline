@@ -4,7 +4,7 @@ Run state lives in SQLite so a restart resumes rather than loses (SPEC §04). Th
 and no worker: background work is an asyncio task in the same process, and this table set is the
 only thing that survives it.
 
-Five tables, deliberately flat:
+Six tables, deliberately flat:
 
 ``runs``
     One row per batch a designer started.
@@ -20,6 +20,9 @@ Five tables, deliberately flat:
 ``app_settings``
     Preferences set on the settings screen. Plaintext, deliberately: a preference nobody can read
     is a preference nobody can audit. Nothing secret goes in it — that is what ``app_secrets`` is.
+``rating_overrides``
+    A reviewer's rating for a row, beside the machine proposal it replaced. Append-only, and the
+    calibration data for the effort model (SPEC §09; roadmap items 12a, 16, 12b).
 """
 
 from __future__ import annotations
@@ -28,7 +31,7 @@ import enum
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import JSON, DateTime, ForeignKey, Integer, LargeBinary, String, Text
+from sqlalchemy import JSON, DateTime, Float, ForeignKey, Integer, LargeBinary, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -210,3 +213,52 @@ class AppSetting(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, onupdate=utcnow
     )
+
+
+class RatingOverride(Base):
+    """A reviewer's rating for one row, stored beside the machine proposal it replaces.
+
+    **This table is the calibration data** (SPEC §09): roadmap item 12b fits the per-defect costs
+    against it, so both halves are kept whole. The machine side is what the effort model proposed —
+    the rating, the rolled-up hours, the near-boundary marker if there was one, and the findings
+    that were summed — and the human side is the rating a person chose instead.
+
+    **Append-only. An override never overwrites.** A second override of the same row is a second
+    record, and the store has no update or delete for this table: a reviewer changing their mind is
+    itself information, and a machine proposal edited after the fact is no longer the proposal.
+
+    The pack id *and version* are recorded because a band means something only against the bands
+    it was cut from, and a pack revision can move them.
+
+    A run nobody overrode writes nothing here. That is the ordinary case, not a gap.
+    """
+
+    __tablename__ = "rating_overrides"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    run_id: Mapped[str] = mapped_column(ForeignKey("runs.id", ondelete="CASCADE"), index=True)
+    course_id: Mapped[str] = mapped_column(
+        ForeignKey("run_courses.id", ondelete="CASCADE"), index=True
+    )
+    #: The row, keyed on its code — never on a position.
+    criterion: Mapped[str] = mapped_column(String(64))
+    pack_id: Mapped[str] = mapped_column(String(64))
+    pack_version: Mapped[str] = mapped_column(String(64))
+
+    #: The machine proposal. Internal rating names (:class:`sightline.rubric.states.Rating`).
+    machine_rating: Mapped[str] = mapped_column(String(32))
+    #: Rolled-up hours, or null when the row was never banded (Tier C/D, no coverage).
+    machine_hours: Mapped[float | None] = mapped_column(Float, default=None)
+    #: The near-boundary marker the row carried, as persisted, or null.
+    machine_near_boundary: Mapped[dict | None] = mapped_column(JSON, default=None)
+    #: The detector findings that were summed, one entry per finding.
+    machine_findings: Mapped[list] = mapped_column(JSON, default=list)
+    #: Whether the cost table behind ``machine_hours`` had been fitted when it was computed.
+    effort_calibrated: Mapped[bool] = mapped_column(default=False)
+
+    #: The human side.
+    human_rating: Mapped[str] = mapped_column(String(32))
+    #: Who set it — whatever identifier the review screen has for the person. Free text.
+    reviewer: Mapped[str] = mapped_column(String(128))
+    note: Mapped[str | None] = mapped_column(Text, default=None)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

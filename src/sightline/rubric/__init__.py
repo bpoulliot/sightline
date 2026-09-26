@@ -31,14 +31,21 @@ The pieces, in the order they are used:
 :mod:`~sightline.rubric.states`
     The three coverage states, defined once.
 :mod:`~sightline.rubric.effort`
-    Per-defect costs, as a labelled placeholder. Roadmap item 12 owns the real one.
+    The effort model: per-defect costs (an uncalibrated placeholder in ``costs.yaml``, overridable
+    without a code change), the near-boundary marker, and nothing course-level.
 
 The capability vocabulary itself is not here: it is shared with the detectors and belongs to
 neither side, so it lives at :mod:`sightline.capabilities`.
 """
 
 from .coverage import PackCoverage, RowCoverage, pack_coverage
-from .effort import EffortModel, placeholder_effort_model
+from .effort import (
+    EffortConfigError,
+    EffortModel,
+    NearBoundary,
+    default_effort_model,
+    load_effort_model,
+)
 from .importer import Import, ImportReport, RubricImportError, import_csv, import_workbook
 from .mapping import MappingError, PackMapping, RowMapping, SectionMapping
 from .mapping import load as load_mapping
@@ -81,11 +88,13 @@ __all__ = [
     "Contribution",
     "Coverage",
     "Criterion",
+    "EffortConfigError",
     "EffortModel",
     "ExtractionRequest",
     "Import",
     "ImportReport",
     "MappingError",
+    "NearBoundary",
     "PackCoverage",
     "PackMapping",
     "PacksNotFoundError",
@@ -103,18 +112,19 @@ __all__ = [
     "SectionMapping",
     "TagIndex",
     "coverage_of",
+    "default_effort_model",
     "default_rating_scale",
     "extraction_requests",
     "import_csv",
     "import_workbook",
     "load",
     "load_mapping",
+    "load_effort_model",
     "loads",
     "manifest",
     "pack_coverage",
     "pack_paths",
     "packs_dir",
-    "placeholder_effort_model",
     "project",
     "routes_to_extraction",
     "routing_reason",

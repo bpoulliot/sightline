@@ -35,6 +35,7 @@ from ..logging import get_logger
 from ..models import Run
 from ..paths import DataPaths
 from ..preferences import PreferenceStore
+from ..rubric.effort import load_effort_model
 from ..rubric.shipped import PacksNotFoundError, shipped_pack
 from .pipeline import CanvasSource, CoursePipeline, ReviewPipeline
 from .runner import PipelineFactory
@@ -99,6 +100,7 @@ def live_pipeline_factory(
                     # Item 26: nothing can build a FileSource yet. See the module docstring.
                     files=None,
                     links=links,
+                    effort=load_effort_model(settings.effort_costs),
                 )
             finally:
                 if model_client is not None:
