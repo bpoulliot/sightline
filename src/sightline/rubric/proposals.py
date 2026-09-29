@@ -76,7 +76,8 @@ which of these applies (:func:`consequence`):
   on the criterion without settling it (item 28).
 * **Tier C** — the row stays at No Response whatever it binds to. The counts become context for
   the reviewer's question.
-* **Tier D** — the row reads Not Applicable bound or not, so a binding changes nothing.
+* **Tier D** — the row reads Not Applicable bound or not, so a binding changes nothing, and the
+  proposer does not ask about Tier D rows at all: each is recorded as not asked, with that reason.
 * A tag **no detector implements yet** changes nothing computed in this build, and on a Tier A row
   it keeps the row from reading Sufficiently Present until one does.
 
@@ -139,6 +140,13 @@ FATAL = (
     ModelNotFoundError,
     ModelNotUsableError,
     ModelThinkingUnsupportedError,
+)
+
+#: Why a Tier D row is not sent to the model. Such a row reads Not Applicable bound or not, so a
+#: proposal for it could change nothing in the review and would only cost a call.
+NOT_ASKED_TIER_D = (
+    "Tier D, not determinable from course artifacts. It reads Not Applicable whether or not it is "
+    "bound, so a binding would change nothing in the review and the model was not asked."
 )
 
 SYSTEM_PROMPT = (
@@ -356,6 +364,8 @@ class RowOutcome:
     unknown: tuple[str, ...] = ()
     #: Why the row could not be asked, when it could not. Distinct from "none proposed".
     failure: str | None = None
+    #: Why the row was deliberately not asked. Tier D rows only: a binding changes nothing there.
+    not_asked: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -367,12 +377,13 @@ class RowOutcome:
             "already_bound": list(self.already_bound),
             "unknown": list(self.unknown),
             "failure": self.failure,
+            "not_asked": self.not_asked,
         }
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)
 class ProposalSet:
-    """Every proposal from one run over one pack. A recorded artifact, not a function of the pack."""
+    """Every proposal from one run over one pack: a recorded artifact, not a property of it."""
 
     pack_id: str
     pack_name: str
@@ -405,8 +416,11 @@ class ProposalSet:
         """Counts, and nothing that could be read as a measure of the proposals themselves."""
         unknown = sum(len(row.unknown) for row in self.rows)
         none = sum(
-            1 for row in self.rows if row.failure is None and not row.proposals
+            1
+            for row in self.rows
+            if row.failure is None and row.not_asked is None and not row.proposals
         )
+        skipped = sum(1 for row in self.rows if row.not_asked is not None)
         verified = sum(1 for p in self.proposals if p.span_state == SPAN_VERIFIED)
         parts = [
             f"{len(self.proposals)} proposal(s) over {len(self.rows)} row(s)",
@@ -415,6 +429,8 @@ class ProposalSet:
         ]
         if self.conflicts:
             parts.append(f"{len(self.conflicts)} on a row already bound to other tags")
+        if skipped:
+            parts.append(f"{skipped} Tier D row(s) not asked")
         if unknown:
             parts.append(f"{unknown} unknown tag(s) dropped")
         if self.failures:
@@ -473,6 +489,7 @@ def loads(text: str, *, origin: str = "<proposals>") -> ProposalSet:
                 already_bound=tuple(row["already_bound"]),
                 unknown=tuple(row["unknown"]),
                 failure=row["failure"],
+                not_asked=row["not_asked"],
             )
             for row in payload["rows"]
         )
@@ -506,7 +523,9 @@ def loads(text: str, *, origin: str = "<proposals>") -> ProposalSet:
             proposals=proposals,
         )
     except (KeyError, TypeError, ValueError) as exc:
-        raise ProposalError(f"{origin}: a proposal file with a missing or malformed field: {exc}")
+        raise ProposalError(
+            f"{origin}: a proposal file with a missing or malformed field: {exc}"
+        ) from exc
     ids = [proposal.id for proposal in result.proposals]
     if len(ids) != len(set(ids)):
         raise ProposalError(f"{origin}: proposal numbers repeat, so naming one is ambiguous")
@@ -572,8 +591,8 @@ def consequence(
     if tier is Tier.C:
         return (
             f"The row stays at No Response whatever it binds to: it is Tier C, a judgement no "
-            f"rating is pre-selected for. Binding adds what {by} observe to the context gathered "
-            "for the reviewer's question. Unbinding removes it."
+            f"rating is pre-selected for. Binding adds the observations of {by} to the context "
+            "gathered for the reviewer's question. Unbinding removes them."
         )
     moved = (
         "The row moves from evidence-only to deterministic"
@@ -582,14 +601,15 @@ def consequence(
     )
     if tier is Tier.A:
         return (
-            f"{moved}: {by} answer it by count, it is not sent to the model for quotes, and a "
-            "clean run with every one of its bindings examined reads Sufficiently Present. What "
-            f"{by} find is added into its effort. Unbinding moves it back."
+            f"{moved}: it is answered by count from {by}, it is not sent to the model for "
+            "quotes, and a clean run with every one of its bindings examined reads Sufficiently "
+            f"Present. What {by} observe is added into its effort. Unbinding moves it back."
         )
     return (
-        f"{moved}: what {by} find is counted and banded into its rating, beside the passages "
-        "already located and quoted for it. A clean run still reads No Response, because on a "
-        "Tier B row a binding bears on the criterion without settling it. Unbinding moves it back."
+        f"{moved}: the observations of {by} are counted and banded into its rating, beside "
+        "the passages already located and quoted for it. A clean run still reads No Response, "
+        "because on a Tier B row a binding bears on the criterion without settling it. "
+        "Unbinding moves it back."
     )
 
 
@@ -624,8 +644,9 @@ async def propose(
     """Ask the model about every row of ``pack``, one call per row, and return what came back.
 
     Every row is asked, including rows already bound — a proposal there is shown as a conflict —
-    and rows of a switched-off section, which a later run may switch on. The pack is not changed.
-    A row whose call failed is recorded as a failure, which is not the same as "none proposed".
+    and rows of a switched-off section, which a later run may switch on, **except Tier D rows**,
+    which are recorded as not asked with the reason (:data:`NOT_ASKED_TIER_D`). The pack is not
+    changed. A row whose call failed is recorded as a failure, which is not "none proposed".
     """
     words = words or vocabulary()
     index = index or TagIndex.build()
@@ -647,13 +668,16 @@ async def propose(
     calls = 0
     started = time.perf_counter()
     for criterion in pack.criteria:
-        calls += 1
         base = RowOutcome(
             code=criterion.code,
             tier=criterion.tier,
             criterion=criterion.text,
             bound=criterion.bindings,
         )
+        if criterion.tier is Tier.D:
+            rows.append(replace(base, not_asked=NOT_ASKED_TIER_D))
+            continue
+        calls += 1
         try:
             result = await client.chat(
                 card,
@@ -775,6 +799,9 @@ def review(proposals: ProposalSet) -> str:
         lines.append(f"    bound now: {', '.join(row.bound) if row.bound else 'nothing'}")
         if row.failure is not None:
             lines.append(f"    could not be asked: {row.failure}")
+            continue
+        if row.not_asked is not None:
+            lines.append(f"    not asked: {row.not_asked}")
             continue
         for proposal_id in row.proposals:
             proposal = proposals.get(proposal_id)
@@ -1046,6 +1073,7 @@ def _named(proposals: ProposalSet, number: int) -> Proposal:
 __all__ = [
     "FILE_VERSION",
     "NONDETERMINISM_NOTE",
+    "NOT_ASKED_TIER_D",
     "Acceptance",
     "CoverageDelta",
     "Proposal",

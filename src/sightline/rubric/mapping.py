@@ -254,9 +254,7 @@ def dumps(mapping: PackMapping) -> str:
         payload["sections"] = {
             str(code): _section_payload(section) for code, section in mapping.sections.items()
         }
-    payload["criteria"] = {
-        str(code): _row_payload(row) for code, row in mapping.criteria.items()
-    }
+    payload["criteria"] = {str(code): _row_payload(row) for code, row in mapping.criteria.items()}
     return yaml.safe_dump(payload, sort_keys=False, allow_unicode=True, width=100)
 
 
