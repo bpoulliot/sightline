@@ -6,7 +6,7 @@ Labels: **READY** · **NEEDS DISCUSSION** · **NEEDS MEASUREMENT** · **BLOCKED*
 Nothing unready enters the queue. One item per conversation, one PR per item.
 
 Queue lives at `~/docker/overnight/projects/sightline/` (moved from `~/docker/overnight-sightline/`
-on 2026-09-22). Next free item number: **36**.
+on 2026-09-22). Next free item number: **37**.
 
 ---
 
@@ -28,15 +28,15 @@ on 2026-09-22). Next free item number: **36**.
 | 12a | Effort model — ship it | 1 | READY | **DONE** — PR #20 |
 | 12b | Effort model — fit the costs | 1 | **BLOCKED** — item 06/07/08 detectors have all landed; unblocked in code, still needs the calibration corpus | — |
 | 13 | XLSX writer | 2 | READY | **DONE** — PR #28 |
-| 14 | PDF course report | 2 | READY | staged 14 |
+| 14 | PDF course report | 2 | READY | re-specified 2026-09-29, PR #30 — see *Notes carried forward* |
 | 15 | Narrative generator and voice contract | 2 | READY | **DONE** — PR #27 |
-| 16 | Review UI | 2 | READY | staged 15 |
+| 16 | Review UI | 2 | **NEEDS DISCUSSION** — Q1 who an override records, Q2 whether exports carry the reviewer's rating | re-specified 2026-09-29, PR #30 — see *Notes carried forward* |
 | 17 | Batch runner | 2 | READY | **DONE** — PR #18 |
 | 18 | Escalation adapter | 3 | **BLOCKED** — ChatGPT Edu API access | — |
 | 19 | Uploaded-rubric mapping screen | 3 | **SUPERSEDED by 22** | — |
 | 20 | Multi-course comparison view | 3 | **DECIDED — not building it** | see 25 |
 | 21 | Detector integrity guard | 0 | READY | **DONE** — PR #8 |
-| 22 | Model-proposed bindings, human-confirmed | 3 | READY | 09 has landed; still blocked by 10 in code |
+| 22 | Model-proposed bindings, human-confirmed | 3 | READY | 09 and 10 have landed; part one (proposal engine + command-line review) queued |
 | 23 | Canvas-requested content export | 1 | READY | **DONE** — PR #6 |
 | 24 | Agreement and near-boundary transparency | 2 | READY | **PART 1 DONE** — PR #29 (data, guard, docs); PDF + review-screen rendering waits on 14 and 16 (queued re-run) |
 | 25 | Returned-review ingestion | 3 | **BLOCKED** — needs reviews delivered and returned | — |
@@ -50,6 +50,7 @@ on 2026-09-22). Next free item number: **36**.
 | 33 | A routed row costs one call per passage, and nothing bounds the total | 2 | MEASURED | **DONE** — PR #26. Outcome (d): nothing changes |
 | 34 | Acquisition drops every outcome when it records an export note | 1 | READY | queued 99m |
 | 35 | The workbook's action plan holds located items; SPEC §08 promises remediation steps | 2 | **NEEDS DISCUSSION** | — |
+| 36 | Run-progress and New run screens | 2 | **BLOCKED** — on item 16 (its review screen is what the run screen links to) | filed 2026-09-29, PR #30 |
 
 ---
 
@@ -109,8 +110,8 @@ which is what forced items 07 and 08 to comply without their prompts needing to 
 ```
 12-sightline-item15-voice-contract.md    # DONE — PR #27. sightline.voice; the lint is proven to fire
 13-sightline-item13-xlsx-writer.md       # DONE — PR #28. sightline.workbook; CSV-clean, all text
-14-sightline-item14-pdf-report.md
-15-sightline-item16-review-ui.md
+14-sightline-item14-pdf-report.md       # SUPERSEDED 2026-09-29 — re-specified, PR #30; runs as 99i-
+15-sightline-item16-review-ui.md        # SUPERSEDED 2026-09-29 — re-specified, PR #30; NEEDS DISCUSSION
 16-sightline-item24-agreement-and-uncertainty.md   # PART 1 DONE — PR #29; the rest re-runs after 14 + 16
 ```
 
@@ -126,6 +127,11 @@ surfaces the near-boundary marker item 12a computes but deliberately leaves with
 **Item 12a closes batch 2 rather than opening batch 3**, because every artifact in batch 3 renders
 a band: the workbook, the PDF and the review screen all read the effort model, and shipping any of
 them against a model that does not exist yet would mean three sessions each inventing one.
+
+**Wave 2 — re-specified 2026-09-29 (PR #30).** The `14-` and `15-` prompts above were written on
+2026-09-08 and went stale as items 17, 12a, 13 and 15 landed; they are retired, and the queue
+carries `99i-` (item 14) and `99j-` (item 16) instead, each gated on its entry under *Notes
+carried forward* reading READY. Item 16 does not yet (two questions); item 36 waits on it.
 
 ---
 
@@ -209,7 +215,8 @@ the exhaustive artifact and the PDF says so. §02's presentation constraint is e
 Tier A and Tier C never share a visual channel. The first page carries a short *what this document
 is* block — a review pass, ratings denominated in remediation effort rather than quality, Tier C
 items are questions, no aggregate score anywhere — the cheapest guard available against the
-adoption risk.
+adoption risk. **The build contract is item 14's entry under *Notes carried forward*** (re-specified
+2026-09-29).
 
 **16 — the review screen groups by rubric category, in the instrument's own order, with severity
 as a sort and filter within it.** The screen's job is confirming a rubric and its output is
@@ -217,6 +224,8 @@ category-ordered, so the designer walks the instrument they already know; triage
 in the action plan. Grouping by band and grouping by tier were both considered and rejected — the
 tier option is the tempting one, since §02 does demand Tier A and Tier C be visually separate, but
 that is satisfied by distinct treatment *within* a category rather than by tearing the rubric apart.
+**The build contract is item 16's entry under *Notes carried forward*** (re-specified 2026-09-29;
+review screen only, per operator decision D2 — the run-progress and New run screens are item 36).
 
 **One thread runs through all three, and it is the same failure §11 names.** Item 04 kept
 `NOT_YET_IMPLEMENTED`, `NO_DETERMINISTIC_COVERAGE` and `SUFFICIENTLY_PRESENT` apart in the data
@@ -231,10 +240,10 @@ functions fully without it.
 is usable — is dead. Under item 04 an unbound rubric runs immediately, extraction-only. What remains
 worth building is item 22.
 
-**22 — model-proposed bindings, human-confirmed · READY, blocked by 09/10 in code.** Give the model
+**22 — model-proposed bindings, human-confirmed · READY; 09 and 10 have landed.** Give the model
 the detector catalogue and the uploaded criterion text; it proposes tag bindings a human confirms
-**once per rubric, never per course**. An accelerator, not a prerequisite. Needs the model layer
-(09) and extraction (10) to exist before it can be queued.
+**once per rubric, never per course**. An accelerator, not a prerequisite. The model layer (09)
+and extraction (10) it needed are DONE.
 
 **No confidence signal on a proposal — decided 2026-09-08, do not reintroduce.** Proposals are
 shown as proposals and every one is freely changeable. A confidence number would have become a
@@ -409,6 +418,395 @@ default `/24` collides.
   settled; a later move toward stock OSCQR 3.1 / 4.0 is a pack change, not a code change.
 
 ## Notes carried forward
+
+**14 · RE-SPECIFIED 2026-09-29 (PR #30). READY. The PDF course report, written through the export
+gate. This entry is the build contract.** The 2026-09-08 decisions under *Not queued, and why* are
+where it came from; where the two differ, this entry is newer and wins.
+
+*Operator decision D1, 2026-09-25 (bitmap, interactive) — verbatim, do not re-open:*
+
+> HOW `examples/sample-report/` GETS MADE. Item 14's old prompt says "generate it and commit it",
+> but two structural guards make that impossible from inside the package: `tests/test_paths.py`
+> fails the build if any module but `paths.py` creates a writable location, and
+> `tests/test_export_gate.py` fails it if any module but `paths.py`/`gate.py` names `reports`.
+> `examples/README.md` repeats the first guard as a promise.
+> DECIDED: (a) the sample course goes through the NORMAL gated export into a SCRATCH data folder (a
+> run over `examples/sample-course`, the review opened with `python -m sightline.batch
+> open-review`, the export through `ExportGate`), and a script under `scripts/` (outside
+> `src/sightline`, so the package guards stay whole) copies the result into
+> `examples/sample-report/`. A test re-renders the sample and compares it with the committed copy
+> (byte-identical for the PDF; cell-by-cell for the workbook, per item 13's bar).
+
+*Decided 2026-09-08 by a human — do not re-open.*
+1. **Audience.** Addressed to the instructional designer and written so it can be forwarded to the
+   faculty member unchanged. One document, one register: no faculty edition, no internal edition.
+   "Forwardable unchanged" is a test applied to every line, and it is what enforces §11's
+   vocabulary.
+2. **Structure — action-plan led, evidence tiered**, in this order: (a) *what this document is*;
+   (b) a summary of counts by category and by band, with no aggregate of any shape; (c) the
+   prioritized action plan, in `Projection.action_plan_order()`; (d) ACD and ENIN **in full** —
+   every sentence `render_review` gives those rows, with quotes, counts, locations and links;
+   (e) every other row as **one compact line** — composite code, criterion text, rating, number of
+   findings, coverage state, link, no quotes — and the section says that the workbook
+   (`review.xlsx`) holds everything; (f) the closing narrative.
+3. **§02's presentation constraint is explicit for the PDF.** Tier A findings and Tier C questions
+   never share a visual channel: separate, labelled blocks, chosen from each `Sentence`'s
+   `register` and `role`, never by parsing its text.
+4. **Page one carries a short *what this document is* block:** a review pass and not an evaluation
+   of the instructor; ratings denominated in remediation effort, not quality; Tier C items are
+   questions and carry no rating; no aggregate course score is computed anywhere. One short
+   paragraph, from the phrase bank.
+
+*Routine calls already made — build them as stated.*
+- **HTML, then WeasyPrint.** No headless browser: one process in one container. **This entry
+  authorises, in so many words, adding** `weasyprint` (pinned in `uv.lock`), the system libraries
+  it needs in the Dockerfile stages that render and in CI's `test` job, and the vendored fonts
+  below. Each is recorded in the PR and the README with its version and its licence as read from
+  the package.
+- **US Letter.**
+- **Light palette, pinned** by stamping `data-theme="light"` on the root element: both dark blocks
+  in `docs/tokens.css` (`:root:not([data-theme="light"])` under the media query, and
+  `:root[data-theme="dark"]`) exclude it. Every colour comes from a token —
+  `tests/test_templates.py` scans every `.css` and `.html` under `src/sightline`.
+- **Fonts vendored under `assets/fonts/`** with their licence files: Instrument Serif, IBM Plex
+  Sans and IBM Plex Mono (`--f-display`, `--f-body`, `--f-mono` in `tokens.css`), static weights
+  only. Read the licence text of what is downloaded; do not take "OFL" on trust. The Dockerfile
+  copies no `assets/` today — add it to every stage that renders.
+- **Byte-identical re-renders**, with the PDF metadata pinned.
+- **Every finding links to the item in Canvas**, not the editor: `Sentence.link`, built by
+  `render_review(base_url=…)`. `link_exact` is false when the link finds the item by search.
+
+*What it consumes from `main` (all present at `a76181c`).*
+- **The gate, item 17 (PR #18) — not built here.** `sightline.batch.gate.ExportGate`:
+  `require_open(course_id)` returns the opened-at timestamp or raises `ReviewNotOpenedError`;
+  `save(course_id, filename, data)` writes bytes through `DataPaths.save_bytes`. No module here
+  names `reports` as a string or `.reports` as an attribute — `DataPaths.reports` included
+  (`tests/test_export_gate.py`).
+- **The voice, item 15 (PR #27).** `sightline.voice.render_review(projection, report=,
+  extractions=, base_url=, course_id=)` → `RenderedReview` (`rows`, `row(code)`, `narrative`,
+  `sentences()`); `RenderedRow.by_role()`; `Sentence.lint()` against `default_register()`.
+  Headings and fixed text are `phrases.yaml` entries (`labels`, `formats`; `Voice.label()`,
+  `Voice.fragment()`). A template writes no sentence of its own.
+- **The workbook, item 13 (PR #28).** `sightline.workbook.build_workbook`, `to_xlsx`,
+  `export_workbook(gate, course_id, data)`, `WORKBOOK_FILENAME` (`review.xlsx`).
+- **The effort model, item 12a (PR #20).** Each row's `rating`, `label` and `hours`, shown as an
+  estimate the way the workbook does (`effort_placeholder` / `effort_calibrated`). The
+  near-boundary marker and `sightline.voice.agreement.brief()` are **not** rendered here: item 24's
+  re-run adds both to this PDF.
+- **The coverage states, item 04 (PR #9).** `Coverage.DETERMINISTIC`, `NOT_YET_IMPLEMENTED`,
+  `NO_DETERMINISTIC_COVERAGE`, and `Rating.SUFFICIENTLY_PRESENT`, which only a Tier A row with every
+  binding examined can reach (item 28, PR #23).
+- **Overrides: none.** Item 14 renders the machine proposal. How a reviewer's override reaches an
+  exported artifact is open question Q2 under item 16.
+
+*What item 14 builds.*
+1. **Reading a finished course back.** After a run, a course exists only as
+   `runs/<run>/courses/<course>/review.json` (`BatchRunner._save_review`). `render_review` takes
+   live objects, and nothing on `main` rebuilds them: `Projection`, `RowResult`, `Contribution`,
+   `DetectionReport`, `DetectorResult`, `Finding`, `Location`, `Undetermined`, `RowExtraction` and
+   `ExtractorResult` have a `to_dict` and no `from_dict`, and `Projection.to_dict` drops
+   `priority_order` and `rating_scale`. Follow the answer the code already gives. The review file
+   is what a screen reads (`sightline.batch.runner`), a screen works from the persisted dictionary
+   (`MachineProposal.from_review`), and persisted shapes round-trip as inverse pairs (`DisagreementSet`
+   in `sightline.extract.router`). So:
+   - add `from_dict` inverses;
+   - take the two dropped fields from the pack the review names (`shipped_pack(review["pack"]["id"])`),
+     refusing when its version differs from `review["pack"]["version"]`;
+   - add one loader that returns what `render_review` takes.
+
+   A field the renderer needs that `to_dict` drops is added to `to_dict` as a new key. A review
+   file without that key is refused with a stated reason, never re-derived. **No stage is re-run at
+   export**: not detect, not project, not extract. Item 16 reads through the same loader.
+2. **The report model**, pure and testable, then the HTML templates and print stylesheet on
+   `tokens.css`, then **the PDF as bytes**: `HTML(...).write_pdf()` with no target, handed to
+   `ExportGate.save`.
+3. **An export command**, with its own `__main__`, outside `sightline.batch`. That module's
+   docstring says it "does not export anything and cannot be made to". The command takes a
+   run-store course id, writes the PDF and the workbook through the gate, and prints the gate's own
+   message for a course nobody opened. The README documents it.
+4. **One timestamp, and not the clock.** The PDF's metadata date, and any date it prints, is the
+   value `ExportGate.require_open` returns. It is passed in the same way `build_workbook(created=)`
+   takes it. Check whether the installed WeasyPrint honours `SOURCE_DATE_EPOCH`. If it does not,
+   pin the metadata explicitly, and the PR says how.
+5. **D1's script and test**, below.
+6. **`write_pdf` added to `WRITE_CALLS`** in `tests/test_paths.py`, proven by a planted call that
+   fails the guard before the plant is removed. `Workbook.save(path)` stays outside the guard:
+   `save` itself cannot be listed, because `ExportGate.save` and `book.save(buffer)` are legitimate.
+   The rule is to render to bytes (item 13 already does).
+
+*D1, made concrete.*
+- **The script** (under `scripts/`) does four things:
+  1. Runs `python -m sightline.batch run --bundle examples/sample-course` with `SIGHTLINE_DATA_DIR`
+     set to a scratch directory. The bundle is given as a **repo-relative** path, because the
+     review file records the reference exactly as typed.
+  2. Passes a model host and model through. The extract stage aborts a run without one
+     (`ReviewPipeline._model_card`). Read the host's `/api/tags` for what is installed rather than
+     naming a model from memory.
+  3. Runs `open-review`, then the export command.
+  4. Copies into `examples/sample-report/` the PDF, the workbook, the review file, and whatever
+     else the re-render reads — at least the opened-at timestamp.
+
+  Nothing in `src/` writes into `examples/`. The model's output varies between runs, so the
+  committed review file is the input and only the script regenerates it.
+- **The test** re-renders from committed files alone: no model host, no network, no clock. It
+  asserts the PDF is byte-identical to the committed copy and the workbook equal cell by cell. A
+  second test renders twice and compares the bytes.
+- **Nothing committed carries** an absolute path, a home directory, a host other than
+  `*.example.edu`, or anything token-shaped. A test greps the committed files for them.
+- **`.dockerignore` excludes `examples/sample-report/` today.** Drop that line, or the test crashes
+  in the dev image. This is the same trap item 24 hit with `docs/`.
+- **Byte identity depends on the native stack** (pango, harfbuzz, fontconfig) as well as on
+  `uv.lock`. CI's `test` job runs on the runner host, not in the image. `./scripts/dev.sh` runs the
+  dev image with no mounts, and that image does not copy `scripts/`.
+
+  The committed PDF and the comparison must come from **one environment**. The comparison must
+  **run, not skip,** in at least one CI job in that environment; the `image` job already builds the
+  dev image. If that cannot be made to hold, STOP with the byte diff. Do not lower the bar: it is
+  D1's.
+- **The base image tag floats.** A pango update can move the bytes with no code change. The remedy
+  is to re-run the script, and the README says so.
+
+*Traps.*
+- **The coverage states collapsing in a compact line.** `NO_DETERMINISTIC_COVERAGE`,
+  `NOT_YET_IMPLEMENTED` and a clean `SUFFICIENTLY_PRESENT` must read differently. So must a Tier B
+  row left at No Response (item 28) and a Tier C row at No Response. §11 calls this the worst
+  failure available.
+- **MOB rows carry a null priority.** `action_plan_order()` sorts null last. Never default it.
+- **ASFE skips index 6.** Key on the composite code and never renumber for display.
+- **No aggregate of any shape:** no percentage, grand total, completion bar, "N of 68", or
+  course-level hours (12a removed `Rollup.hours`). Counts per category and band are counts.
+- **No run count beside a quote.** A batch review carries no attention payload in any case (see
+  item 16).
+- **Long Canvas links and long quotes overflow a paged box.** Look at the sample's pages.
+- **No Canvas contact.** Use the sample course only. The configured base URL appears in a generated
+  report because that is the report's job; in the sample it is `canvas.example.edu`.
+- **The dev image carries `docs/SPEC.md` and `docs/tokens.css` and no other doc.** A test that
+  reads another doc crashes there.
+- **`./scripts/dev.sh python -` with a heredoc hangs.** Pass `-c`.
+
+*Not item 14's:*
+- the review screen (16);
+- the run-progress and New run screens (36);
+- how overrides appear in exports (item 16, Q2);
+- the agreement statement and the near-boundary marker (24's re-run);
+- a comparison report (20 is decided: not built);
+- remediation wording — item 35, NEEDS DISCUSSION. The action plan lists located items, as the
+  workbook does.
+
+*Acceptance — demonstrated, not asserted.*
+- The PDF is byte-identical on a rerun.
+- The committed sample is byte-identical to a re-render from committed inputs, run in CI as above.
+- The workbook matches cell by cell.
+- The committed files contain no real host, name, email, absolute path or token.
+- Every rendered finding carries an item-level Canvas link, tested over the sample.
+- No block holds both Tier A and Tier C lines (tested).
+- The three coverage states are distinguishable in the compact section (tested).
+- Item 15's lint passes over the PDF's extracted text, and a grep of that text finds no grading
+  vocabulary, percentage or total.
+- The export command is refused for an unopened course (tested).
+- Nothing in the item writes except through `ExportGate.save`.
+- `write_pdf` is on the guard list, with the planted-call proof.
+- The review-file round trip holds: `render_review` over the loaded file equals `render_review`
+  over the live run, sentence for sentence (tested).
+- Both images build in CI.
+- Page 1 and one evidence page are rendered to PNG and looked at. The 1400/390 rule is for
+  screens, not a fixed-width page.
+- The full suite is green, ruff and black exit codes are read separately, and all CI jobs are
+  green.
+
+**16 · RE-SPECIFIED 2026-09-29 (PR #30). NEEDS DISCUSSION — two questions, Q1 and Q2 below, that
+nothing on `main` answers. Everything else is specified; answering both makes it READY.**
+
+*Operator decision D2, 2026-09-25 (bitmap, interactive) — verbatim, do not re-open:*
+
+> ITEM 16's SCOPE. SPEC SS09 says the run-progress screen "is part of that item [16] rather than a
+> second design", and the "New run" screen is built by no roadmap item.
+> DECIDED: (a) item 16 is the REVIEW SCREEN ONLY. File a NEW roadmap item (the next free number,
+> read from the roadmap) for the run-progress screen and the New run screen, and correct SPEC
+> SS09's sentence to point at it.
+
+That item is **36**, below. Item 16 builds no navigation to a screen that does not exist.
+
+*Q1 — who does an override record?* `record_override(..., reviewer=)` refuses an empty reviewer
+(`RunStore.record_override`). The column is documented as "whatever identifier the review screen
+has for the person". The screen has none: there is no login, and no preference holds a name.
+- (a) A *Reviewer* setting on the Settings screen, kept with the other preferences. Until it is
+  set, the override form refuses and says why; the form names who it will record.
+- (b) A required free-text field on every override.
+- (c) A fixed identifier. This empties the column that items 12b and 25 would join on.
+
+**Recommendation: (a).** Sightline is a single-user local tool (`sightline.views`), so the name is
+typed once, and the record still says who.
+
+*Q2 — does an exported artifact carry the reviewer's rating?* Neither `build_workbook` nor the
+renderer takes an override. The queued build HEAD for item 16 says to change neither beyond gating
+their export.
+- (a) Exports carry the machine proposal only, and overrides stay calibration data. Every Tier C
+  row then reads No Response in every report ever exported, whatever the designer decided.
+- (b) Where an override was recorded, the export carries the reviewer's latest rating, labelled as
+  the reviewer's. The machine proposal and its effort figures sit beside it unchanged: never
+  re-banded, never back-computed. A row with no override carries the proposal, labelled as
+  proposed. This needs bank labels, and an override input to the workbook and to item 14's report
+  model. The committed sample has no overrides, so its bytes do not move.
+- (c) As (b), but in a separate "reviewer's ratings" section.
+
+**Recommendation: (b), built in item 16.** The build HEAD's "no change to the PDF or workbook" line
+then has to be lifted in so many words.
+
+*Answered by existing code or by the operator's queued HEAD — not open.*
+- **Opening a review is loading it.** The first request for any page of a course's review calls
+  `ExportGate.open_review(course_id)`, which is idempotent and never moves the timestamp. The gate
+  docstring says this: "the review screen (roadmap item 16) when it lands". The export endpoint
+  refuses an unopened course with the gate's own message; test it by calling the endpoint directly.
+  A closed export control, with its reason, is shown where a course is listed but not yet opened —
+  item 36's run screen, and `python -m sightline.batch status`, which already prints it.
+- **Reached by the run-store course id** — the id that `status` prints and `open-review` takes. The
+  path is the build's choice, with no host and no Canvas id in it. `status` prints it for each
+  reviewable course. No login, no CSRF token (`sightline.views`, SPEC §09).
+- **Read through item 14's review-file loader.** Nothing is re-run.
+- **Overrides go through item 12a's record.** `MachineProposal.from_review(review["projection"],
+  code)` → `sightline.rubric.overrides.record_override`, which is append-only. The latest record
+  is what the screen shows. The note is the record's `note`. A note without a rating change records
+  the machine rating as the human one, a confirmation that 12a counts as calibration data. No
+  second table. A Tier C row is *unresolved* until a record exists for it.
+- **Item 11's attention flag.** The router runs only from `python -m sightline.extract --runs 3`. A
+  batch runs one pass and never builds a `Comparison` (grep `sightline.batch`), so a review file
+  holds no attention payload. Item 16 renders none, and builds no counterpart for agreement. If a
+  later item puts one in the review file, it renders `ATTENTION_NOTE` with it.
+
+*Decided 2026-09-08 by a human — do not re-open.* **Group by rubric category, in the instrument's
+order** — COAL → GSOV → OREP → ACD → ENIN → ASFE → MOB (the pack's own order). Severity is a sort
+and a filter *within* a category, never a second grouping. Grouping by band and grouping by tier
+were considered and rejected. §02's separation is met by distinct treatment within a category.
+
+*SPEC §09's bindings:*
+- Tier visible on every row.
+- Tier C opens at No Response with evidence shown and nothing pre-selected.
+- **No bulk-accept of any kind** for ratings. Item 22's bulk accept is for tag bindings and does not
+  transfer.
+- Overrides are first-class, with the proposal retained.
+- The rubric was chosen per run, before this screen.
+- Nothing exports until the review is opened.
+
+*Routine calls already made:*
+- Server-rendered HTML with light progressive enhancement: no SPA, no build step. Every action
+  works as a form post with JavaScript off, as `sightline.views` does today.
+- A review index — the categories the projection carries, with per-category counts by band and
+  unresolved Tier C counts — plus one page per category.
+- Sort and filter are query parameters, so a view is linkable.
+- A jump to unresolved Tier C.
+- Ink density encodes tier: the `.tier-a`…`.tier-d` classes in `tokens.css`.
+- Sentences come from `render_review`. A missing sentence becomes a bank entry, never template text.
+- The export control runs item 14's export (PDF and workbook through the gate) and offers each
+  written file back, read through `ExportGate.destination`.
+
+*Consumes from `main`:*
+- the gate and the voice, as for item 14;
+- item 14's loader and export — **item 14 must be DONE first**;
+- `Projection.omitted` — a switched-off optional section is neither shown nor counted as
+  unresolved;
+- `Coverage` and `Rating` (item 04).
+
+The near-boundary marker and `agreement.brief()` belong to item 24's re-run, not here.
+
+*Traps:*
+- the three coverage states collapsing in a row;
+- at 390 px a row reflows to a stacked card, with `scrollWidth == innerWidth` measured in the DOM;
+- MOB's null priority must survive every sort and filter (nine rows);
+- ASFE skips 6;
+- no progress bar, completion percentage or course score. A count of unresolved Tier C rows is work
+  remaining, and is fine;
+- no run count beside a quote;
+- an override never re-bands and never back-computes effort, and the action plan keeps the
+  machine's figures;
+- no Canvas contact — every screen is driven from a run over `examples/sample-course` (`--bundle`)
+  and recorded fixtures;
+- `templates/index.html`'s lede still says the review screens "arrive with later roadmap items".
+  Correct it when this lands.
+
+*Not item 16's:*
+- the run-progress and New run screens (36);
+- item 22's binding-confirmation screen;
+- a comparison view (20);
+- the agreement statement and near-boundary marker (24's re-run).
+
+*Acceptance:*
+- Categories render in instrument order, with a linkable in-category sort and filter.
+- A test shows no Tier C row ships a pre-selected rating and no bulk-accept control exists.
+- **The headline test:** an override round-trips through 12a's record, with the machine proposal
+  and the human value both readable.
+- `NO_DETERMINISTIC_COVERAGE` is distinguishable from `SUFFICIENTLY_PRESENT` in the rendered HTML.
+- Export is refused before opening and allowed after, with the reason shown.
+- The nine MOB rows survive every sort and filter.
+- Item 15's lint passes over the rendered pages.
+- Q1's and Q2's answers are tested as they are decided.
+- Screenshot QA is done at 1400 px and 390 px on every screen built, with the CDP target closed
+  afterwards.
+- The full suite is green, ruff and black exit codes are read separately, and all CI jobs are green.
+
+**36 · FILED 2026-09-29 (PR #30) under operator decision D2 (2026-09-25; quoted in item 16's entry).
+BLOCKED on item 16. The run-progress screen and the New run screen.** SPEC §09 lists both, and
+until D2 no item built either.
+
+*Why blocked:* the run screen's reason to exist is taking a designer from a finished course to its
+review. That target is item 16's, and item 16 is NEEDS DISCUSSION. Nothing else is open: every call
+below has an answer on `main`. When 16 is DONE this item is READY as written.
+
+*What exists to build on (at `a76181c`):*
+- **Execution:** `sightline.runner.BackgroundRunner`, wired in `sightline.app`'s lifespan to
+  `BatchRunner.handle`. It runs one asyncio task per run in the app process, and a restart recovers
+  and resumes. `submit(run_id)` has no HTTP caller yet.
+- **Starting a run:** `sightline.batch.create_batch_run(store, references, rubric_pack=, cap=)`,
+  which enforces the 16-course cap (`BatchTooLargeError`).
+- **Progress:** `sightline.batch.progress_of(store, run_id)`, already served as
+  `GET /api/runs/{run_id}`, and the same data `python -m sightline.batch status` prints — including
+  each course's opened / not-opened export state.
+- **Course resolution:** `GET/POST /courses` (paste or CSV, looked up in Canvas; item 02).
+- **Rubric choice:** `sightline.rubric.shipped.shipped_packs()`.
+- **Preferences:** model host and model, `PreferenceStore`.
+
+*Build:*
+1. **New run.** Extend the `/courses` flow rather than add a parallel one. Accepted courses, plus
+   a rubric picker defaulting to `uccs-oscqr-3-1-3`, go to Start, which calls
+   `create_batch_run` → `BackgroundRunner.submit`.
+   - Before starting, show whether a model host and model are set. The extract stage aborts a run
+     without them, so refuse to start and name the Settings screen.
+   - **Refuse to start while `BackgroundRunner.active_run_ids()` is non-empty**, and name the
+     active run. Two batches would compete for one model host; `runner.py` gives that reason for
+     resuming serially. A run started from the CLI is another process, and shows only as `running`
+     in the store — show it the same way.
+   - Bundles stay on the CLI. SPEC §09's New run takes course URLs, ids or a CSV.
+2. **Run progress.**
+   - A list of recent runs (`RunStore.list_runs`), and a page per run.
+   - Per course and per stage: what each stage examined and its statement, never a percentage. Every
+     failure and its remedy are shown.
+   - The live log is the page re-read on reload, as the model-install progress already is. An
+     optional script polls `GET /api/runs/{run_id}`.
+   - Each reviewed course links to item 16's review.
+   - A closed export control, with the gate's reason, sits beside each course nobody has opened.
+   - An interrupted run is shown as interrupted, with `python -m sightline.batch resume <id>` as the
+     remedy. No resume button: the app already resumes what it was running when it restarts.
+3. **Correct the docstring** of `GET /api/runs/{run_id}` in `sightline/views.py`, which still says
+   the screen is part of item 16.
+
+*Traps:*
+- no progress bar or completion percentage — a count of courses reviewed is a count;
+- `partial` must read as "Completed with failures" (`STATUS_LABELS`);
+- nothing logs a course reference (item 17);
+- starting a run from the screen requests a Canvas content export (item 23) — in tests and QA, use
+  the recorded-fixture transport only, and never a real course;
+- item 22's binding-confirmation screen attaches to the rubric picker later; it is not built here.
+
+*Acceptance:*
+- A run is started from the screen against recorded fixtures, and its progress renders per course
+  and per stage.
+- A second start is refused while one is active.
+- Start is refused without a model host.
+- A failed stage renders its remedy.
+- Every reviewed course links to its review, and every unopened one shows the closed export with its
+  reason.
+- Screenshot QA is done at 1400 px and 390 px, with `scrollWidth == innerWidth` measured.
+- The full suite is green, ruff and black exit codes are read separately, and all CI jobs are green.
 
 **24 · PART 1 DONE 2026-09-29 (PR #29). How often two reviewers choose the same rating: one data
 file, the guard, the README. The PDF and review-screen halves wait for those surfaces.**

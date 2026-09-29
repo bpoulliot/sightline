@@ -650,15 +650,28 @@ deployment footprint is a priority. All colour comes from `docs/tokens.css`.
   test fails the build if any other module names that directory.
 - **Progress is per course and per stage, and a stage that examined nothing is a failure.** Until
   the review UI lands (item 16) the surfaces are `GET /api/runs/{id}` and
-  `python -m sightline.batch status`; the run-progress *screen* is part of that item rather than a
-  second design taken here.
+  `python -m sightline.batch status`. The run-progress *screen*, and the New run screen, are
+  roadmap item 36 — split from item 16 by operator decision on 2026-09-25, which made item 16 the
+  review screen only.
+- **An uploaded rubric runs unmapped.** Rows with no binding fall through to extraction-only, and a
+  rubric with no bindings at all loads, runs and produces a usable review. There is no mapping
+  screen before first use. Bindings, when wanted, are proposed by a model and confirmed once per
+  rubric, never per course. Decided 2026-09-08. Roadmap item 04 built the format and the three
+  coverage states; item 22 (the proposals) is READY and not yet built; item 19 is superseded.
+- **The review screen groups by rubric category, in the instrument's own order.** Severity is a
+  sort and a filter within a category, never a second grouping. Decided 2026-09-08; roadmap
+  item 16.
+- **No comparison view.** Multi-course runs stay strictly one report per course. Decided
+  2026-09-08; roadmap item 20.
 
 ### Open for discussion
 
-- Whether uploaded rubrics get a guided mapping screen or a simpler unmapped mode where rows fall
-  through to extraction-only.
-- Whether the review screen groups by rubric category or by severity.
-- Whether multi-course runs get a comparison view, or stay strictly one report per course.
+- **Who an override records.** The override record requires a reviewer and there is no login.
+- **Whether an exported workbook and PDF carry the reviewer's rating** where one was recorded, or
+  the machine proposal only.
+
+Both are written out, with options and a recommendation, in roadmap item 16's entry. The item is
+NEEDS DISCUSSION until they are answered.
 
 ---
 
