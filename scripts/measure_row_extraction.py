@@ -436,7 +436,7 @@ def recalled(quote: dict[str, Any], candidates: Sequence[dict[str, Any]], *, exa
 
 
 def score(truth: dict[str, Any], candidate: dict[str, Any]) -> dict[str, Any]:
-    """Per row: baseline quotes, missed (overlap), missed (exact span), and the candidate's extras."""
+    """Per row: baseline quotes, missed (overlap), missed (exact span), the candidate's extras."""
     rows: dict[str, dict[str, int]] = {}
     for code, row in truth["rows"].items():
         mine = candidate["rows"].get(code, {"evidence": []})["evidence"]
@@ -540,13 +540,14 @@ def command_compare(args: argparse.Namespace) -> None:
 
 _WORD = re.compile(r"[a-z][a-z'-]+")
 #: Function words and the rubric's own boilerplate, which every row and every passage shares.
-_STOP = set("""
+_STOP_WORDS = """
     a about above after all also an and any are as at be been being both but by can course
     courses each for from has have how i if in include includes into is it its learner learners
     may more most not of on or other our provide provided should so some such than that the their
     them there these they this those through to use used via was we were what when where which
     who will with within would you your e.g i.e etc
-    """.split())
+    """
+_STOP = set(_STOP_WORDS.split())
 
 
 def stem(word: str) -> str:
