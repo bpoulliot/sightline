@@ -601,6 +601,18 @@ freestyle — freestyle produces inconsistent register, which is the thing the c
 prevent. The closing narrative is honest and short: what is strong, what needs work, what to do
 first, and what Sightline could not determine.
 
+**As built (item 15).** One layer, `sightline.voice`, turns findings into sentences, and every
+surface calls it. The phrase bank is committed YAML keyed by tier and by the shape of the fact; the
+register lint's word lists sit beside it, and both are enforced when they load. Rotation is a hash
+of the criterion's code and the finding's own identity, never a counter, so a subset of rows renders
+byte-identically to the same rows in the full run. The narrative is assembled from computed
+aggregates through the same bank — the model writes no prose anywhere — in four slots: rows reading
+Sufficiently Present with what they examined, banded rows listed by code and never summed, the
+start of the action plan (priority crossed with band, a null priority sorting last), and what could
+not be determined. Two word choices the table above implies but does not state: "graded" and the
+Bloom level "evaluate" are *not* grading vocabulary, because the Tier C example above uses both;
+and a clean Tier A row always states what it examined, never "no issues found" (§11).
+
 ---
 
 ## §09 Interface decisions

@@ -1,0 +1,158 @@
+# THE REGISTER LINT'S WORD LISTS. EDIT THESE, NOT THE TEST.
+#
+# Every sentence Sightline writes is checked against the lists below: every variant in
+# `phrases.yaml`, when the bank is loaded, and every sentence the renderer produces, by the suite.
+# A list here can be extended without touching Python. Matching is case-insensitive and on whole
+# words, so `may` does not match `mayor`; an entry of several words matches across any run of
+# spaces between them.
+#
+# WHAT THE LINT READS, AND WHAT IT DOES NOT. Only the words Sightline wrote. A verbatim quote from
+# the course, an artifact's title, a value a detector measured and the instrument's own labels are
+# not Sightline's voice: a syllabus that says "grades" or a page titled "Grading Policy" is quoted,
+# not written. The renderer marks each such span as it inserts it, and the lint masks exactly those
+# spans and nothing else — a curly-quoted phrase typed into the bank is NOT masked.
+#
+# SPEC §08: hedging is proportional to determinacy, not applied globally. SPEC §11: the vocabulary is
+# review and refresh, there is no aggregate course score, and no sentence may imply one.
+
+# A computed count is not hedged. Hedging it is not politeness, it is inaccuracy (SPEC §08).
+# Tier A states a count; Tier D states a limit plainly. Both are held to this list.
+hedge:
+  applies_to: [A, D]
+  tokens:
+    - appears
+    - appear
+    - apparently
+    - seems
+    - seem
+    - may
+    - might
+    - possibly
+    - perhaps
+    - probably
+    - suggests
+    - suggest
+    - likely
+    - generally
+    - could be
+
+# Tier C poses a question and hands the call to the reviewer. A Tier C sentence carrying one of these
+# has answered the question the tier exists to leave open (SPEC §02).
+verdict:
+  applies_to: [C]
+  tokens:
+    - insufficient
+    - inadequate
+    - adequate
+    - poor
+    - poorly
+    - weak
+    - strong
+    - fails
+    - lacks
+    - lacking
+    - deficient
+    - good
+    - excellent
+    - should be
+    - needs to be
+    - must be
+    - must be improved
+    - meets
+    - does not meet
+
+# Every Tier C sentence must hand the call over in so many words. One of these must appear.
+handoff:
+  applies_to: [C]
+  tokens:
+    - your call
+    - the reviewer's call
+    - for the reviewer to decide
+    - for the reviewer to weigh
+    - for you to decide
+    - for you to weigh
+    - yours to decide
+    - yours to weigh
+
+# Grading vocabulary. Forbidden in every tier, in every sentence (SPEC §11). Two words are not here
+# on purpose, because SPEC §08's own Tier C example needs both: "graded", since "graded activities"
+# names a kind of course activity, and the bare verb "evaluate", since it is a level of Bloom's
+# taxonomy ("none reach evaluate or create"). "evaluation" and its other forms are here.
+grading:
+  applies_to: [A, B, C, D]
+  tokens:
+    - grade
+    - grades
+    - grading
+    - score
+    - scores
+    - scored
+    - scoring
+    - points
+    - quality
+    - evaluation
+    - evaluated
+    - evaluating
+    - pass/fail
+    - passed
+    - failed
+    - failing
+    - compliance
+    - compliant
+    - verdict
+    - no issues found
+    - no problems found
+    - all clear
+    - looks good
+
+# A judgement on the whole course. Forbidden everywhere, however it is phrased. Entries here are
+# REGULAR EXPRESSIONS, not words, because the shape of an aggregate ("12 of 68 criteria", "80%") is a
+# pattern rather than a vocabulary.
+aggregate:
+  applies_to: [A, B, C, D]
+  patterns:
+    - '\b(?:this|the) course (?:is|was|needs|has been|lacks|meets|falls|does well|does poorly)\b'
+    - '\bcourse[- ]level (?:rating|judgement|judgment|result|reading)\b'
+    - '\boverall\b'
+    - '\bsignificant work\b'
+    - '\bin (?:good|poor|great|bad) shape\b'
+    - '\bwell[- ]designed\b'
+    - '\bpoorly[- ]designed\b'
+    - '\d+(?:\.\d+)?\s*%'
+    - '\bper ?cent(?:age)?\b'
+    - '\b\d+\s+(?:of|out of)\s+(?:the\s+)?\d+\s+(?:rows|criteria|criterion)\b'
+    - '\b(?:total|sum) of (?:the )?(?:hours|effort)\b'
+    - '\bhours in total\b'
+
+# Wording that reads as a clean result. The three coverage states must stay distinguishable to a
+# reader who is not looking for the difference (item 04): a row no check examined, and a row with no
+# check assigned, may never be worded the way a row that was examined and found clean is. So these
+# phrases are forbidden in the shapes named, which are exactly the shapes that describe a row
+# nothing computed.
+clean_wording:
+  forbidden_in:
+    - D.not_yet_implemented
+    - D.no_deterministic_coverage
+    - D.unresolved
+    - D.limit
+    - D.held
+  tokens:
+    - found none
+    - found no
+    - found nothing
+    - recorded no
+    - recorded nothing
+    - nothing was found
+    - none were found
+    - no observations
+    - satisfied
+    - in place
+    - sufficiently present
+
+# Wording a shape must carry: every variant of the shape holds at least one of the phrases listed.
+# A band on the shipped cost table is an estimate from a placeholder, and the sentence that shows it
+# says so in every variant (roadmap item 12a). The one clean reading says it examined and found
+# nothing in every variant, which is what keeps it from ever being worded like "No issues found".
+required:
+  A.reading_placeholder: [placeholder]
+  A.clean: [found none, found no]

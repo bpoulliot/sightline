@@ -1,0 +1,337 @@
+# THE PHRASE BANK. THIS IS SIGHTLINE'S VOICE, AND THIS IS THE FILE TO EDIT.
+#
+# Every sentence Sightline writes about a course is assembled from an entry here. There is no other
+# source of English about a finding in the codebase (roadmap item 15), and a sentence a language
+# model composed never reaches a report: the model locates quotes, and the quotes are placed into
+# these sentences exactly as the course wrote them.
+#
+# HOW IT IS ORGANISED. By tier, then by the shape of the fact being stated. The tier sets the
+# register (SPEC §08):
+#
+#   A  declarative. States the count and where it is. No hedge.
+#   B  attributed to evidence. Quotes the source and names what was searched.
+#   C  poses the question, presents the distribution, and hands the call to the reviewer.
+#   D  states a limit plainly.
+#
+# Under each shape is a list of VARIANTS that say the same thing in different words. Which variant a
+# sentence uses is fixed by the row's criterion code and the finding it describes — never by chance,
+# the clock, or how many sentences came before it — so the same course reviewed twice reads the same,
+# and fixing one finding changes the wording of that finding only.
+#
+# RULES FOR EDITING A VARIANT, ALL CHECKED WHEN THE BANK LOADS:
+#
+#   * Every variant of a shape uses exactly the same {placeholders}. Variety is in how a fact is
+#     introduced, never in which facts are stated: a variant that drops {examined} has dropped the
+#     count that tells a detector that passed from one that broke.
+#   * Counts arrive with their noun already attached ("41 artifacts", "1 check"), from `nouns` below.
+#   * Nothing in `register.yaml`'s lists may appear: no hedge in Tier A or D, no verdict in Tier C,
+#     no grading vocabulary and no whole-course judgement anywhere. Every Tier C variant hands the
+#     call to the reviewer in so many words.
+#
+# Placeholders: {code} is the criterion's own code as printed on the instrument, never renumbered.
+# {label} is the instrument's own word for a rating. {title}, {quote}, {observed} and {evidence} are
+# the course's or a detector's words, inserted verbatim. {place} is where in the course.
+
+# Singular, plural. A count is rendered as "1 artifact" or "3 artifacts".
+nouns:
+  artifact: [artifact, artifacts]
+  check: [check, checks]
+  item_of_interest: [item of interest, items of interest]
+  observation: [observation, observations]
+  passage: [passage, passages]
+  quote: [quote, quotes]
+  row: [row, rows]
+  unreadable: [item could not be read, items could not be read]
+  item: [item, items]
+
+# What each kind of Canvas artifact is called in a count ("3 pages, 1 syllabus").
+kinds:
+  course: [course setting, course settings]
+  module: [module, modules]
+  module_item: [module item, module items]
+  page: [page, pages]
+  assignment: [assignment, assignments]
+  quiz: [quiz, quizzes]
+  discussion: [discussion, discussions]
+  announcement: [announcement, announcements]
+  file: [file, files]
+  embed: [embedded item, embedded items]
+  syllabus: [syllabus, syllabuses]
+  outcome: [outcome, outcomes]
+
+# Fixed formats. Pieces of a sentence rather than sentences, so they do not rotate. They are linted
+# like everything else, in the register given.
+formats:
+  place: {register: A, text: "{title}"}
+  place_within: {register: A, text: "{title}, {within}"}
+  place_line: {register: A, text: "{title}, line {line}"}
+  place_within_line: {register: A, text: "{title}, {within}, line {line}"}
+  list_separator: {register: A, text: ", "}
+  kind_count: {register: C, text: "{quotes} from {artifacts}"}
+  strong_item: {register: A, text: "{code} ({examined} examined)"}
+  work_group: {register: A, text: "{label}: {codes}"}
+  work_separator: {register: A, text: "; "}
+  first_item: {register: A, text: "{code} ({priority}, {label})"}
+  no_priority: {register: A, text: "no priority flag on the instrument"}
+  heading_strong: {register: A, text: "What is strong"}
+  heading_work: {register: A, text: "What needs work"}
+  heading_first: {register: A, text: "What to do first"}
+  heading_limits: {register: D, text: "What Sightline could not determine"}
+
+A:
+  # A Tier A row whose checks all ran, each examined something, and none recorded an observation.
+  # The only shape that reads clean, and it always names what was examined (SPEC §11).
+  clean:
+    - "{code}: {checks} examined {examined} and found none of the conditions checked for."
+    - "{code}: Sightline examined {examined} with {checks} and found none of the conditions checked."
+    - "{code}: across {examined}, {checks} found none of the conditions checked for."
+    - "For {code}, {checks} opened {examined} and found none of the conditions checked for."
+
+  # A Tier A row whose checks recorded observations. Count, spread, and what was examined.
+  findings:
+    - "{code}: {checks} examined {examined} and recorded {found} in {artifacts}."
+    - "{code}: {found} recorded in {artifacts}, from {examined} examined by {checks}."
+    - "For {code}, {checks} examined {examined}, recording {found} in {artifacts}."
+    - "{code}: {found} recorded in {artifacts}, of {examined} examined by {checks}."
+
+  # A band on a Tier A row some of whose bindings were examined by nothing. It covers the rest.
+  findings_partial:
+    - "{tags} went unexamined in this review, so the band covers only what the other checks could see."
+    - "Nothing in this review examined {tags}; the band covers only what the other checks could see."
+    - "The band covers only what the other checks could see: {tags} went unexamined in this review."
+
+  # Checks ran and something they opened could not be read, so nothing recorded is not clean.
+  unreadable:
+    - "{code}: {checks} examined {examined}, and {unreadable}. Recording nothing elsewhere does not establish the row, so it stays at {label}."
+    - "{code}: of {examined} examined by {checks}, {unreadable}. The row stays at {label} until those are read."
+    - "For {code}, {checks} examined {examined} and {unreadable}; the row stays at {label} rather than reading clean."
+
+  # A bound check ran over nothing, or could not run at all.
+  not_examined:
+    - "{code}: {names} examined nothing in this review, so the row stays at {label}."
+    - "{code} stays at {label}: {names} examined nothing in this review."
+    - "For {code}, {names} examined nothing in this review; the row stays at {label}."
+
+  # Some of a Tier A row's bindings ran clean and others were examined by nothing.
+  partial:
+    - "{code}: nothing in this review examined {tags}. The other checks recording nothing does not establish the row, so it stays at {label}."
+    - "{code} stays at {label}: {tags} went unexamined in this review, and the rest recording nothing does not settle it."
+    - "For {code}, {tags} went unexamined in this review; the row stays at {label} whatever the other checks recorded."
+
+  # One line per check behind a row.
+  check:
+    - "{title} ({detector}): examined {examined} holding {subjects}; {found} recorded."
+    - "{detector}, {title}: {examined} examined, holding {subjects}; {found} recorded."
+    - "{title} ({detector}) examined {examined} holding {subjects} and recorded {found}."
+  check_unreadable:
+    - "{title} ({detector}): examined {examined} holding {subjects}; {found} recorded, and {unreadable}."
+    - "{detector}, {title}: {examined} examined, holding {subjects}; {found} recorded; {unreadable}."
+    - "{title} ({detector}) examined {examined} holding {subjects}, recorded {found}, and {unreadable}."
+  check_not_examined:
+    - "{title} ({detector}) examined nothing: {reason}"
+    - "{detector}, {title}, examined nothing: {reason}"
+    - "{title} ({detector}) did not examine anything: {reason}"
+  check_crashed:
+    - "{title} ({detector}) stopped with an error and examined nothing. The error is in the log, not here, because it can quote course content."
+    - "{detector}, {title}, could not run: it stopped with an error, which is in the log rather than here because it can quote course content."
+    - "{title} ({detector}) could not run, and the error it stopped with is in the log, not in this review, because it can quote course content."
+
+  # One line per observation: where, and what was measured. {evidence} is the source as written.
+  finding:
+    - "{place}: {observed}."
+    - "At {place}: {observed}."
+    - "{place} — {observed}."
+    - "In {place}: {observed}."
+  finding_source:
+    - "{place}: {observed}. The source reads “{evidence}”."
+    - "At {place}: {observed}. As written: “{evidence}”."
+    - "{place} — {observed}. Source: “{evidence}”."
+    - "In {place}: {observed}. The course reads “{evidence}”."
+
+  # The proposed band, and the hours behind it. While the cost table is uncalibrated, every variant
+  # says the figure comes from a placeholder (roadmap items 12a and 12b).
+  reading_placeholder:
+    - "Proposed: {label}, from {hours} of estimated effort on a placeholder cost table that has not been calibrated."
+    - "{label} is proposed, from {hours} of estimated effort; the cost table is a placeholder and has not been calibrated."
+    - "Proposed {label}: {hours} of estimated effort, priced from a placeholder cost table not yet calibrated."
+  reading_calibrated:
+    - "Proposed: {label}, from {hours} of estimated effort on a cost table fitted to completed reviews."
+    - "{label} is proposed, from {hours} of estimated effort on a cost table fitted to completed reviews."
+    - "Proposed {label}: {hours} of estimated effort, priced from a cost table fitted to completed reviews."
+  reading_clean:
+    - "Proposed: {label}."
+    - "{label} is proposed."
+    - "Proposed reading: {label}."
+
+B:
+  # A Tier B row whose bound checks recorded observations. The band covers what the checks see.
+  findings:
+    - "{code}: {checks} examined {examined} and recorded {found} in {artifacts} bearing on this criterion. The band covers only what was checked; the located passages may add to it."
+    - "{code}: {found} in {artifacts}, recorded by {checks} from {examined} examined. What was checked is part of this criterion, and the located passages may add to what needs doing."
+    - "For {code}, {checks} recorded {found} in {artifacts} of {examined} examined. What was not checked is left to the located passages, so the band is a floor."
+
+  # A Tier B row whose bound checks recorded nothing. That does not settle it.
+  clean_checks:
+    - "{code}: {checks} examined {examined} and recorded nothing. What was checked bears on this criterion without settling it, so it stays at {label} and the located passages are its evidence."
+    - "{code} stays at {label}: {checks} examined {examined} and recorded nothing, which does not settle a criterion the checking only bears on."
+    - "For {code}, {checks} examined {examined} with nothing recorded; that leaves the criterion open, and it stays at {label}."
+
+  # Located evidence: what was searched, and how many quotes were checked against the source.
+  quotes:
+    - "{code}: searched {passages} in {examined}; Sightline located {quotes} bearing on this criterion and checked each against the source."
+    - "{code}: {quotes} located in {passages} from {examined}, each checked word for word against the course."
+    - "For {code}, Sightline searched {passages} in {examined} and located {quotes}, each matched against the source."
+    - "{code}: of {passages} searched in {examined}, Sightline located {quotes} and matched each to the course text."
+  quote:
+    - "{place} states: “{quote}”"
+    - "{place} reads: “{quote}”"
+    - "In {place}: “{quote}”"
+    - "{place}, as written: “{quote}”"
+  quotes_none:
+    - "{code}: searched {passages} in {examined}; no passage bearing on this criterion was located."
+    - "{code}: no passage bearing on this criterion was located in {passages} from {examined}."
+    - "For {code}, Sightline searched {passages} in {examined} and located no passage bearing on it."
+  quotes_none_incomplete:
+    - "{code}: {unread} of {passages} in {examined} could not be read, and no passage bearing on this criterion was located in the rest."
+    - "{code}: no passage bearing on this criterion was located in what could be read; {unread} of {passages} in {examined} could not be read."
+    - "For {code}, {unread} of {passages} in {examined} went unread, and the rest held no passage bearing on it."
+  quotes_incomplete:
+    - "{unread} of {passages} could not be read, so the quotes here may not be all there are."
+    - "{unread} of {passages} went unread, and the course may hold more than is quoted here."
+    - "The course may say more than is quoted: {unread} of {passages} could not be read."
+  quotes_no_text:
+    - "{code}: {examined} were opened for located evidence and none of them carried any text."
+    - "{code}: none of the {examined} opened for located evidence carried any text."
+    - "For {code}, the {examined} opened for located evidence held no text to search."
+  quotes_nothing_examined:
+    - "{code}: nothing of the kinds searched for located evidence was available in this course."
+    - "{code}: no artifact of the kinds searched for located evidence was available in this course."
+    - "For {code}, the course held nothing of the kinds searched for located evidence."
+  quotes_not_run:
+    - "{code}: located evidence for this row was not gathered in this run."
+    - "{code}: this run did not gather located evidence for this row."
+    - "For {code}, located evidence was not gathered in this run."
+
+C:
+  # The question. Distribution first, then the call handed over. Never a rating.
+  question:
+    - "{code}: Sightline located {quotes} across {artifacts} — {distribution}. Whether that answers the criterion is your call."
+    - "{code}: in {artifacts}, Sightline located {quotes} ({distribution}). How they read against the criterion is for the reviewer to decide."
+    - "For {code}, Sightline located {quotes} bearing on the criterion across {artifacts}: {distribution}. Reading them against it is yours to decide."
+    - "{code}: {distribution}, {quotes} in all across {artifacts}. What they add up to against the criterion is the reviewer's call."
+  question_none:
+    - "{code}: no passage bearing on this criterion was located in {passages} from {examined}. What that means for the criterion is your call."
+    - "{code}: Sightline searched {passages} in {examined} and located no passage bearing on it. How the criterion stands is for the reviewer to decide."
+    - "For {code}, {passages} from {examined} held no passage bearing on the criterion; the call on it is yours to decide."
+  question_none_incomplete:
+    - "{code}: {unread} of {passages} in {examined} could not be read, and no passage bearing on this criterion was located in the rest. The criterion is your call."
+    - "{code}: nothing bearing on this criterion was located in what could be read, and {unread} of {passages} in {examined} went unread. That is for the reviewer to weigh."
+    - "For {code}, {unread} of {passages} in {examined} went unread and the rest held no passage bearing on it; the criterion is yours to decide."
+  question_checks:
+    - "{code}: {checks} examined {examined} and recorded {found}; {unreadable_count} could not be read. What that means for this criterion is your call."
+    - "{code}: from {examined} examined by {checks}, {found} recorded and {unreadable_count} unread. How that bears on the criterion is for the reviewer to decide."
+    - "For {code}, {checks} recorded {found} across {examined}, with {unreadable_count} unread. Weighing that against the criterion is yours to decide."
+  question_incomplete:
+    - "{unread} of {passages} could not be read, which is for the reviewer to weigh as well."
+    - "{unread} of {passages} went unread; that is yours to weigh alongside what was located."
+    - "Also for you to weigh: {unread} of {passages} could not be read."
+  question_no_text:
+    - "{code}: none of the {examined} opened for context carried any text. The criterion is your call."
+    - "{code}: the {examined} opened for context held no text to search, so the criterion is for the reviewer to decide unaided."
+    - "For {code}, the {examined} opened for context carried no text; the criterion is yours to decide."
+  question_nothing_examined:
+    - "{code}: the course held nothing of the kinds searched for context. The criterion is your call."
+    - "{code}: nothing of the kinds searched for context was available, so the criterion is for the reviewer to decide unaided."
+    - "For {code}, no artifact of the kinds searched for context was available; the criterion is yours to decide."
+  question_not_run:
+    - "{code}: context for this criterion was not gathered in this run, and it is your call."
+    - "{code}: this run gathered no context for this criterion; it is for the reviewer to decide."
+    - "For {code}, no context was gathered in this run; the criterion is yours to decide."
+
+D:
+  # A Tier D row: not determinable from course artifacts.
+  limit:
+    - "{code} cannot be determined from course materials, so it is left at {label} for a person to set."
+    - "{code} is outside what course materials can show; it is left at {label} for a person to set."
+    - "Course materials cannot answer {code}, so it is left at {label} for a person to set."
+
+  # Coverage states. These three are the difference between a check that ran and found nothing, and
+  # a row nothing examined. See `clean_wording` in register.yaml: none of these may read as clean.
+  not_yet_implemented:
+    - "{code}: no check in this build of Sightline examines {tags} yet, so nothing was computed for this row."
+    - "{code}: {tags} has no check in this build of Sightline yet, and nothing was computed for this row."
+    - "For {code}, nothing was computed: no check in this build of Sightline examines {tags} yet."
+  no_deterministic_coverage:
+    - "{code}: this rubric assigns no automated check to this row, so nothing was computed for it; its evidence is located passages."
+    - "{code}: no automated check is assigned to this row in this rubric. Nothing was computed for it, and its evidence is located passages."
+    - "For {code}, this rubric assigns no automated check, so nothing was computed and its evidence is located passages."
+  unresolved:
+    - "{code}: bound to {tags}, which nothing in this review examined, so nothing was computed for this row."
+    - "{code}: nothing in this review examined {tags}, the capabilities bound to this row, so nothing was computed for it."
+    - "For {code}, nothing was computed: nothing in this review examined {tags}."
+  held:
+    - "It stays at {label}, the instrument's default."
+    - "The row stays at {label}, the instrument's default."
+    - "It is left at {label}, the instrument's default."
+
+  # The closing narrative's fourth slot. Each is a count and a list of codes, stated plainly.
+  narrative_not_yet_implemented:
+    - "No check in this build examines the capabilities bound to {rows} yet: {codes}."
+    - "For {rows}, no check in this build examines the bound capabilities yet: {codes}."
+    - "Nothing was computed for {rows}, whose capabilities have no check in this build yet: {codes}."
+  narrative_unbound:
+    - "Nothing automated in this rubric is assigned to {rows}; located passages are the evidence: {codes}."
+    - "This rubric assigns no automated check to {rows}; their evidence is located passages: {codes}."
+    - "Located passages are the only evidence for {rows}, to which this rubric assigns no automated check: {codes}."
+  narrative_not_gathered:
+    - "Located evidence was not gathered in this run for {rows}: {codes}."
+    - "This run gathered no located evidence for {rows}: {codes}."
+    - "This run did not gather the located evidence routed for {rows}: {codes}."
+  narrative_judgement:
+    - "Sightline proposes nothing on {rows} of pedagogical judgement; those are the reviewer's: {codes}."
+    - "For {rows} of pedagogical judgement, Sightline assembles context and proposes nothing: {codes}."
+    - "No proposal is made on {rows} of pedagogical judgement, which rest with the reviewer: {codes}."
+  narrative_out_of_scope:
+    - "Course materials cannot determine {rows} at all: {codes}."
+    - "Course materials cannot answer {rows}: {codes}."
+    - "Nothing in course materials can settle {rows}: {codes}."
+  narrative_unread:
+    - "Something bound to {rows} could not be read or examined nothing, so the instrument's default stands: {codes}."
+    - "The instrument's default stands on {rows}, because something bound there could not be read or examined nothing: {codes}."
+    - "For {rows}, a check could not read what it opened or examined nothing, and the instrument's default stands: {codes}."
+  narrative_crashed:
+    - "{checks} stopped with an error and examined nothing: {names}."
+    - "{checks} could not run, having stopped with an error: {names}."
+    - "An error stopped {checks} before examining anything: {names}."
+  narrative_limits_none:
+    - "Every row in this pass was reached by a check or by located evidence. What the checks see is still limited to what the course artifacts contain."
+    - "Nothing in this pass went unreached by a check or by located evidence, and what the checks see is still limited to the course artifacts."
+    - "Each row was reached by a check or by located evidence; the checks still see only what the course artifacts contain."
+
+# The rest of the closing narrative. Declarative, from computed aggregates, in the register of
+# Tier A. No sentence here judges the course as a whole: rows are listed by code, never summed.
+narrative:
+  strong:
+    - "{label} is proposed on {rows}, whose checks examined the course and recorded nothing: {items}."
+    - "The checks behind {rows} examined the course and recorded nothing, so {label} is proposed: {items}."
+    - "{label} on {rows}, each examined with nothing recorded: {items}."
+  strong_none:
+    - "No row reads {label} on this pass."
+    - "On this pass, no row reads {label}."
+    - "This pass leaves no row at {label}."
+  work:
+    - "A revision band is proposed on {rows}. {groups}."
+    - "On {rows}, a revision band is proposed. {groups}."
+    - "Revision bands are proposed on {rows}. {groups}."
+  work_none:
+    - "No row carries a proposed revision band on this pass."
+    - "This pass proposes a revision band on no row."
+    - "On this pass, no row is proposed a revision band."
+  first:
+    - "In the instrument's priority order, then by band, start with {items}."
+    - "Start with {items}, taken in the instrument's priority order and then by band."
+    - "By the instrument's priority flag, then by band, the first rows are {items}."
+  first_none:
+    - "With no revision band proposed, there is no action-plan order to start from."
+    - "No row has a proposed band, so there is no action-plan order to start from."
+    - "There is no action-plan order to start from, since no row has a proposed band."
