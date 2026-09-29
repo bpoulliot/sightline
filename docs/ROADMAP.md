@@ -28,7 +28,7 @@ on 2026-09-22). Next free item number: **37**.
 | 12a | Effort model — ship it | 1 | READY | **DONE** — PR #20 |
 | 12b | Effort model — fit the costs | 1 | **BLOCKED** — item 06/07/08 detectors have all landed; unblocked in code, still needs the calibration corpus | — |
 | 13 | XLSX writer | 2 | READY | **DONE** — PR #28 |
-| 14 | PDF course report | 2 | READY | re-specified 2026-09-29, PR #30 — see *Notes carried forward* |
+| 14 | PDF course report | 2 | READY | **DONE** — PR #PRNUM |
 | 15 | Narrative generator and voice contract | 2 | READY | **DONE** — PR #27 |
 | 16 | Review UI | 2 | **NEEDS DISCUSSION** — Q1 who an override records, Q2 whether exports carry the reviewer's rating | re-specified 2026-09-29, PR #30 — see *Notes carried forward* |
 | 17 | Batch runner | 2 | READY | **DONE** — PR #18 |
@@ -110,7 +110,7 @@ which is what forced items 07 and 08 to comply without their prompts needing to 
 ```
 12-sightline-item15-voice-contract.md    # DONE — PR #27. sightline.voice; the lint is proven to fire
 13-sightline-item13-xlsx-writer.md       # DONE — PR #28. sightline.workbook; CSV-clean, all text
-14-sightline-item14-pdf-report.md       # SUPERSEDED 2026-09-29 — re-specified, PR #30; runs as 99i-
+14-sightline-item14-pdf-report.md       # SUPERSEDED 2026-09-29 — re-specified, PR #30; ran as 99i-, DONE — PR #PRNUM
 15-sightline-item16-review-ui.md        # SUPERSEDED 2026-09-29 — re-specified, PR #30; NEEDS DISCUSSION
 16-sightline-item24-agreement-and-uncertainty.md   # PART 1 DONE — PR #29; the rest re-runs after 14 + 16
 ```
@@ -418,6 +418,50 @@ default `/24` collides.
   settled; a later move toward stock OSCQR 3.1 / 4.0 is a pack change, not a code change.
 
 ## Notes carried forward
+
+**14 · DONE 2026-09-29 (PR #PRNUM). The PDF course report, written through the export gate, and
+the review file read back.** Built to the re-specified entry below, which stays as the contract.
+
+*What shipped.* `sightline.report`: `loader` (`read_review` / `parse_review` / `load_review` →
+`LoadedReview`, which `render()`s through `render_review`), `model` (`build_report(review,
+created=)` → `ReportModel`, linted), `pdf` (`to_pdf(model)` → bytes, `export_report(gate, course,
+data)` → `ExportGate.save`), and `python -m sightline.report export COURSE`, which writes
+`report.pdf` and `review.xlsx`. `from_dict` inverses on `Location`, `Finding`, `Undetermined`,
+`DetectorResult`, `DetectionReport`, `Evidence`, `Discarded`, `Failure`, `CallRecord`,
+`ExtractorResult`, `RowExtraction`, `Margins`, `NearBoundary`, `Contribution`, `RowResult` and
+`Projection` (which takes the pack for `priority_order` and `rating_scale` and refuses another
+version). No `to_dict` needed a new key: the renderer reads the effort model's `calibrated` flag,
+which the file carries; the per-detector cost table it does not carry is not needed, since every
+hour figure is on its row. Fonts vendored under `assets/fonts/` with their licence texts; WeasyPrint
+70.0 and the native libraries recorded in the README with versions and licences read from the
+packages. `examples/sample-report/` made by `scripts/make-sample-report.sh` (D1).
+
+*Readings this session took where the entry left room, each stated so it can be reversed.*
+- **The action plan lists criteria, not items.** One entry per criterion with a located item or a
+  question, in `action_plan_order()`, with its priority, reading and a count of what was located,
+  linking to its entry below. The items themselves are printed once — in full for ACD and ENIN,
+  and in the workbook for everything — rather than twice in the PDF.
+- **A compact line's "link" is one link per Canvas item something was located in**, titled with
+  the item's name. "No check ran" replaces an observation count on a row nothing examined, and a
+  Tier C row's reading is "no rating proposed: the reviewer's call", never No Response.
+- **Blocks follow the register, in the order A, B, C, D** — counted, located and quoted, the
+  question, the limits of the pass — each with a bank heading and its own tokens treatment.
+- **`write_pdf` is guarded when given a target**, not by name: the bare name would refuse the one
+  legitimate call. Proven by a planted `document.write_pdf("/tmp/escaped.pdf")` in
+  `report/pdf.py`, which failed the guard, before it was removed.
+- **SOURCE_DATE_EPOCH.** WeasyPrint 70.0 stamps no clock of its own (dates only from the
+  document's `dcterms` metadata, pinned to the opened-at moment; no file identifier). Its
+  fontTools fallback subsetter — used where `libharfbuzz-subset` is absent — stamps each embedded
+  subset's `head.modified` from the clock unless `SOURCE_DATE_EPOCH` is set, so the render sets it
+  to the same moment under a lock and restores it. Two renders differed before that and not after.
+- **Byte identity is checked where it can hold.** `render.json` records the render environment
+  (pango, harfbuzz, fontconfig, freetype and the Python packages); the comparison runs where it
+  matches and is required in the dev image (`SIGHTLINE_SAMPLE_REPORT_REQUIRED`), and CI's image job
+  runs it there. The runner-host `test` job skips it, naming what differs.
+- **The RSI pack has no ACD or ENIN section**, so a report on it prints every row compactly.
+
+*Not done here.* The near-boundary marker and the agreement statement (item 24's re-run), a
+reviewer's overrides in exports (item 16, Q2), remediation wording (item 35).
 
 **14 · RE-SPECIFIED 2026-09-29 (PR #30). READY. The PDF course report, written through the export
 gate. This entry is the build contract.** The 2026-09-08 decisions under *Not queued, and why* are

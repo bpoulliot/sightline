@@ -28,7 +28,7 @@ from typing import Any
 import openpyxl
 import pytest
 
-from pdf_reader import read_pdf
+from pdf_reader import PdfDocument, read_pdf
 from sightline.report import build_report, parse_review, to_pdf
 from sightline.report.pdf import render_environment
 from sightline.workbook import build_workbook
@@ -140,7 +140,11 @@ def test_the_committed_sample_is_the_sample_course_through_the_gate(loaded, rend
 _HOST = re.compile(r"\b(?:https?|ftp)://([^/\s\"'<>)\\]+)", re.I)
 _ABSOLUTE = re.compile(r"(?<![\w.:/])/(?:home|Users|root|app|tmp|scratch|var|mnt|srv|opt)/", re.I)
 _EMAIL = re.compile(r"\b[\w.+-]+@[\w-]+\.[\w.-]+\b")
-_TOKEN = re.compile(r"\b(?:Bearer\s+\S+|[A-Za-z0-9_\-]{40,})")
+#: A bearer header, or a long run of token characters holding a digit and a letter. Detector codes
+#: are long snake_case words with no digit, and are not tokens.
+_TOKEN = re.compile(
+    r"\b(?:Bearer\s+\S+|(?=[A-Za-z0-9_\-]*\d)(?=[A-Za-z0-9_\-]*[A-Za-z])[A-Za-z0-9_\-]{32,})"
+)
 _ADDRESS = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
 
 
@@ -149,7 +153,18 @@ def _readable(name: str, data: bytes) -> str:
     if name.endswith(".pdf"):
         pages = read_pdf(data)
         text = "\n".join(page.text + "\n" + "\n".join(page.links) for page in pages)
-        return text + "\n" + data.decode("latin-1")
+        # ...and every dictionary in the file, object streams unpacked: metadata, link targets,
+        # font descriptors. Not the stream bodies, which are glyph ids and font programs.
+        document = PdfDocument(data)
+        heads = "\n".join(head.decode("latin-1") for head, _ in document.objects.values())
+        # A text string in a dictionary may be UTF-16 hex (<FEFF…>); read it as the text it is.
+        heads = re.sub(
+            r"<(feff(?:[0-9a-f]{4})*)>",
+            lambda m: bytes.fromhex(m.group(1)).decode("utf-16"),
+            heads,
+            flags=re.I,
+        )
+        return text + "\n" + heads
     if name.endswith(".xlsx"):
         with zipfile.ZipFile(BytesIO(data)) as archive:
             return "\n".join(archive.read(n).decode("utf-8") for n in archive.namelist())
@@ -161,7 +176,8 @@ def test_nothing_committed_carries_a_real_host_path_address_or_token(committed) 
     for name, data in committed.items():
         text = _readable(name, data)
         for host in _HOST.findall(text):
-            bare = host.split("@")[-1].split(":")[0].lower()
+            # A host at the end of a sentence or a quote carries its punctuation.
+            bare = host.split("@")[-1].split(":")[0].lower().rstrip(".,;”’")
             allowed = bare.endswith(".example.edu") or bare in {
                 # Namespaces written by the file formats themselves, not hosts anybody runs.
                 "schemas.openxmlformats.org",
@@ -170,14 +186,14 @@ def test_nothing_committed_carries_a_real_host_path_address_or_token(committed) 
                 "www.w3.org",
                 "ns.adobe.com",
                 "www.aiim.org",
+                "iso.org",  # the PDF 2.0 structure namespace, written by the tagged-PDF writer
             }
             if not allowed:
                 problems.append(f"{name}: host {host}")
         problems.extend(f"{name}: path {m}" for m in _ABSOLUTE.findall(text))
         problems.extend(f"{name}: address {m}" for m in _EMAIL.findall(text))
         problems.extend(f"{name}: ip {m}" for m in _ADDRESS.findall(text) if m != "0.0.0.0")
-        if not name.endswith((".pdf", ".xlsx")):
-            problems.extend(f"{name}: token-shaped {m[:12]}…" for m in _TOKEN.findall(text))
+        problems.extend(f"{name}: token-shaped {m[:12]}…" for m in _TOKEN.findall(text))
     assert problems == [], problems[:20]
 
 
@@ -192,4 +208,8 @@ def test_the_scan_fires_on_what_it_looks_for() -> None:
     assert _EMAIL.findall(planted) == ["a.person@realcollege.edu"]
     assert _ADDRESS.findall(planted) == ["10.1.2.3"]
     assert _TOKEN.findall(planted) == ["Bearer abcdef"]
+    # Built at run time and low in entropy, so the repository's own secret scan has nothing to
+    # find in this file: a token-shaped literal here would be a planted leak in the history.
+    assert _TOKEN.findall("key " + "x9" * 20 + " end") == ["x9" * 20]
+    assert _TOKEN.findall("time_limit_not_stated_in_the_quiz_description_field") == []
     assert not _ABSOLUTE.findall("https://canvas.example.edu/courses/4410/pages/start-here")

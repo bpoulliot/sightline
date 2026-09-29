@@ -29,6 +29,7 @@ What the bytes still depend on is the native text stack — pango, harfbuzz, fon
 
 from __future__ import annotations
 
+import logging
 import os
 import threading
 from collections.abc import Iterator, Sequence
@@ -47,6 +48,10 @@ if TYPE_CHECKING:
 
 #: The exported file's name inside the course's export directory.
 REPORT_FILENAME = "report.pdf"
+
+# WeasyPrint reports every layout step at INFO, one line per page. An export's log should say what
+# was exported, not how many pages the layout engine walked.
+logging.getLogger("weasyprint.progress").setLevel(logging.WARNING)
 
 #: The faces the report is set in: family, file, weight, style. Static weights only; each file sits
 #: beside its licence in ``assets/fonts/``.

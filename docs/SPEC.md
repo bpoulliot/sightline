@@ -586,6 +586,18 @@ build, or absent from the run), the others finding nothing leaves it at No Respo
 - **PDF course report** — summary, prioritized action plan, accessibility and interaction sections
   in full, and the closing narrative.
 
+  **As built (item 14).** `sightline.report`, exported by `python -m sightline.report export
+  COURSE` through the gate and only through it. A course is read back from its run's review file
+  (`sightline.report.loader`) and nothing is re-run. Addressed to the designer and forwardable
+  unchanged: *what this document is*, counts by category and reading with nothing added up, the
+  action plan (one entry per criterion with something located, in §07's order, linking to its
+  entry below), ACD and ENIN in full, one line for every other criterion with a link to each Canvas
+  item something was located in, and the closing narrative. Inside a criterion in full, sentences
+  are set in one block per register, so a Tier A count and a Tier C question never share one.
+  Every word is the voice layer's, and the suite reads the PDF back to prove the template adds
+  none. HTML through WeasyPrint, US Letter, the light palette pinned, vendored fonts; the same
+  review gives the same bytes, dated when the review was opened.
+
 ### Canvas links
 
 Every finding links to the page or item in the Canvas UI, built from the configured base URL.
