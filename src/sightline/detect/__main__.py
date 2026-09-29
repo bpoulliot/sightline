@@ -32,6 +32,8 @@ import sys
 from pathlib import Path
 
 from ..acquire.bundle import BundleError, load_bundle
+from ..config import get_settings
+from ..logging import configure_logging
 from ..model import CourseDocument
 from ..paths import DataPaths
 from .base import ResultState
@@ -104,6 +106,11 @@ def describe(report: DetectionReport, document: CourseDocument) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    # The report goes to stdout and the log to stderr, as in ``python -m sightline.extract``: a
+    # detector that crashes logs its scrubbed traceback, and on stdout that line would make the
+    # ``--json`` report a document nothing can parse at the moment it matters most.
+    settings = get_settings()
+    configure_logging(level=settings.log_level, fmt=settings.log_format, stream=sys.stderr)
     try:
         document = load_bundle(args.bundle)
     except BundleError as exc:

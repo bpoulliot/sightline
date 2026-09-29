@@ -7,12 +7,14 @@ review, and a command that exits 0 over one is a command a script reads as a cle
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from pathlib import Path
 
 import pytest
 
 from sightline.detect import registry
 from sightline.detect.__main__ import build_parser, main
+from sightline.detect.base import Detector, Finding, Survey, registry_snapshot
 
 #: Read from the registry rather than written down. A number typed here is one a new detector
 #: silently falsifies, and the thing worth asserting is that the command ran *every* detector the
@@ -110,3 +112,43 @@ def test_the_documented_run_makes_no_request_outside_canvas(
     assert code == 0
     assert "found 0 observation(s)." in out
     assert "not read" not in out
+
+
+def test_a_detector_that_crashes_is_named_the_rest_report_and_the_command_fails(
+    repo_root: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Item 27. One detector raising used to end the command with a traceback and no report."""
+    with registry_snapshot():
+
+        class Crashing(Detector):
+            id = "T08"
+            title = "A test detector that raises"
+            collections = ("pages",)
+            capability_tag = "page_titles"
+            capability_description = "A test detector; any tag in the vocabulary serves here."
+
+            def examine(self, survey: Survey) -> Iterable[Finding]:
+                for _body in survey.bodies():
+                    raise ValueError("unexpected markup")
+                return ()
+
+        bundle = str(repo_root / "examples" / "sample-course")
+        code = main(["--bundle", bundle])
+        captured = capsys.readouterr()
+        json_code = main(["--bundle", bundle, "--json"])
+        json_out = capsys.readouterr().out
+
+    assert code == 1
+    assert captured.out.startswith(f"{SHIPPED} of {SHIPPED + 1} detector(s) examined the course")
+    assert "1 crashed and could not run (T08)" in captured.out
+    assert "T08  This detector crashed: it raised ValueError" in captured.out
+    # The scrubbed traceback goes to the log on stderr, never into the report.
+    assert "detector_crashed" in captured.err
+    assert "detector_crashed" not in captured.out
+
+    assert json_code == 1
+    payload = json.loads(json_out)  # stdout is still one parseable document
+    by_id = {result["detector"]: result for result in payload["results"]}
+    assert by_id["T08"]["crashed"] == "ValueError"
+    assert by_id["T08"]["clean"] is False
+    assert all(result["examined"] > 0 for detector, result in by_id.items() if detector != "T08")

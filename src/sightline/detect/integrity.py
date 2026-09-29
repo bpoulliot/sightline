@@ -18,7 +18,7 @@ check that was running.
 
 **A sweep is not coverage, and finding that out cost this item a rewrite.** The first version of
 this guard counted any observed run, and a drill — an untested detector added to the shipping
-registry on purpose — reported it *covered*. One test in the suite iterates the registry and runs
+registry on purpose — reported it *covered*. A test in the suite iterates the registry and runs
 everything in it, so every future detector was born covered by a test nobody wrote for it. The rule
 now is narrow: **a test that ran every registered detector has tested the registry, not any
 detector in it**, and the ledger drops it. A detector is covered when something reached it by name.
