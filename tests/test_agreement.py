@@ -242,8 +242,9 @@ def test_no_surface_hardcodes_an_agreement_figure() -> None:
     for path in sorted((ROOT / "src" / "sightline").rglob("*")):
         if path.is_file() and path.suffix in _SCANNED and path != DATA:
             offenders.extend(f"{path.relative_to(ROOT)}: {hit}" for hit in _hits(path.read_text()))
-    for path in (ROOT / "docs" / "SPEC.md", ROOT / "docs" / "RUBRIC-PACKS.md"):
-        offenders.extend(f"{path.relative_to(ROOT)}: {hit}" for hit in _hits(path.read_text()))
+    # SPEC.md is the one doc the image carries (.dockerignore); the rest of docs/ is not a surface.
+    spec = ROOT / "docs" / "SPEC.md"
+    offenders.extend(f"{spec.relative_to(ROOT)}: {hit}" for hit in _hits(spec.read_text()))
     for path in sorted((ROOT / "examples").rglob("*")):
         if path.is_file() and path.suffix in _SCANNED:
             offenders.extend(f"{path.relative_to(ROOT)}: {hit}" for hit in _hits(path.read_text()))
