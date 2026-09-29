@@ -145,6 +145,20 @@ class Location:
             payload["line"] = self.line
         return payload
 
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> Location:
+        """The inverse of :meth:`to_dict`. A review file is read back, never re-derived."""
+        line = payload.get("line")
+        return cls(
+            artifact_id=str(payload["artifact_id"]),
+            artifact_kind=ArtifactKind(payload["artifact_kind"]),
+            title=str(payload["title"]),
+            canvas_path=str(payload["canvas_path"]),
+            link_exact=bool(payload.get("link_exact", True)),
+            within=payload.get("within"),
+            line=int(line) if line is not None else None,
+        )
+
 
 @dataclass(frozen=True, kw_only=True, slots=True)
 class Finding:
@@ -188,6 +202,20 @@ class Finding:
             payload["context"] = dict(sorted(self.context.items()))
         return payload
 
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> Finding:
+        return cls(
+            detector=str(payload["detector"]),
+            code=str(payload["code"]),
+            severity=Severity(payload["severity"]),
+            tier=Tier(payload["tier"]),
+            location=Location.from_dict(payload["location"]),
+            observed=str(payload["observed"]),
+            evidence=payload.get("evidence"),
+            examined=int(payload.get("examined", 0)),
+            context=dict(payload.get("context") or {}),
+        )
+
 
 @dataclass(frozen=True, kw_only=True, slots=True)
 class Undetermined:
@@ -213,6 +241,15 @@ class Undetermined:
         if self.remedy is not None:
             payload["remedy"] = self.remedy
         return payload
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> Undetermined:
+        return cls(
+            detector=str(payload["detector"]),
+            location=Location.from_dict(payload["location"]),
+            reason=str(payload["reason"]),
+            remedy=payload.get("remedy"),
+        )
 
 
 class NothingExamined(RuntimeError):
@@ -307,6 +344,28 @@ class DetectorResult:
         if self.crashed is not None:
             payload["crashed"] = self.crashed
         return payload
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> DetectorResult:
+        """The inverse of :meth:`to_dict`. ``clean`` is recomputed, never read back."""
+        return cls(
+            detector=str(payload["detector"]),
+            title=str(payload["title"]),
+            tier=Tier(payload["tier"]),
+            capability_tag=str(payload["capability_tag"]),
+            state=ResultState(payload["state"]),
+            examined=int(payload["examined"]),
+            subjects=int(payload["subjects"]),
+            findings=tuple(Finding.from_dict(entry) for entry in payload.get("findings", ())),
+            undetermined=tuple(
+                Undetermined.from_dict(entry) for entry in payload.get("undetermined", ())
+            ),
+            unreadable=tuple(
+                Examination.from_dict(entry) for entry in payload.get("unreadable", ())
+            ),
+            not_examined_because=payload.get("not_examined_because"),
+            crashed=payload.get("crashed"),
+        )
 
 
 @dataclass(frozen=True, slots=True)

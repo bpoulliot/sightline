@@ -63,7 +63,7 @@ from typing import Any
 from ..capabilities import Vocabulary, vocabulary
 from ..detect.base import Detector, DetectorResult, Finding, ResultState, Tier, detectors
 from ..detect.runner import DetectionReport
-from .effort import EffortModel, NearBoundary, default_effort_model
+from .effort import EffortModel, Margins, NearBoundary, default_effort_model
 from .pack import Criterion, RatingScale, RubricPack
 from .routing import routes_to_extraction
 from .states import Coverage, Rating, coverage_of
@@ -198,6 +198,20 @@ class Contribution:
             "clean": self.clean,
         }
 
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> Contribution:
+        """The inverse of :meth:`to_dict`. ``clean`` is recomputed, never read back."""
+        return cls(
+            detector=str(payload["detector"]),
+            capability_tag=str(payload["capability_tag"]),
+            findings=tuple(Finding.from_dict(entry) for entry in payload["findings"]),
+            hours=float(payload["hours"]),
+            examined=int(payload["examined"]),
+            state=ResultState(payload["state"]),
+            undetermined=int(payload.get("undetermined", 0)),
+            unpriced=bool(payload.get("unpriced", False)),
+        )
+
 
 @dataclass(frozen=True, kw_only=True, slots=True)
 class RowResult:
@@ -282,6 +296,35 @@ class RowResult:
             "near_boundary": self.near_boundary.to_dict() if self.near_boundary else None,
             "clean": self.clean,
         }
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> RowResult:
+        """The inverse of :meth:`to_dict`. The rating is read back as recorded, not re-derived:
+        a review file is what the run proposed, and re-projecting it at export would be a second
+        run nobody asked for."""
+        hours = payload["hours"]
+        near = payload.get("near_boundary")
+        return cls(
+            code=str(payload["code"]),
+            section=str(payload["section"]),
+            text=str(payload["text"]),
+            tier=Tier(payload["tier"]),
+            priority=payload.get("priority"),
+            coverage=Coverage(payload["coverage"]),
+            rating=Rating(payload["rating"]),
+            label=str(payload["label"]),
+            hours=float(hours) if hours is not None else None,
+            bindings=tuple(payload.get("bindings", ())),
+            resolved_tags=tuple(payload.get("resolved_tags", ())),
+            pending_tags=tuple(payload.get("pending_tags", ())),
+            unknown_tags=tuple(payload.get("unknown_tags", ())),
+            contributions=tuple(
+                Contribution.from_dict(entry) for entry in payload.get("contributions", ())
+            ),
+            notes=tuple(payload.get("notes", ())),
+            needs_extraction=bool(payload.get("needs_extraction", False)),
+            near_boundary=NearBoundary.from_dict(near) if near is not None else None,
+        )
 
 
 # ---------------------------------------------------------------------------------------------
@@ -401,6 +444,51 @@ class Projection:
             "warnings": [warning.to_dict() for warning in self.warnings],
             "omitted": list(self.omitted),
         }
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any], *, pack: RubricPack) -> Projection:
+        """Read a projection back from a review file.
+
+        :meth:`to_dict` does not carry :attr:`priority_order` or :attr:`rating_scale` — both are
+        facts about the instrument, not about the run — so they come from ``pack``, which must be
+        the pack the projection names *at the version it names*. A different version is refused
+        rather than read: its priority flags or rating words could differ from the ones the run
+        used, and the action plan would be ordered by an instrument the review was not made with.
+
+        The effort model comes back as the run recorded it: whether the table was calibrated, its
+        default, its margins and where it came from. The per-detector cost table itself is not in
+        the file and is not needed — every hour figure is already on its row.
+        """
+        if pack.id != payload["pack_id"] or pack.version != payload["pack_version"]:
+            raise ValueError(
+                f"the projection was made with pack {payload['pack_id']!r} version "
+                f"{payload['pack_version']!r}, and the pack given is {pack.id!r} version "
+                f"{pack.version!r}"
+            )
+        return cls(
+            pack_id=str(payload["pack_id"]),
+            pack_name=str(payload["pack_name"]),
+            pack_version=str(payload["pack_version"]),
+            rows=tuple(RowResult.from_dict(entry) for entry in payload["rows"]),
+            warnings=tuple(
+                BindingWarning(
+                    criterion=str(entry["criterion"]),
+                    tag=str(entry["tag"]),
+                    reason=str(entry["reason"]),
+                    suggestions=tuple(entry.get("suggestions", ())),
+                )
+                for entry in payload.get("warnings", ())
+            ),
+            omitted=tuple(payload.get("omitted", ())),
+            priority_order=pack.priority_order,
+            effort=EffortModel(
+                calibrated=bool(payload["effort_calibrated"]),
+                default_hours=float(payload["effort_default_hours"]),
+                margins=Margins.from_dict(payload["effort_margins"]),
+                sources=tuple(payload.get("effort_sources", ())),
+            ),
+            rating_scale=pack.rating_scale,
+        )
 
 
 def project(

@@ -1,0 +1,154 @@
+<!doctype html>
+{#- The PDF course report (roadmap item 14). This template writes no word of its own: every heading,
+    label and sentence below comes from the report model, which takes them from the phrase bank and
+    the voice layer. data-register on a block names the register its lines are read in, so Tier A
+    counts and Tier C questions are never set in one block (SPEC §02). -#}
+{%- macro say(text) -%}<span data-register="{{ text.register }}">{{ text.text }}</span>{%- endmacro -%}
+{%- macro sentence(s) -%}
+<p class="line line-{{ s.role }}" data-register="{{ s.register }}" data-role="{{ s.role }}">
+  {%- if s.link %}<a href="{{ s.link }}">{{ s.text }}</a>{% else %}{{ s.text }}{% endif -%}
+  {%- if s.link %}<span class="url">{{ s.link }}</span>
+    {%- if not s.link_exact %}<span class="url-note" data-register="{{ model.labels.link_search.register }}">{{ model.labels.link_search.text }}</span>{% endif -%}
+  {%- endif -%}
+</p>
+{%- endmacro -%}
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<title>{{ model.title.text }}</title>
+<meta name="dcterms.created" content="{{ created }}">
+<meta name="dcterms.modified" content="{{ created }}">
+</head>
+<body>
+<div class="running" data-register="{{ model.running.register }}">{{ model.running.text }}</div>
+
+<header class="masthead">
+  <h1><a href="{{ model.course_link }}">{{ model.course.text }}</a></h1>
+  <p class="instrument">{{ say(model.instrument) }}</p>
+  <p class="opened">{{ say(model.opened) }}</p>
+</header>
+
+<section class="about" data-register="{{ model.about.register }}">
+  <h2>{{ model.labels.report_about_heading.text }}</h2>
+  <p>{{ model.about.text }}</p>
+</section>
+
+<section class="summary">
+  <h2>{{ model.labels.report_summary_heading.text }}</h2>
+  <p class="intro">{{ model.labels.report_summary_intro.text }}</p>
+  <table class="counts">
+    <thead>
+      <tr>
+        <th scope="col"></th>
+        {%- for column in model.summary.columns %}
+        <th scope="col" data-register="{{ column.register }}">{{ column.text }}</th>
+        {%- endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {%- for row in model.summary.rows %}
+      <tr>
+        <th scope="row">{{ row.category.text }}</th>
+        {%- for count in row.counts %}
+        <td class="{{ 'zero' if count == '0' else 'count' }}">{{ count }}</td>
+        {%- endfor %}
+      </tr>
+      {%- endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="plan">
+  <h2>{{ model.labels.report_plan_heading.text }}</h2>
+  {%- if model.plan %}
+  <p class="intro">{{ model.labels.report_plan_intro.text }}</p>
+  <table class="plan-table">
+    <thead>
+      <tr>
+        <th scope="col">{{ model.labels.col_priority.text }}</th>
+        <th scope="col">{{ model.labels.col_code.text }}</th>
+        <th scope="col">{{ model.labels.col_criterion.text }}</th>
+        <th scope="col">{{ model.labels.col_rating.text }}</th>
+        <th scope="col">{{ model.labels.report_col_located.text }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {%- for entry in model.plan %}
+      <tr class="tier-row-{{ entry.tier | lower }}">
+        <td>{{ say(entry.priority) }}</td>
+        <td class="code"><a href="#{{ entry.target }}">{{ entry.code }}</a></td>
+        <td>{{ entry.criterion.text }}</td>
+        <td>{{ say(entry.reading) }}</td>
+        <td>{{ say(entry.located) }}</td>
+      </tr>
+      {%- endfor %}
+    </tbody>
+  </table>
+  {%- else %}
+  <p class="intro">{{ model.labels.report_plan_none.text }}</p>
+  {%- endif %}
+</section>
+
+{%- for section in model.full %}
+<section class="category full" id="{{ section.anchor }}">
+  <h2>{{ section.title.text }}</h2>
+  {%- for detail in section.details %}
+  <article class="criterion" id="{{ detail.anchor }}">
+    <h3><span class="tier tier-{{ detail.tier | lower }}">{{ detail.tier }}</span> <span class="code">{{ detail.code }}</span> {{ detail.criterion.text }}</h3>
+    <dl class="fields">
+      {%- for field in detail.fields %}
+      <div class="field"><dt>{{ field.name.text }}</dt><dd>{{ say(field.value) }}</dd></div>
+      {%- endfor %}
+    </dl>
+    {%- for block in detail.blocks %}
+    <section class="block block-{{ block.register | lower }}" data-register="{{ block.register }}">
+      <h4>{{ block.heading.text }}</h4>
+      {%- for s in block.sentences %}
+      {{ sentence(s) }}
+      {%- endfor %}
+    </section>
+    {%- endfor %}
+  </article>
+  {%- endfor %}
+</section>
+{%- endfor %}
+
+<section class="compact-group">
+  <h2>{{ model.labels.report_compact_heading.text }}</h2>
+  <p class="intro">{{ model.compact_intro.text }}</p>
+  {%- for section in model.compact %}
+  <section class="category compact" id="{{ section.anchor }}">
+    <h3>{{ section.title.text }}</h3>
+    {%- for line in section.lines %}
+    <div class="compact-line tier-row-{{ line.tier | lower }}" id="{{ line.anchor }}">
+      <p class="head"><span class="tier tier-{{ line.tier | lower }}">{{ line.tier }}</span> <span class="code">{{ line.code }}</span> {{ line.criterion.text }}</p>
+      <p class="facts">
+        <span class="fact">{{ say(line.determinacy) }}</span>
+        <span class="fact">{{ say(line.reading) }}</span>
+        <span class="fact">{{ say(line.coverage) }}</span>
+        <span class="fact">{{ say(line.located) }}</span>
+      </p>
+      <p class="where">
+        {%- if line.links %}
+        {%- for link in line.links %}<a href="{{ link.url }}">{{ link.label.text }}</a>{% if not link.exact %} <span class="url-note">{{ model.labels.link_search.text }}</span>{% endif %}{% if not loop.last %}<span class="sep"> </span>{% endif %}{% endfor %}
+        {%- else %}{{ say(line.no_link) }}{% endif -%}
+      </p>
+    </div>
+    {%- endfor %}
+  </section>
+  {%- endfor %}
+</section>
+
+<section class="narrative">
+  <h2>{{ model.labels.report_narrative_heading.text }}</h2>
+  {%- for slot in model.narrative %}
+  <section class="block block-{{ slot.register | lower }}" data-register="{{ slot.register }}">
+    <h3>{{ slot.heading.text }}</h3>
+    {%- for s in slot.sentences %}
+    {{ sentence(s) }}
+    {%- endfor %}
+  </section>
+  {%- endfor %}
+</section>
+</body>
+</html>

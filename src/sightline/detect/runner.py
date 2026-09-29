@@ -30,7 +30,7 @@ on the logging configuration, because the detect CLI runs without one.
 from __future__ import annotations
 
 import traceback
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import PurePath
 from types import TracebackType
@@ -113,6 +113,13 @@ class DetectionReport:
             "statement": self.statement(),
             "results": [result.to_dict() for result in self.results],
         }
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> DetectionReport:
+        """The inverse of :meth:`to_dict`. The statement is recomputed from the results."""
+        return cls(
+            results=tuple(DetectorResult.from_dict(entry) for entry in payload["results"])
+        )
 
 
 def run_detectors(

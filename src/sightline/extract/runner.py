@@ -25,7 +25,7 @@ item 11 runs three times *as a router* and reports the disagreement instead of r
 from __future__ import annotations
 
 import time
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -428,6 +428,16 @@ class RowExtraction:
             "reason": self.reason,
             "result": self.result.to_dict(),
         }
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> RowExtraction:
+        return cls(
+            criterion=str(payload["criterion"]),
+            section=str(payload["section"]),
+            tier=Tier(payload["tier"]),
+            reason=str(payload["reason"]),
+            result=ExtractorResult.from_dict(payload["result"]),
+        )
 
 
 async def answer_request(
