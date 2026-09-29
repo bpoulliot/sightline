@@ -52,7 +52,7 @@ on 2026-09-22). Next free item number: **40**.
 | 35 | The workbook's action plan holds located items; SPEC §08 promises remediation steps | 2 | **NEEDS DISCUSSION** | — |
 | 36 | Run-progress and New run screens | 2 | **BLOCKED** — on item 16 (its review screen is what the run screen links to) | filed 2026-09-29, PR #30 |
 | 37 | Host `__pycache__` ships in locally built images, carrying the developer's home path | 1 | READY | **DONE** — PR #34. 177 → 0 files in the dev image, 94 → 0 in runtime |
-| 38 | A bound Tier D row is counted in two coverage buckets, and `coverage` exits 1 calling it a bug | 1 | READY | filed 2026-09-29 by item 22, PR #32; queued 99o |
+| 38 | A bound Tier D row is counted in two coverage buckets, and `coverage` exits 1 calling it a bug | 1 | READY | **DONE** — PR #35. Tier first; 42 → 41 of 68, exit 1 → 0 |
 | 39 | Every other bare pattern in `.dockerignore` is root-only too | 3 | READY | filed 2026-09-29 by item 37, PR #34; not queued — latent, nothing matches today |
 
 ---
@@ -476,7 +476,8 @@ mappings. `python -m sightline.rubric propose | review | accept`. Instrument:
 
 *Readings this session took where the entry left room, each stated so it can be reversed.*
 - **Tier D rows are not asked.** A Tier D row reads Not Applicable bound or not, so a proposal could
-  change nothing, and binding one trips item 38. Each is recorded as *not asked* with the reason.
+  change nothing, and binding one tripped item 38 (fixed, PR #35). Each is recorded as *not asked*
+  with the reason.
 - **The row code is not sent to the model**, only the criterion text: a code the model recognises
   from another rubric is an invitation to answer from memory. Nothing assumes an OSCQR derivative.
 - **The catalogue sent is the whole vocabulary**, including tags no detector implements yet, each
@@ -523,9 +524,28 @@ What the numbers say, and what they do not:
 *The coverage defect this surfaced is item 38*, filed below, not fixed here: `PackCoverage` counts
 a bound Tier D row twice.
 
-**38 · FILED 2026-09-29 by item 22's session (PR #32). READY. A Tier D row with a binding is
-counted in two coverage buckets, so the report's own arithmetic check fails and `coverage` exits 1,
-saying the report has a bug.**
+**38 · DONE 2026-09-29 (PR #35). Filed by item 22's session (PR #32). A Tier D row with a binding
+was counted in two coverage buckets, so the report's own arithmetic check failed and `coverage`
+exited 1, saying the report had a bug.** The entry below stays as the contract.
+
+*What shipped.* `PackCoverage.deterministic` and `.not_yet_implemented` exclude Tier D, as
+`.evidence_only` already did, so the four buckets are disjoint by construction: tier first, then
+coverage. `detail()`'s per-section "N of M with coverage" counts the same way, so a bound Tier D row
+no longer counts there either, and its pending tags no longer appear under "awaiting a detector".
+`RowCoverage.coverage` itself is unchanged: it still says what the row's bindings resolve to, which
+is a fact about the bindings, not a bucket. The projection, the pack format, the shipped packs and
+item 22's `_bucket` (already tier-first) are untouched; `scripts/build-packs.sh` re-run from the
+branch is byte-identical.
+
+*Measured.* The reference pack with MOB 5 bound to `alt_text`, through `python -m sightline.rubric
+coverage` in the dev image: on main, 42 of 68 deterministic and exit 1 with the "bug here" line; on
+the branch, 41 + 8 + 18 + 1 = 68 and exit 0, the same counts as the unbound pack. Three tests
+added, each failing on main and passing on the branch: the reproduction (MOB 5 in exactly one
+bucket, `ok` True), the same with a build where no detector implements the tag (the
+not-yet-implemented bucket), and `coverage_delta` against `pack_coverage` before and after with MOB
+5 and one Tier B row bound together (only the Tier B row moves; every bucket's change equals what
+moved in less what moved out). Full suite in the dev image, each from a `git archive` extract: main
+1844 passed, 4 skipped; branch 1847 passed, 4 skipped.
 
 *Evidence.* `PackCoverage.deterministic` and `.not_yet_implemented` filter on coverage alone;
 `.not_determinable` filters on tier alone; `.evidence_only` is the only bucket that excludes Tier

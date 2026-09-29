@@ -14,17 +14,20 @@ instrument starts, and the review it produces is a real one.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 from sightline.detect import detectors
+from sightline.detect.base import Tier
 from sightline.rubric.coverage import pack_coverage
-from sightline.rubric.pack import load
+from sightline.rubric.pack import RubricPack, load
 from sightline.rubric.project import TagIndex
 from sightline.rubric.states import Coverage
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "rubric"
 TINY = FIXTURES / "tiny-pack.yaml"
 UNBOUND = FIXTURES / "unbound-pack.yaml"
+REF_PACK = Path(__file__).resolve().parents[1] / "rubrics" / "packs" / "uccs-oscqr-3-1-3.yaml"
 
 #: The shipped registry's view, which is what a person uploading a rubric would actually be told.
 SHIPPED = TagIndex.build(detectors())
@@ -162,3 +165,52 @@ def test_coverage_is_computed_against_the_index_it_is_given() -> None:
     assert report.counts["not_yet_implemented"] == 6
     assert report.ok
     assert all(entry.coverage is not Coverage.DETERMINISTIC for entry in report.rows)
+
+
+def _bind(pack: RubricPack, code: str, *tags: str) -> RubricPack:
+    """The pack with ``tags`` added to one row's bindings, in memory. The pack file is untouched."""
+    return replace(
+        pack,
+        criteria=tuple(
+            replace(c, bindings=(*c.bindings, *tags)) if c.code == code else c
+            for c in pack.criteria
+        ),
+    )
+
+
+def test_a_bound_tier_d_row_is_counted_once_under_not_determinable() -> None:
+    """Roadmap item 38's reproduction. The reference pack's one Tier D row, MOB 5, bound to a tag
+    a detector implements: before the fix it was counted both deterministic and not determinable,
+    69 rows against 68, and `ok` went False. Tier comes first, whatever the row binds."""
+    pack = load(REF_PACK)
+    assert pack.criterion("MOB 5").tier is Tier.D
+    assert not pack.criterion("MOB 5").bindings
+    before = pack_coverage(pack, tags=SHIPPED)
+
+    after = pack_coverage(_bind(pack, "MOB 5", "alt_text"), tags=SHIPPED)
+    (row,) = [entry for entry in after.rows if entry.code == "MOB 5"]
+    assert row.coverage is Coverage.DETERMINISTIC, "the binding itself resolves"
+
+    assert after.ok, after.detail()
+    assert dict(after.counts) == dict(before.counts)
+    buckets = (
+        after.deterministic,
+        after.not_yet_implemented,
+        after.evidence_only,
+        after.not_determinable,
+    )
+    assert [sum(entry.code == "MOB 5" for entry in bucket) for bucket in buckets] == [0, 0, 0, 1]
+    assert "bug" not in after.detail()
+
+
+def test_a_tier_d_row_bound_to_a_pending_capability_is_not_awaiting_a_detector() -> None:
+    """The same rule for the other coverage bucket: a Tier D row bound only to a capability no
+    detector implements yet is not determinable, and does not appear in "awaiting a detector"."""
+    empty = TagIndex.build([])
+    pack = load(REF_PACK)
+    before = pack_coverage(pack, tags=empty)
+    after = pack_coverage(_bind(pack, "MOB 5", "alt_text"), tags=empty)
+    assert after.ok, after.detail()
+    assert dict(after.counts) == dict(before.counts)
+    assert "MOB 5" not in {entry.code for entry in after.not_yet_implemented}
+    assert "MOB 5" in {entry.code for entry in after.not_determinable}
