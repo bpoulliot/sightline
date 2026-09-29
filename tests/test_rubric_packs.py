@@ -630,12 +630,12 @@ def test_every_tier_a_row_binds_at_least_one_capability() -> None:
 #: ``project._rate`` could not tell those apart, so a clean detector run read Sufficiently Present.
 #:
 #: **Why every entry came out.** Item 28 took the rule-in-``_rate`` shape rather than a second
-#: ``supporting:`` list in the pack: only a Tier A row reaches Sufficiently Present, and a Tier B row
-#: whose detectors found nothing stays at No Response with a note saying what was examined (SPEC §02
-#: — "A: rating pre-selected" against "B: rating proposed"). Every one of the 27 now reads No
-#: Response on a clean run, which :func:`test_item_28s_recorded_list_is_exactly_the_rows_reading_clean_below_tier_a`
-#: measures rather than assumes. The 27 rows are still Tier B with a detector behind them, and that
-#: is now safe rather than debt: their findings still reach them and still propose a band.
+#: ``supporting:`` list in the pack: only a Tier A row reaches Sufficiently Present, and a Tier B
+#: row whose detectors found nothing stays at No Response with a note saying what was examined
+#: (SPEC §02 — "A: rating pre-selected" against "B: rating proposed"). Every one of the 27 now
+#: reads No Response on a clean run, which the second guard below measures rather than assumes.
+#: The 27 rows are still Tier B with a detector behind them, and that is now safe rather than
+#: debt: their findings still reach them and still propose a band.
 #:
 #: **Why the guards moved from coverage to rating.** They used to police "a non-A row has a detector
 #: behind it", which was the precondition for the failure while ``_rate`` ignored the tier. The
