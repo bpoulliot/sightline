@@ -6,7 +6,7 @@ Labels: **READY** · **NEEDS DISCUSSION** · **NEEDS MEASUREMENT** · **BLOCKED*
 Nothing unready enters the queue. One item per conversation, one PR per item.
 
 Queue lives at `~/docker/overnight/projects/sightline/` (moved from `~/docker/overnight-sightline/`
-on 2026-09-22). Next free item number: **34**.
+on 2026-09-22). Next free item number: **35**.
 
 ---
 
@@ -40,7 +40,7 @@ on 2026-09-22). Next free item number: **34**.
 | 23 | Canvas-requested content export | 1 | READY | **DONE** — PR #6 |
 | 24 | Agreement and near-boundary transparency | 2 | READY | staged 16 |
 | 25 | Returned-review ingestion | 3 | **BLOCKED** — needs reviews delivered and returned | — |
-| 26 | Wire document bytes from the export to the detectors | 1 | READY | queued 99 |
+| 26 | Wire document bytes from the export to the detectors | 1 | READY | **DONE** — PR #21 |
 | 27 | One detector's crash must not take the whole review with it | 1 | READY | queued 99a |
 | 28 | A binding says *relevant*; rating reads it as *sufficient* | 1 | READY | queued 99b — **now live**, 27 rows |
 | 29 | `Scan.text` fuses two words at every block seam | 1 | READY | **DONE** — PR #13 |
@@ -48,6 +48,7 @@ on 2026-09-22). Next free item number: **34**.
 | 31 | `plain_text()` reads a tag with a regex, and two shapes of course HTML defeat it | 1 | READY | queued 99c1 — take with 30 |
 | 32 | The suite reads the developer's `.env`; the fixture that promises it does not, does not | 1 | READY | **DONE** — PR #16 |
 | 33 | A routed row costs one call per passage, and nothing bounds the total | 2 | **NEEDS MEASUREMENT** | queued 99d |
+| 34 | Acquisition drops every outcome when it records an export note | 1 | READY | queued 99m |
 
 ---
 
@@ -475,9 +476,9 @@ extracting before projecting has nothing to ask about.
 - **Nothing here logs a course reference.** A Canvas course URL carries the host, which SPEC §11
   treats as a secret; log calls key on the course id and the ordinal, stored events are scrubbed,
   and a test fails the build if a reference reaches a log line.
-- **Document bytes are still not wired to the detectors (item 26).** The pipeline passes
-  `files=None` and says so in `sightline.batch.service` rather than pretending; the detectors that
-  read a PDF report that the bytes were not read, which is what they are built to do.
+- **Document bytes reach the detectors (item 26, PR #21).** The live factory passes
+  `data_paths=paths` and the detect stage builds each course's source from the export its own
+  document names; the `files=None` this bullet used to describe is gone.
 
 **33 · FILED 2026-09-17 by item 17's session. A routed row costs one call per passage of the
 course, and nothing bounds the product.** Measured over the shipped sample course — 43 artifacts,
@@ -840,6 +841,41 @@ treats as not-a-pass and which the CLI already exits 1 over — so the fix keeps
 while the rest of the review survives. Filed sorting **after** every pending item: it is a crash
 rather than silent wrongness, and nothing queued is blocked on it, though item 17's batch runner
 would lose a whole course to one odd page.
+
+**26 · DONE 2026-09-28 (PR #21). Document bytes reach the detectors from the export an acquired
+course names.**
+
+- **The document names its export.** `CourseDocument.export_files` (provenance key
+  `content_export_files`) is the unpacked export's `files/` directory, relative to the data root,
+  recorded for all three export origins. `sightline.detect.sources.export_file_source(document,
+  paths)` builds the source from the document alone, so a cached document reaches the same bytes
+  as a cold one.
+- **`local_path` is export-relative, and the docstring now says so.** The code was right; the
+  model docstring ("relative to the data root") was wrong and is corrected. A test asserts both
+  directions.
+- **A cache hit whose export is gone is a miss.** A document with file paths whose recorded
+  directory is no longer a complete extraction — swept by hand, or cached before item 26 — is
+  acquired again as on a first run (the fresh path therefore asks Canvas for a new export). A
+  course with no file paths is served from the cache as before.
+- **Reads go through `DataPaths.resolve`.** `ExportFileSource(paths, *root)` lost its own
+  containment check; `python -m sightline.detect --export DIR` roots the gate at the named
+  directory.
+- **Measured:** on a synthetic course acquired from an export, byte-related Undetermined (D02 +
+  D28 + D30) went 6 → 1 (the one left is a file the export does not carry); D30 went from 0
+  findings to located `pdf_without_a_tag_tree` / `document_without_heading_styles` findings.
+  `examples/sample-course` is unchanged (D30 5, D28 2, D02 1) because a bundle records no export.
+
+**34 · FILED 2026-09-28 by item 26's session. Acquisition drops every outcome when it records an
+export note.** `acquire/service.py::_with_examination` rebuilds the `CourseDocument` from a
+hand-written field list that omits `outcomes`, and it runs whenever an export note exists — which is
+every Canvas acquisition with `include_export` on (fresh: OK or REFUSED; existing: OK, ABSENT,
+SKIPPED or REFUSED). Probed through the real acquisition with one outcome group link: 1 of 1
+outcome with `include_export=False` (no note, the positive control), **0** with the note present,
+both OK and ABSENT. D11 then sees an `outcomes` examination of `ok, examined=1` and zero outcomes,
+and reports itself as *could not run* (`NothingExamined`) on every course that records outcomes. Not
+silent — it surfaces as a detector fault — so filed sorting after every pending item. The fix is
+small (`dataclasses.replace(document, examinations=...)` or an equivalent that cannot forget a
+field) plus a test that fails when a `CourseDocument` field is added and not carried.
 
 **26 · FILED 2026-09-17 by item 06's session.** `ExportFileSource` exists and the detectors that
 read document bytes take one, but **nothing can build one**: `CourseAcquisition.acquire` returns

@@ -11,13 +11,10 @@ credentials, no model host, a pack id nothing on disk answers to: each raises
 records and the summary repeats. A batch that starts and then throws a ``KeyError`` sixteen times
 is the shape this avoids.
 
-**Document bytes are not wired in yet and this module says so rather than pretending.** The
-detectors that read a PDF or a Word file take a
-:class:`~sightline.detect.sources.FileSource`, and nothing can build one: the unpacked export's
-directory is a local inside ``CourseAcquisition.acquire`` and never leaves it. That is roadmap
-item 26, filed by item 06's session and queued. Until it lands those detectors report that the
-bytes were not read — which is what they are built to do, and is why passing ``None`` here is
-honest rather than quiet.
+**Document bytes reach the detectors through the data root** (roadmap item 26). Each acquired
+document records the unpacked export its files live in, and the pipeline is handed the data root so
+it can build each course's :class:`~sightline.detect.sources.FileSource` from that record. A course
+acquired without an export records none, and its documents are reported as not read.
 """
 
 from __future__ import annotations
@@ -97,8 +94,8 @@ def live_pipeline_factory(
                     pack=pack,
                     client=model_client,
                     model=model,
-                    # Item 26: nothing can build a FileSource yet. See the module docstring.
-                    files=None,
+                    # Each course's bytes come from the export its own acquisition recorded.
+                    data_paths=paths,
                     links=links,
                     effort=load_effort_model(settings.effort_costs),
                 )

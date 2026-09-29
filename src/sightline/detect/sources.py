@@ -9,9 +9,16 @@ records an :class:`~sightline.detect.base.Undetermined` naming the file and the 
 that was never downloaded is neither an accessible document nor an inaccessible one.
 
 **Bytes stay inside the data root.** An export carries instructor-authored content and lives under
-``SIGHTLINE_DATA_DIR`` (SPEC §11). :class:`ExportFileSource` resolves against the unpacked export's
-own directory and refuses a path that climbs out of it, because ``local_path`` comes from an
-archive written by somebody else.
+``SIGHTLINE_DATA_DIR`` (SPEC §11). :class:`ExportFileSource` resolves every read through
+:meth:`sightline.paths.DataPaths.resolve` — the same gate every write goes through — so a
+``local_path`` that climbs, is absolute, or follows a symlink out of the root is refused rather
+than read. ``local_path`` comes from an archive written by somebody else, and a second, parallel
+containment check would be a second thing to get wrong.
+
+**An acquired course names its own bytes.** Acquisition records the unpacked export's ``files/``
+directory in the document (:attr:`~sightline.model.CourseDocument.export_files`), so
+:func:`export_file_source` builds the right source from the document alone — the same way whether
+the document was normalized a moment ago or loaded from the cache.
 
 **Reads are capped.** A course file can be a 2 GB video. A detector that needs a PDF's structure
 needs its first megabytes, not all of it, and an unbounded read inside a per-course loop is how one
@@ -21,10 +28,13 @@ oversized attachment stalls a batch.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from pathlib import Path
 from typing import Protocol, runtime_checkable
 
-from ..model import CourseFile
+from ..logging import get_logger
+from ..model import CourseDocument, CourseFile
+from ..paths import DataPathError, DataPaths
+
+log = get_logger("sightline.detect.sources")
 
 #: Bytes read from any one file. Generous for a document, far below a media file.
 MAX_READ_BYTES = 24 * 1024 * 1024
@@ -64,27 +74,43 @@ class MappingFileSource:
 class ExportFileSource:
     """Bytes from an unpacked content export, resolved through ``CourseFile.local_path``.
 
-    ``root`` is the export's ``files/`` directory — the same directory
-    :class:`~sightline.acquire.archive.UnpackedExport` lists its documents from, so a file's
-    ``local_path`` is relative to it.
+    ``root`` names the export's ``files/`` directory inside ``paths`` — the directory
+    :class:`~sightline.acquire.archive.UnpackedExport` lists its documents from, and the one a
+    file's ``local_path`` is relative to. With no ``root``, ``paths`` itself is that directory,
+    which is how ``python -m sightline.detect --export DIR`` reads a directory named by hand.
     """
 
-    def __init__(self, root: Path | str, *, max_bytes: int = MAX_READ_BYTES) -> None:
-        self._root = Path(root).resolve()
+    def __init__(self, paths: DataPaths, *root: str, max_bytes: int = MAX_READ_BYTES) -> None:
+        self._paths = paths
+        self._root = root
         self._max_bytes = max_bytes
 
     def read(self, file: CourseFile) -> bytes | None:
         if not file.local_path:
             return None
-        candidate = (self._root / file.local_path).resolve()
-        if not candidate.is_relative_to(self._root):
+        try:
+            candidate = self._paths.resolve(*self._root, file.local_path)
+        except DataPathError:
             # The href came out of an archive somebody else wrote. A path climbing out of the
-            # export root is the archive asking to read a file it has no business naming.
+            # data root is the archive asking to read a file it has no business naming.
+            log.warning("export_path_refused", file=file.id)
             return None
         if not candidate.is_file():
             return None
         with candidate.open("rb") as handle:
             return handle.read(self._max_bytes)
+
+
+def export_file_source(document: CourseDocument, paths: DataPaths) -> FileSource:
+    """Where ``document``'s file bytes come from, read from the document itself.
+
+    An :class:`ExportFileSource` over the export acquisition recorded, or :class:`NoFileSource`
+    when the document records none — a course acquired without an export, or a bundle. The
+    detectors then report each document as not read, which is the truth.
+    """
+    if document.export_files is None:
+        return NoFileSource()
+    return ExportFileSource(paths, document.export_files)
 
 
 __all__ = [
@@ -93,4 +119,5 @@ __all__ = [
     "FileSource",
     "MappingFileSource",
     "NoFileSource",
+    "export_file_source",
 ]

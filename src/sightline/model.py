@@ -34,6 +34,11 @@ from typing import Any
 #: invalidates every cached document rather than deserializing an old one into a new class.
 SCHEMA_VERSION = 1
 
+#: The provenance key naming where a course's document bytes live: the unpacked content export's
+#: ``files/`` directory, as a POSIX path relative to the data root. Every
+#: :attr:`CourseFile.local_path` in the same document is relative to that directory.
+EXPORT_FILES_KEY = "content_export_files"
+
 
 class ArtifactKind(enum.StrEnum):
     """Every kind of thing a detector can be handed."""
@@ -348,9 +353,15 @@ class Discussion(Artifact):
 
 @dataclass(frozen=True, kw_only=True, slots=True)
 class CourseFile(Artifact):
-    """A file in the course. ``local_path`` is relative to the data root when the bytes were
-    acquired; the model never carries an absolute path, because a normalized document is copied
-    between machines and an absolute path is a machine's, not a course's."""
+    """A file in the course.
+
+    ``local_path`` is where the file sits inside the unpacked content export — the archive's own
+    href, such as ``web_resources/week2-reading.docx`` — and is therefore relative to that
+    export's ``files/`` directory, **not** to the data root. The document names that directory
+    once, in :attr:`CourseDocument.export_files`; the two together locate the bytes. ``None``
+    means the export did not carry this file, or there was no export. The model never carries an
+    absolute path, because a normalized document is copied between machines and an absolute path
+    is a machine's, not a course's."""
 
     kind: ArtifactKind = ArtifactKind.FILE
     canvas_id: str | None = None
@@ -812,6 +823,17 @@ class CourseDocument:
                 return entry
         return None
 
+    @property
+    def export_files(self) -> str | None:
+        """The unpacked export's ``files/`` directory, relative to the data root, or ``None``.
+
+        Recorded by acquisition when an export was unpacked. It is what a
+        :attr:`CourseFile.local_path` is relative to; see
+        :func:`sightline.detect.sources.export_file_source`.
+        """
+        value = self.provenance.get(EXPORT_FILES_KEY)
+        return str(value) if value else None
+
     def counts(self) -> dict[str, int]:
         """Artifacts per kind. The declarative summary of what acquisition found."""
         tally: dict[str, int] = {}
@@ -1042,6 +1064,7 @@ def artifact_from_dict(payload: Mapping[str, Any]) -> Artifact:
 
 __all__ = [
     "ARTIFACT_CLASSES",
+    "EXPORT_FILES_KEY",
     "SCHEMA_VERSION",
     "Artifact",
     "ArtifactKind",
