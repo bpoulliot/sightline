@@ -68,6 +68,27 @@ REQUIRED_LIMITS: tuple[str, ...] = ("small_sample", "major_boundary", "pairings_
 #: What every sentence here is doing, for a surface laying it out.
 ROLE = "agreement"
 
+#: Every key the data file may carry. Anything else is refused, so a figure nobody decided to
+#: publish cannot ride into the product by being added to this file (roadmap item 24).
+_TOP_LEVEL = frozenset(
+    {"measured", "instrument", "corpus", "scope", "source", "pairs", "disagreements", "limits"}
+)
+_CORPUS = frozenset({"courses", "rated_instances", "major_ratings"})
+_PAIR = frozenset({"id", "passes", "rated_by_both", "identical_percent"})
+_DISAGREEMENTS = (
+    "total",
+    "one_band",
+    "two_bands_or_more",
+    "sufficiently_present_vs_minor",
+    "major_vs_sufficiently_present",
+)
+
+
+def _only(mapping: Mapping[str, Any], allowed: Any, where: str) -> None:
+    extra = sorted(set(mapping) - set(allowed))
+    if extra:
+        raise AgreementError(f"{where} carries {', '.join(extra)}, which is not published")
+
 
 class AgreementError(ValueError):
     """``agreement.yaml`` is malformed, or no longer supports a sentence the bank says."""
@@ -142,9 +163,11 @@ def parse_agreement(payload: Any, *, origin: str = AGREEMENT_FILENAME) -> Agreem
     if not isinstance(payload, Mapping):
         raise AgreementError(f"{origin}: the top level must be a mapping")
     try:
+        _only(payload, _TOP_LEVEL, "the file")
         corpus = payload["corpus"]
         if not isinstance(corpus, Mapping):
             raise AgreementError("corpus must be a mapping")
+        _only(corpus, _CORPUS, "corpus")
         courses = _count(corpus["courses"], "corpus.courses")
         instances = _count(corpus["rated_instances"], "corpus.rated_instances")
         majors = _count(corpus["major_ratings"], "corpus.major_ratings", positive=False)
@@ -159,6 +182,7 @@ def parse_agreement(payload: Any, *, origin: str = AGREEMENT_FILENAME) -> Agreem
             where = f"pairs[{index}]"
             if not isinstance(entry, Mapping):
                 raise AgreementError(f"{where} must be a mapping")
+            _only(entry, _PAIR, where)
             percent = _count(entry["identical_percent"], f"{where}.identical_percent", positive=False)
             if percent > 100:
                 raise AgreementError(f"{where}.identical_percent is over 100")
@@ -176,16 +200,11 @@ def parse_agreement(payload: Any, *, origin: str = AGREEMENT_FILENAME) -> Agreem
         raw = payload["disagreements"]
         if not isinstance(raw, Mapping):
             raise AgreementError("disagreements must be a mapping")
+        _only(raw, _DISAGREEMENTS, "disagreements")
         disagreements = Disagreements(
             **{
                 name: _count(raw[name], f"disagreements.{name}", positive=False)
-                for name in (
-                    "total",
-                    "one_band",
-                    "two_bands_or_more",
-                    "sufficiently_present_vs_minor",
-                    "major_vs_sufficiently_present",
-                )
+                for name in _DISAGREEMENTS
             }
         )
         if disagreements.one_band + disagreements.two_bands_or_more != disagreements.total:

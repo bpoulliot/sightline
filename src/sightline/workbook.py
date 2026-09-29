@@ -47,6 +47,16 @@ rating words, a URL — are verbatim spans. Every cell is linted by item 15's re
 byte is written, and a violation raises. The fix for a failing cell is the words in the bank, never
 an exemption here.
 
+WHY THE HUMAN AGREEMENT FIGURES ARE NOT HERE
+--------------------------------------------
+The PDF and the review screen state how often independent human reviewers choose the same rating
+(roadmap item 24, :mod:`sightline.voice.agreement`). This workbook deliberately does not. It is one
+header row per sheet, no merged cells and a lossless CSV round-trip, so a paragraph of prose has no
+honest place in it — a note row would be a row that is not a criterion, and a merged banner is
+exactly what the format refuses. It is also the designer's working artifact, not the one forwarded
+to faculty. **Do not add the statement here to make the surfaces match**; the omission is the
+decision. The per-row near-boundary marker *is* here, in its own column.
+
 WHAT IS AND IS NOT EMBEDDED
 ---------------------------
 The document properties are written by this module, not left to the library: no creator, no

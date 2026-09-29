@@ -134,7 +134,7 @@ aggregate:
 #   figure  names are read in Sightline's own words; the figure is read in the WHOLE sentence,
 #            spans included, because a figure is always inserted as a span. This is what stops a
 #            human-agreement figure from `agreement.yaml` being turned into a claim about Sightline:
-#            "Sightline agrees with reviewers 91% of the time" is refused however it is worded.
+#            "Sightline agrees with reviewers N% of the time" is refused however it is worded.
 #
 # The human agreement figures describe people agreeing with each other. They are never a
 # statement about Sightline, and no sentence may make them one.
