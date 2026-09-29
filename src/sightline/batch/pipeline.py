@@ -37,7 +37,7 @@ from ..acquire.service import CourseAcquisition
 from ..canvas.errors import CanvasError
 from ..detect.links import LinkResolver
 from ..detect.runner import DetectionReport, run_detectors
-from ..detect.sources import FileSource
+from ..detect.sources import FileSource, export_file_source
 from ..extract.base import Corpus
 from ..extract.runner import (
     ExtractionReport,
@@ -50,6 +50,7 @@ from ..llm.client import ModelCard, OllamaClient
 from ..llm.errors import ModelHostError, ModelHostNotConfiguredError
 from ..logging import get_logger
 from ..model import CourseDocument
+from ..paths import DataPaths
 from ..rubric.effort import EffortModel
 from ..rubric.pack import RubricPack
 from ..rubric.project import Projection, project
@@ -212,6 +213,12 @@ class ReviewPipeline:
 
     Everything it needs is injected. There is no configuration read inside a stage, because a
     stage that reads a setting is a stage whose behaviour a test cannot pin.
+
+    **Document bytes come from the course, not from the pipeline.** Each acquired document names
+    the export its files were unpacked into, so with ``data_paths`` given the detect stage reads
+    each course's bytes from that course's own export — one pipeline, many courses, no shared
+    source to get wrong. ``files`` overrides that with one source for every course, which is what
+    a test wants; with neither, the detectors report every document as not read.
     """
 
     def __init__(
@@ -222,6 +229,7 @@ class ReviewPipeline:
         client: OllamaClient | None = None,
         model: str | None = None,
         files: FileSource | None = None,
+        data_paths: DataPaths | None = None,
         links: LinkResolver | None = None,
         effort: EffortModel | None = None,
     ) -> None:
@@ -232,6 +240,7 @@ class ReviewPipeline:
         self.client = client
         self.model = model
         self.files = files
+        self.data_paths = data_paths
         self.links = links
         self._card: ModelCard | None = None
 
@@ -276,7 +285,7 @@ class ReviewPipeline:
 
     def _detect(self, work: CourseWork) -> StageOutcome:
         document = _require(work.document, Stage.DETECT, "the course was never acquired")
-        report = run_detectors(document, files=self.files, links=self.links)
+        report = run_detectors(document, files=self._files_for(document), links=self.links)
         work.detection = report
         examined = sum(result.examined for result in report.results)
         if examined == 0:
@@ -299,6 +308,13 @@ class ReviewPipeline:
                 "undetermined": len(report.undetermined),
             },
         )
+
+    def _files_for(self, document: CourseDocument) -> FileSource | None:
+        if self.files is not None:
+            return self.files
+        if self.data_paths is not None:
+            return export_file_source(document, self.data_paths)
+        return None
 
     # -- 3. project ---------------------------------------------------------------------------
 

@@ -26,6 +26,17 @@ review of last week's course reported as this week's is the silent wrongness thi
 avoid. On the opt-out path an export can still be older than the course, so the API stays
 authoritative for structure and page bodies and the export's age is recorded in the document's
 provenance for a reviewer to weigh.
+
+**The document names the export its bytes live in** (:attr:`CourseDocument.export_files`, a path
+relative to the data root), because the detectors that read a PDF need those bytes and the
+unpacked export is otherwise a local of :meth:`CourseAcquisition.acquire`. Recording it on the
+document rather than on the result is what makes it survive the cache: a cached document is loaded
+without unpacking anything, and it still says where the first run's bytes are. **A cache hit whose
+export has since gone is a miss.** If a document carries file paths and the directory they are
+relative to is no longer a complete extraction — swept by hand, or a document cached before the
+directory was recorded — the entry is not returned; the course is acquired again as on a first
+run. Serving it would have every detector that reads a document report "not acquired" on a course
+whose export downloaded perfectly well, which reads as an honest answer and is not one.
 """
 
 from __future__ import annotations
@@ -46,9 +57,10 @@ from ..canvas.exports import (
 )
 from ..canvas.refs import parse_course_ref
 from ..logging import get_logger
-from ..model import CourseDocument, Examination, ExaminationState, Source
-from ..paths import DataPaths
+from ..model import EXPORT_FILES_KEY, CourseDocument, Examination, ExaminationState, Source
+from ..paths import DataPathError, DataPaths
 from .archive import (
+    COMPLETE_MARKER,
     ArchiveError,
     UnpackedExport,
     archive_digest,
@@ -154,10 +166,14 @@ class CourseAcquisition:
 
         if use_cache:
             cached = self._cache.load(entry)
-            if cached is not None:
+            if cached is not None and self._bytes_reachable(cached):
                 return AcquisitionResult(
                     document=cached, signature=signature, from_cache=True, entry=entry
                 )
+            if cached is not None:
+                # See the module docstring: the document is fine, but the bytes it points at are
+                # gone, and serving it would turn every document into a quiet "not acquired".
+                log.warning("cache_export_missing", signature=signature[:8])
 
         slugs = [
             str(page.get("url"))
@@ -180,7 +196,13 @@ class CourseAcquisition:
             base_url=self.base_url,
             bodies=bodies,
             export=export,
-            provenance=_provenance(index, signature, export_note, requested=fresh),
+            provenance=_provenance(
+                index,
+                signature,
+                export_note,
+                requested=fresh,
+                export_files=self._relative(export.files_root) if export is not None else None,
+            ),
         )
         # Recorded whether or not there are bytes. On failure the note is the whole explanation;
         # on success it says *where the bytes came from* — requested now, or already sitting in
@@ -201,6 +223,33 @@ class CourseAcquisition:
         return AcquisitionResult(
             document=document, signature=signature, from_cache=False, entry=entry
         )
+
+    # -- where the bytes are ------------------------------------------------------------------
+
+    def _relative(self, path: Path) -> str:
+        """``path`` relative to the data root, as the POSIX string the document records.
+
+        Every export directory is built by :meth:`DataPaths.resolve`, which joins onto the root
+        lexically, so this is exact rather than a realpath comparison.
+        """
+        return path.relative_to(self._paths.root).as_posix()
+
+    def _bytes_reachable(self, document: CourseDocument) -> bool:
+        """Whether every file path in ``document`` can still be resolved to where it was.
+
+        True when the document carries no file paths at all — there are no bytes to lose. False
+        when it carries paths and either records no export directory (written before the
+        directory was recorded) or records one that is no longer a complete extraction.
+        """
+        if not any(item.local_path for item in document.files):
+            return True
+        if document.export_files is None:
+            return False
+        try:
+            files_root = self._paths.resolve(document.export_files)
+        except DataPathError:
+            return False
+        return files_root.is_dir() and (files_root.parent / COMPLETE_MARKER).is_file()
 
     # -- content exports ---------------------------------------------------------------------
 
@@ -379,7 +428,12 @@ def _newest_finished_export(items: tuple[Any, ...]) -> Mapping[str, Any] | None:
 
 
 def _provenance(
-    index: CourseIndex, signature: str, export_note: Examination | None, *, requested: bool
+    index: CourseIndex,
+    signature: str,
+    export_note: Examination | None,
+    *,
+    requested: bool,
+    export_files: str | None = None,
 ) -> dict[str, Any]:
     """Facts about the acquisition itself. No wall-clock value: the document must serialize
     identically on a second run (see :mod:`sightline.model`).
@@ -402,6 +456,10 @@ def _provenance(
     }
     if export_note is not None:
         provenance["content_export"] = export_note.state.value
+    if export_files is not None:
+        # Relative to the data root and derived from the archive's digest, so it is the same
+        # string on every run over the same archive and the document still serializes the same.
+        provenance[EXPORT_FILES_KEY] = export_files
     return provenance
 
 

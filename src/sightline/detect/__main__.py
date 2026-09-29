@@ -10,7 +10,10 @@ under its own heading and is never quietly absent.
 
 ``--export`` points at an unpacked content export's ``files/`` directory, which is where document
 bytes come from. Without it the detectors that read PDFs and Office files report what they could
-not read instead of reporting nothing, and that is what the output says.
+not read instead of reporting nothing, and that is what the output says. It is a debugging path: a
+bundle does not record which export it came from, so the directory is named by hand here. A course
+acquired from Canvas records its own export, and the batch pipeline reads from that without being
+told (:func:`sightline.detect.sources.export_file_source`).
 
 ``--resolve-links`` is the only flag that makes this command touch the network, and it is off
 unless typed. It lets the policy-link check ask the addresses a course links to whether they still
@@ -30,6 +33,7 @@ from pathlib import Path
 
 from ..acquire.bundle import BundleError, load_bundle
 from ..model import CourseDocument
+from ..paths import DataPaths
 from .base import ResultState
 from .links import HttpLinkResolver
 from .runner import DetectionReport, run_detectors
@@ -106,7 +110,9 @@ def main(argv: list[str] | None = None) -> int:
         print(str(exc), file=sys.stderr)
         return 1
 
-    files = ExportFileSource(args.export) if args.export else None
+    # The named directory is the containment root: a local_path is resolved inside it through the
+    # same gate as every other path, and refused if it climbs out.
+    files = ExportFileSource(DataPaths.from_setting(args.export)) if args.export else None
     links = HttpLinkResolver.from_httpx() if args.resolve_links else None
     only = None
     if args.detector:

@@ -40,6 +40,7 @@ from sightline.detect.base import (
 )
 from sightline.detect.sources import ExportFileSource, MappingFileSource, NoFileSource
 from sightline.model import ArtifactKind, CourseDocument, CourseInfo
+from sightline.paths import DataPaths
 
 # Defining a detector registers it. These two exist only for this module, so they are defined
 # inside a snapshot that puts the registry back on the way out — the classes stay usable, the
@@ -354,7 +355,7 @@ def test_an_export_source_reads_under_its_root_and_refuses_a_path_that_climbs_ou
     (root / "web_resources" / "syllabus.pdf").write_bytes(b"%PDF-1.7\n")
     (tmp_path / "secret.txt").write_bytes(b"not yours")
 
-    source = ExportFileSource(root)
+    source = ExportFileSource(DataPaths.from_setting(tmp_path), "export/files")
     inside = course_file("5001", "syllabus.pdf", local_path="web_resources/syllabus.pdf")
     assert source.read(inside) == b"%PDF-1.7\n"
 
@@ -365,12 +366,32 @@ def test_an_export_source_reads_under_its_root_and_refuses_a_path_that_climbs_ou
     assert source.read(absent) is None
     assert source.read(course_file("5004", "no-path.pdf")) is None
 
+    absolute = course_file("5006", "passwd", local_path="/etc/passwd")
+    assert source.read(absolute) is None
+
+
+def test_an_export_source_refuses_a_symlink_out_of_the_data_root(tmp_path: Path) -> None:
+    """The archive cannot plant one, but a directory named by hand can hold one — and the gate
+    that refuses it is :meth:`DataPaths.resolve`, not a check written here."""
+    root = tmp_path / "data" / "files"
+    (root / "web_resources").mkdir(parents=True)
+    outside = tmp_path / "outside.pdf"
+    outside.write_bytes(b"%PDF-1.7 not yours\n")
+    (root / "web_resources" / "linked.pdf").symlink_to(outside)
+    (root / "web_resources" / "real.pdf").write_bytes(b"%PDF-1.7 yours\n")
+
+    source = ExportFileSource(DataPaths.from_setting(root))
+    linked = course_file("5007", "linked.pdf", local_path="web_resources/linked.pdf")
+    real = course_file("5008", "real.pdf", local_path="web_resources/real.pdf")
+    assert source.read(linked) is None
+    assert source.read(real) == b"%PDF-1.7 yours\n"
+
 
 def test_an_export_source_stops_at_its_read_cap(tmp_path: Path) -> None:
     root = tmp_path / "files"
     root.mkdir()
     (root / "big.pdf").write_bytes(b"x" * 500)
-    source = ExportFileSource(root, max_bytes=100)
+    source = ExportFileSource(DataPaths.from_setting(root), max_bytes=100)
     item = course_file("5005", "big.pdf", local_path="big.pdf")
     assert source.read(item) == b"x" * 100
 
