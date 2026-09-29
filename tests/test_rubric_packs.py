@@ -48,7 +48,7 @@ from sightline.rubric.coverage import PackCoverage, pack_coverage
 from sightline.rubric.importer import import_workbook
 from sightline.rubric.mapping import load as load_mapping
 from sightline.rubric.pack import RubricPack
-from sightline.rubric.project import TagIndex, project
+from sightline.rubric.project import Projection, RowResult, TagIndex, project
 from sightline.rubric.shipped import pack_paths, packs_dir, shipped_pack, shipped_packs
 from sightline.rubric.states import Coverage, Rating
 
@@ -620,107 +620,196 @@ def test_every_tier_a_row_binds_at_least_one_capability() -> None:
                 assert criterion.bindings, f"{pack.id} {criterion.code}"
 
 
-#: Tier B rows a detector now answers in part. **This is roadmap item 28's debt, written down.**
+#: Rows that read **Sufficiently Present** on a clean run without being Tier A. **Empty since
+#: roadmap item 28, and the two guards below keep it that way.**
 #:
-#: Item 05 armed the guard below to fire the day item 07 or 08 landed, and item 07 landed it. The
-#: read it asked for was done and it confirmed the problem rather than dissolving it: each of these
-#: rows is bound to a capability that *bears on* it without *settling* it — ``GSOV 7`` asks what
-#: the syllabus states and ``syllabus_presence`` establishes only that one exists — and
-#: ``project._rate`` cannot tell those apart. A clean detector run on any row below reads
-#: **Sufficiently Present**, which is the one rating that means nothing needs doing.
+#: This was ``TIER_B_ROWS_A_DETECTOR_NOW_ANSWERS``, with 27 entries (20 reference, 7 RSI). Item 05
+#: armed a guard to fire the day a detector reached a Tier B row, and item 07 fired it: each of
+#: those rows is bound to a capability that *bears on* it without *settling* it — ``GSOV 7`` asks
+#: what the syllabus states and ``syllabus_presence`` establishes only that one exists — and
+#: ``project._rate`` could not tell those apart, so a clean detector run read Sufficiently Present.
 #:
-#: It is recorded rather than fixed here because the fix is a design decision item 28 owns and
-#: item 07 is not the place to take it: a ``supporting:`` list beside ``bindings:``, or a rule in
-#: ``_rate`` that only Tier A may reach ``SUFFICIENTLY_PRESENT``. What item 07 owes is that the
-#: list is exact, so a *new* row joining it still fails this test.
-#: The two tiers the guard below does not need to police, and which are not exceptions to it.
+#: **Why every entry came out.** Item 28 took the rule-in-``_rate`` shape rather than a second
+#: ``supporting:`` list in the pack: only a Tier A row reaches Sufficiently Present, and a Tier B
+#: row whose detectors found nothing stays at No Response with a note saying what was examined
+#: (SPEC §02 — "A: rating pre-selected" against "B: rating proposed"). Every one of the 27 now
+#: reads No Response on a clean run, which the second guard below measures rather than assumes.
+#: The 27 rows are still Tier B with a detector behind them, and that is now safe rather than
+#: debt: their findings still reach them and still propose a band.
 #:
-#: Tier A is what the guard is *for*: a row a parser settles, which is allowed to read Sufficiently
-#: Present. Tier C reaches the same ``deterministic`` bucket the day a detector gathers context for
-#: it — item 08's app-availability detector is the first — but it cannot produce the failure this
-#: guard names, because ``project._rate`` returns No Response for a Tier C row *before* the
-#: arithmetic runs whatever its detectors found (SPEC §02). That is proven rather than assumed by
-#: ``test_a_tier_c_row_a_detector_feeds_still_proposes_no_rating`` below; if it ever stops being
-#: true, that test fails first and this exemption comes out.
-SETTLED_OR_NEVER_SETTLED = frozenset({Tier.A, Tier.C})
-
-TIER_B_ROWS_A_DETECTOR_NOW_ANSWERS = {
-    (REFERENCE_ID, code)
-    for code in (
-        "ACD 10",
-        "ASFE 2",
-        "ASFE 4",
-        "ASFE 5",
-        "ASFE 7",
-        "COAL 1",
-        "COAL 2",
-        "ENIN 1",
-        "ENIN 3",
-        "ENIN 11",
-        "GSOV 1",
-        "GSOV 4",
-        "GSOV 5",
-        "GSOV 6",
-        "GSOV 7",
-        "GSOV 8",
-        "GSOV 9",
-        "GSOV 10",
-        "GSOV 11",
-        "OREP 3",
-    )
-} | {(RSI_ID, code) for code in ("1", "3", "4", "12", "13", "17", "18")}
+#: **Why the guards moved from coverage to rating.** They used to police "a non-A row has a detector
+#: behind it", which was the precondition for the failure while ``_rate`` ignored the tier. The
+#: failure itself is "a row its bindings do not settle reads clean", and that is a property of the
+#: projection, so that is what they now project. Tier C needs no exemption any more: it is policed
+#: by the same rating check, and ``test_a_tier_c_row_a_detector_feeds_still_proposes_no_rating``
+#: below still proves it separately in both directions.
+ROWS_READING_CLEAN_BELOW_TIER_A: frozenset[tuple[str, str]] = frozenset()
 
 
-def test_every_row_with_deterministic_coverage_is_tier_a_or_a_known_exception() -> None:
-    """**The guard item 05 armed. It fired on item 07, and this is the record of that.**
+def _rows_reading_clean_below_tier_a(pack: RubricPack) -> set[tuple[str, str]]:
+    """Project a run in which every bound, implemented capability examined and found nothing."""
+    projection = project(pack, _clean_run_of_every_bound_capability(pack))
+    return {
+        (pack.id, row.code)
+        for row in projection.rows
+        if row.rating is Rating.SUFFICIENTLY_PRESENT and row.tier is not Tier.A
+    }
 
-    A Tier A row is settled by its detectors and is not routed for quotes; a Tier B row is not, and
-    gathers located evidence as well. The pack format has one binding channel and it carries both
-    *contributes evidence* and *can settle this row*, so a partial capability bound to a Tier B row
-    reads Sufficiently Present once its detectors run clean. That is roadmap item 28.
 
-    The exception set is **exact and closed**: a row joining it fails here, which is the whole
-    reason the guard survives being fired. Do not add to it to make a build green — the second time
-    this fires is the second time somebody has to decide, and deciding is item 28.
+def test_every_row_that_can_read_clean_is_tier_a_or_a_known_exception() -> None:
+    """**The guard item 05 armed, re-pointed by item 28 at the rating it was always about.**
+
+    A clean run of every capability each pack binds and this build implements is projected onto
+    both shipped packs, and any row reading Sufficiently Present that is not Tier A fails here
+    unless it is on the recorded list — which is empty. Do not add to the list to make a build
+    green: a non-A row reading clean is a row reported satisfied on a criterion nothing settled.
+
+    The probe is checked in both directions before its silence is believed: the same run must
+    read *some* Tier A row clean (or it is not a clean run), and must reach *some* non-A row with a
+    detector (or there is nothing for the guard to see).
     """
     unexpected = []
     for pack in both():
-        for row in coverage_of_pack(pack.id).deterministic:
-            if row.tier in SETTLED_OR_NEVER_SETTLED:
-                continue
-            if (pack.id, row.code) in TIER_B_ROWS_A_DETECTOR_NOW_ANSWERS:
-                continue
-            unexpected.append(f"{pack.id} {row.code} is tier {row.tier.value}")
+        projection = project(pack, _clean_run_of_every_bound_capability(pack))
+        clean_a = [row for row in projection.rows if row.clean and row.tier is Tier.A]
+        fed_below_a = [
+            row
+            for row in projection.rows
+            if row.coverage is Coverage.DETERMINISTIC and row.tier is not Tier.A
+        ]
+        assert clean_a, f"{pack.id}: the clean run read no Tier A row clean; the probe is broken"
+        assert fed_below_a, f"{pack.id}: no non-A row has a detector; the guard sees nothing"
+        unexpected.extend(
+            f"{pack.id} {row.code} is tier {row.tier.value}"
+            for row in projection.rows
+            if row.clean
+            and row.tier is not Tier.A
+            and (pack.id, row.code) not in ROWS_READING_CLEAN_BELOW_TIER_A
+        )
     assert not unexpected, (
-        "A row a detector answers is not Tier A and is not on item 28's recorded list: "
-        f"{unexpected}. See TIER_B_ROWS_A_DETECTOR_NOW_ANSWERS above before touching it."
+        "A row its bindings do not settle reads Sufficiently Present on a clean run: "
+        f"{unexpected}. That is roadmap item 28's failure come back; see "
+        "ROWS_READING_CLEAN_BELOW_TIER_A above before touching it."
     )
 
 
-def test_item_28s_recorded_list_names_no_row_that_has_since_become_clean() -> None:
+def test_item_28s_recorded_list_is_exactly_the_rows_reading_clean_below_tier_a() -> None:
     """The other direction, and the one an allowlist usually lacks.
 
     A list of known exceptions that nobody prunes becomes a list of rows nobody checks. Every entry
-    here has to still be a Tier B row a detector answers; when item 28 lands, or when a mapping
-    moves a row to Tier A, this fails and the entry comes out.
+    has to still read clean below Tier A; item 28 emptied it, and an entry added later that stops
+    being true fails here and comes out.
     """
-    live = {
-        (pack.id, row.code)
+    live = set().union(*(_rows_reading_clean_below_tier_a(pack) for pack in both()))
+    assert live == ROWS_READING_CLEAN_BELOW_TIER_A
+
+
+def test_a_row_its_bindings_do_not_settle_cannot_read_clean_and_one_they_do_still_can() -> None:
+    """Item 28's acceptance, against both shipped packs, in both directions at once.
+
+    On a clean run every Tier A row whose bindings all have a detector reads Sufficiently Present —
+    the fix must not have closed the only road to a clean reading — while a Tier A row with one
+    binding still unimplemented, and every Tier B row with a detector behind it, reads No Response
+    and says why. On a run where every detector found
+    something, the Tier B rows are *proposed* a band: their findings still count.
+    """
+    fed_b: dict[str, list[str]] = {}
+    partly_a: list[tuple[str, str]] = []
+    for pack in both():
+        clean = project(pack, _clean_run_of_every_bound_capability(pack))
+        found = project(pack, _run_with_findings_on_every_bound_capability(pack))
+        for row in clean.rows:
+            if row.coverage is not Coverage.DETERMINISTIC:
+                continue
+            if row.tier is Tier.A and not row.pending_tags:
+                assert row.rating is Rating.SUFFICIENTLY_PRESENT, f"{pack.id} {row.code}"
+                assert row.needs_extraction is False, f"{pack.id} {row.code}"
+            if row.tier is Tier.A and row.pending_tags:
+                # Settled only by all of its bindings together, and one has no detector yet.
+                partly_a.append((pack.id, row.code))
+                assert row.rating is Rating.NO_RESPONSE, f"{pack.id} {row.code}"
+                assert any("examined by nothing" in note for note in row.notes), row.code
+            if row.tier is Tier.B:
+                fed_b.setdefault(pack.id, []).append(row.code)
+                assert row.rating is Rating.NO_RESPONSE, f"{pack.id} {row.code}"
+                assert row.hours is None, f"{pack.id} {row.code}"
+                assert row.needs_extraction is True, f"{pack.id} {row.code}"
+                assert any("without settling it" in note for note in row.notes), row.code
+                assert any("recorded no qualifying observations" in n for n in row.notes), row.code
+        for row in found.rows:
+            if row.coverage is Coverage.DETERMINISTIC and row.tier is Tier.B:
+                assert row.rating.is_band, f"{pack.id} {row.code} read {row.rating.value}"
+                assert any("without settling all of it" in note for note in row.notes), row.code
+
+    # The concrete case the item was filed on, and both packs actually reached.
+    assert "GSOV 7" in fed_b[REFERENCE_ID]
+    # The same failure through a Tier A row: ACD 1 asks for the tools' accessibility statements
+    # and binds the tool inventory beside them. The inventory alone, run clean, is not the answer.
+    assert (REFERENCE_ID, "ACD 1") in partly_a
+    assert fed_b.get(RSI_ID)
+    gsov7 = only(project(reference(), _clean_run_of_every_bound_capability(reference())), "GSOV 7")
+    assert gsov7.bindings == ("syllabus_presence",)
+    assert (gsov7.rating, gsov7.clean) == (Rating.NO_RESPONSE, False)
+
+
+#: The rows of the synthetic sample course that read Sufficiently Present before item 28 and were
+#: all Tier B: each binds a presence or inventory check to a criterion about what the course *says*
+#: or *does*. Measured on the real detector registry, 2026-09-28: 5 clean rows became 1 on the
+#: reference pack (GSOV 2, Tier A, remains) and 1 became 0 on the RSI pack. No band moved.
+SAMPLE_COURSE_ROWS_ITEM_28_REOPENED = {
+    (REFERENCE_ID, "GSOV 7"),
+    (REFERENCE_ID, "GSOV 8"),
+    (REFERENCE_ID, "GSOV 10"),
+    (REFERENCE_ID, "ENIN 3"),
+    (RSI_ID, "13"),
+}
+
+
+def test_on_the_sample_course_only_tier_a_rows_read_clean() -> None:
+    """The same property on real detectors over the synthetic sample course, not synthetic ones.
+
+    Both directions: a Tier A row must still read clean there (or the course exercises nothing
+    this test can see), and the five Tier B rows that used to read clean no longer do.
+
+    Only the detectors behind those rows run — theirs, and ``GSOV 2``'s, the Tier A row that reads
+    clean on this course. Running the whole registry would be a sweep, which the detector ledger
+    credits to nobody and allows only two of (``test_detector_integrity``).
+    """
+    from sightline.acquire import load_bundle
+    from sightline.detect.base import detectors
+    from sightline.detect.runner import run_detectors
+
+    wanted = SAMPLE_COURSE_ROWS_ITEM_28_REOPENED | {(REFERENCE_ID, "GSOV 2")}
+    tags = {
+        tag
         for pack in both()
-        for row in coverage_of_pack(pack.id).deterministic
-        if row.tier not in SETTLED_OR_NEVER_SETTLED
+        for criterion in pack.criteria
+        if (pack.id, criterion.code) in wanted
+        for tag in criterion.bindings
     }
-    assert live == TIER_B_ROWS_A_DETECTOR_NOW_ANSWERS
+    chosen = [detector for detector in detectors() if detector.capability_tag in tags]
+    assert chosen and len(chosen) < len(detectors())
+    report = run_detectors(load_bundle(REPO / "examples" / "sample-course"), only=chosen)
+    clean: set[tuple[str, str]] = set()
+    for pack in both():
+        for row in project(pack, report).rows:
+            if row.clean:
+                assert row.tier is Tier.A, f"{pack.id} {row.code} reads clean at tier {row.tier}"
+                clean.add((pack.id, row.code))
+            if (pack.id, row.code) in SAMPLE_COURSE_ROWS_ITEM_28_REOPENED:
+                assert row.tier is Tier.B and row.coverage is Coverage.DETERMINISTIC, row.code
+                assert row.rating is not Rating.SUFFICIENTLY_PRESENT, row.code
+    assert clean, "no row reads clean on the sample course; the Tier A half is untested"
 
 
 def test_a_tier_c_row_a_detector_feeds_still_proposes_no_rating() -> None:
-    """What makes Tier C safe to exempt from the guard above, measured rather than reasoned about.
+    """Tier C proposes nothing, measured rather than reasoned about.
 
     Both directions of the thing that matters. A Tier C row whose detector came back **clean** must
     not read Sufficiently Present, and a Tier C row whose detector **found things** must not read a
     band either: the judgement is a human's, and a tool that pre-selected one would be grading
-    (SPEC §01). The clean half is what the exemption rests on, because "a clean run settles the
-    row" is exactly the failure the guard above is watching for on Tier B.
+    (SPEC §01). The clean half is the same property the item 28 guards above assert for every tier
+    below A; this is the band half, which Tier B deliberately does not share.
     """
     fed = [
         (pack.id, row.code)
@@ -728,7 +817,7 @@ def test_a_tier_c_row_a_detector_feeds_still_proposes_no_rating() -> None:
         for row in coverage_of_pack(pack.id).deterministic
         if row.tier is Tier.C
     ]
-    assert fed, "no Tier C row has a detector behind it; the exemption would be untested"
+    assert fed, "no Tier C row has a detector behind it; this test would be vacuous"
 
     for pack in both():
         for report in (_clean_run(pack), _run_with_findings(pack)):
@@ -766,8 +855,8 @@ def _clean_run(pack: RubricPack) -> DetectionReport:
     return DetectionReport(results=tuple(_result(tag, ()) for tag in _tier_c_tags(pack)))
 
 
-def _run_with_findings(pack: RubricPack) -> DetectionReport:
-    finding = Finding(
+def _synthetic_finding() -> Finding:
+    return Finding(
         detector="X",
         code="something_a_human_has_to_judge",
         severity=Severity.FRICTION,
@@ -780,7 +869,38 @@ def _run_with_findings(pack: RubricPack) -> DetectionReport:
         ),
         observed="one synthetic observation",
     )
+
+
+def _run_with_findings(pack: RubricPack) -> DetectionReport:
+    finding = _synthetic_finding()
     return DetectionReport(results=tuple(_result(tag, (finding,)) for tag in _tier_c_tags(pack)))
+
+
+def _bound_implemented_tags(pack: RubricPack) -> tuple[str, ...]:
+    """Every capability any row of this pack binds that a detector in this build implements."""
+    index = TagIndex.build()
+    bound = {tag for criterion in pack.rendered_criteria() for tag in criterion.bindings}
+    return tuple(sorted(tag for tag in bound if index.implements(tag)))
+
+
+def _clean_run_of_every_bound_capability(pack: RubricPack) -> DetectionReport:
+    """One synthetic detector per bound capability, each having examined four things and found
+    nothing — the run on which a row its bindings do not settle used to read clean."""
+    return DetectionReport(results=tuple(_result(tag, ()) for tag in _bound_implemented_tags(pack)))
+
+
+def _run_with_findings_on_every_bound_capability(pack: RubricPack) -> DetectionReport:
+    finding = _synthetic_finding()
+    return DetectionReport(
+        results=tuple(_result(tag, (finding,)) for tag in _bound_implemented_tags(pack))
+    )
+
+
+def only(projection: Projection, code: str) -> RowResult:
+    """The one row with this code. Keyed on the code, never a position."""
+    matches = [row for row in projection.rows if row.code == code]
+    assert len(matches) == 1, code
+    return matches[0]
 
 
 @pytest.mark.parametrize(

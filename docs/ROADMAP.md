@@ -42,7 +42,7 @@ on 2026-09-22). Next free item number: **35**.
 | 25 | Returned-review ingestion | 3 | **BLOCKED** — needs reviews delivered and returned | — |
 | 26 | Wire document bytes from the export to the detectors | 1 | READY | **DONE** — PR #21 |
 | 27 | One detector's crash must not take the whole review with it | 1 | READY | **DONE** — PR #22 |
-| 28 | A binding says *relevant*; rating reads it as *sufficient* | 1 | READY | queued 99b — **now live**, 27 rows |
+| 28 | A binding says *relevant*; rating reads it as *sufficient* | 1 | READY | **DONE** — PR #23 |
 | 29 | `Scan.text` fuses two words at every block seam | 1 | READY | **DONE** — PR #13 |
 | 30 | Every HTML detector re-parses every body | 2 | READY | queued 99c — **measure first** |
 | 31 | `plain_text()` reads a tag with a regex, and two shapes of course HTML defeat it | 1 | READY | queued 99c1 — take with 30 |
@@ -841,6 +841,28 @@ treats as not-a-pass and which the CLI already exits 1 over — so the fix keeps
 while the rest of the review survives. Filed sorting **after** every pending item: it is a crash
 rather than silent wrongness, and nothing queued is blocked on it, though item 17's batch runner
 would lose a whole course to one odd page.
+
+**28 · DONE 2026-09-28 (PR #23). Only a Tier A row, with every binding examined, reads clean.**
+
+- **The rule-in-`_rate` shape, not `supporting:`.** SPEC §02 reads "A: rating pre-selected" against
+  "B: rating proposed", and the mapping file already tiers every row by the question a `supporting:`
+  list would ask, so a second list would restate the tier per binding. A Tier B row whose detectors
+  found nothing stays at **No Response** with a note naming what was examined; one whose detectors
+  found something is proposed a band as before, noted as covering only what they can see.
+- **The Tier A half is the same defect and was fixed with it.** A Tier A row's bindings settle it
+  *together*: ACD 1 binds `external_tool_inventory` and `tool_accessibility_statement`, the second
+  has no detector, and ACD 1 read clean off the inventory alone (OREP 5 and ACD 4 likewise). A
+  binding with no detector, unknown to the build, or absent from the run now keeps a clean Tier A
+  row at No Response and is named on it.
+- **Measured on `examples/sample-course` (real registry, both packs):** rows reading clean went
+  **5 → 1** on the reference pack (GSOV 7, 8, 10 and ENIN 3 reopened; GSOV 2, Tier A, remains) and
+  **1 → 0** on RSI (row 13). No band moved. None of the five was a row its detector settles. On a
+  synthetic all-clean run: reference 40 → 17, RSI 13 → 6.
+- **`TIER_B_ROWS_A_DETECTOR_NOW_ANSWERS` (27) became `ROWS_READING_CLEAN_BELOW_TIER_A`, empty.**
+  Its two guards now project a clean run and police the *rating*, which is the failure, rather
+  than the coverage, which was only its precondition. Both fail on the pre-fix `_rate` listing
+  exactly the 27.
+- `_rate`'s zero-cost branch (left for this item by 12a) is still unreachable and was left alone.
 
 **27 · DONE 2026-09-28 (PR #22). One detector's crash no longer takes the whole review with it.**
 

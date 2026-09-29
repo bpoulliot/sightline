@@ -35,7 +35,9 @@ THREE STATES, AND CONFLATING THEM IS THE FAILURE THIS MODULE EXISTS TO PREVENT
 :attr:`Coverage.DETERMINISTIC`
     At least one implemented detector was bound, and it ran. Only here can a row read
     **Sufficiently Present**, and only when every contributing detector actually examined something
-    and found nothing it could not account for.
+    and found nothing it could not account for — **and only on a Tier A row every one of whose
+    bindings was examined.** A binding says a capability is *relevant* to a row; only Tier A says
+    the bindings *settle* it, and they settle it together (roadmap item 28).
 
 If an absent detector or an unbound row could produce "Sufficiently Present", Sightline would
 report a course clean on criteria it never examined. That is the silent under-detection of SPEC §11
@@ -47,6 +49,9 @@ reason stated on the row.
 at ``No Response`` *however many findings its bindings produced*; the findings are carried on the
 row as context for the question a human answers. A Tier D row defaults to ``Not Applicable`` with a
 note. Neither is a special case bolted on at the end — they are checked before the bands are.
+A Tier B row is *proposed* a band when its detectors found something, and stays at ``No Response``
+when they found nothing: its bindings bear on the criterion without answering all of it, so a clean
+run of them is not a clean row. Only Tier A — "rating pre-selected" — reaches Sufficiently Present.
 """
 
 from __future__ import annotations
@@ -235,7 +240,7 @@ class RowResult:
 
     @property
     def clean(self) -> bool:
-        """True only for ``SUFFICIENTLY_PRESENT``, which only deterministic coverage reaches."""
+        """True only for ``SUFFICIENTLY_PRESENT``, which only a deterministic Tier A row reaches."""
         return self.rating is Rating.SUFFICIENTLY_PRESENT
 
     def statement(self) -> str:
@@ -459,6 +464,7 @@ def _row(
     resolved: list[str] = []
     pending: list[str] = []
     unknown: list[str] = []
+    not_run: list[str] = []
     contributions: list[Contribution] = []
     notes: list[str] = []
 
@@ -485,6 +491,7 @@ def _row(
         if not results:
             # The tag is implemented and nothing in this report carries it: the detector exists and
             # did not run here. That is a hole, not a pass, and it is recorded as one.
+            not_run.append(tag)
             notes.append(
                 f"{tag}: a detector implements this capability but did not run in this review, so "
                 "nothing here establishes the row."
@@ -518,7 +525,9 @@ def _row(
             "in this review examined it."
         )
 
-    rating, hours, rating_notes = _rate(criterion, coverage, contributions, pack, model)
+    rating, hours, rating_notes = _rate(
+        criterion, coverage, contributions, pack, model, unexamined=(*pending, *unknown, *not_run)
+    )
     notes.extend(rating_notes)
     near = None
     if rating.is_band and hours is not None:
@@ -563,12 +572,18 @@ def _rate(
     contributions: Sequence[Contribution],
     pack: RubricPack,
     model: EffortModel,
+    *,
+    unexamined: Sequence[str] = (),
 ) -> tuple[Rating, float | None, list[str]]:
     """The rating for one row, and the hours behind it.
 
     Ordered deliberately: the tiers are checked *before* the arithmetic, because a Tier C row must
     stay at ``No Response`` however many findings its bindings produced, and a rule applied after
     banding is a rule somebody removes when the band looks more useful.
+
+    ``unexamined`` are bound tags that contributed nothing to this review — no detector yet, not in
+    the vocabulary, or implemented and absent from the report. A Tier A row settles its criterion
+    only with *all* of its bindings run clean, so one of these keeps it from reading clean.
     """
     notes: list[str] = []
 
@@ -627,6 +642,26 @@ def _rate(
             f"{len(contributions)} detector(s) examined {examined} artifact(s) and recorded no "
             "qualifying observations."
         )
+        if criterion.tier is not Tier.A:
+            # A binding says the capability is RELEVANT to the row; only Tier A says it SETTLES it
+            # (SPEC §02: A is "rating pre-selected", B is "rating proposed"). GSOV 7 asks what the
+            # syllabus states and a presence check cannot see that, so its clean run is not a
+            # clean row. Roadmap item 28.
+            notes.append(
+                "Those detectors bear on this criterion without settling it, so finding nothing "
+                "does not establish it. It is left at the instrument's default rather than "
+                "reported as satisfied, and the passages located for it are the evidence."
+            )
+            return Rating.NO_RESPONSE, None, notes
+        if unexamined:
+            # Tier A says the bindings settle the row *together*. ACD 1 binds the tool inventory
+            # and the tools' accessibility statements; the inventory alone run clean is not it.
+            notes.append(
+                f"Bound here and examined by nothing in this review: {', '.join(unexamined)}. "
+                "The rest finding nothing does not establish the row, so it is left at the "
+                "instrument's default rather than reported as satisfied."
+            )
+            return Rating.NO_RESPONSE, None, notes
         return Rating.SUFFICIENTLY_PRESENT, hours, notes
 
     if unreadable:
@@ -647,6 +682,17 @@ def _rate(
         return (Rating(band.rating) if band else Rating.NO_RESPONSE), hours, notes
 
     band = pack.rating_scale.band_for(hours)
+    if unexamined:
+        notes.append(
+            f"Bound here and examined by nothing in this review: {', '.join(unexamined)}. The "
+            "rolled-up effort covers only what the other capabilities could see."
+        )
+    if criterion.tier is not Tier.A:
+        notes.append(
+            "This band is proposed from the observations below. The detectors behind them bear on "
+            "this criterion without settling all of it, so the passages located for it may add to "
+            "what needs doing."
+        )
     if not model.calibrated:
         notes.append(model.note)
     return Rating(band.rating), hours, notes
