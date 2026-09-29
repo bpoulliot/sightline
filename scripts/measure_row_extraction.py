@@ -3,6 +3,8 @@
     .venv/bin/python scripts/measure_row_extraction.py selftest
     .venv/bin/python scripts/measure_row_extraction.py run --arm baseline --model M --out A.json
     .venv/bin/python scripts/measure_row_extraction.py run --arm multi --rows-per-call 4 ...
+    .venv/bin/python scripts/measure_row_extraction.py run --arm passage-major ...
+    .venv/bin/python scripts/measure_row_extraction.py prefix --model M [--passages 5 --words 900]
     .venv/bin/python scripts/measure_row_extraction.py embed --out E.json
     .venv/bin/python scripts/measure_row_extraction.py compare A.json B.json [C.json ...]
     .venv/bin/python scripts/measure_row_extraction.py narrow A.json [B.json] --embeddings E.json

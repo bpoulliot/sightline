@@ -47,7 +47,7 @@ on 2026-09-22). Next free item number: **35**.
 | 30 | Every HTML detector re-parses every body | 2 | READY | **DONE** — PR #24 |
 | 31 | `plain_text()` reads a tag with a regex, and two shapes of course HTML defeat it | 1 | READY | **DONE** — PR #25 |
 | 32 | The suite reads the developer's `.env`; the fixture that promises it does not, does not | 1 | READY | **DONE** — PR #16 |
-| 33 | A routed row costs one call per passage, and nothing bounds the total | 2 | **NEEDS MEASUREMENT** | queued 99d |
+| 33 | A routed row costs one call per passage, and nothing bounds the total | 2 | MEASURED | **DONE** — PR #26. Outcome (d): nothing changes |
 | 34 | Acquisition drops every outcome when it records an export note | 1 | READY | queued 99m |
 
 ---
@@ -392,6 +392,96 @@ default `/24` collides.
   settled; a later move toward stock OSCQR 3.1 / 4.0 is a pack change, not a code change.
 
 ## Notes carried forward
+
+**33 · MEASURED 2026-09-28 (PR #26). Outcome (d): nothing changes. Every way of making fewer calls
+lost evidence the current behaviour finds, and on this host the calls were not the cost anyway.**
+
+*Setup.* `scripts/measure_row_extraction.py` (committed; `selftest` and every report check the
+comparator in both directions first). Target host, Ollama 0.34.2, **`qwen3-coder:30b` digest
+`06c1097efce0`** for every arm, thinking not sent (the model has no `thinking` capability),
+`num_ctx` 8192. Synthetic sample course only: 15 passages, 967 words. **Recall** is per row against
+a baseline run: a baseline quote is recalled when the arm returned, for the same row, a verified
+quote in the same passage whose source span overlaps it. The baseline is `answer_requests` as
+shipped, **run twice**, and each arm is scored against both runs. Several rows per call and
+passage-major order were run; the two narrowing arms were **simulated from the baseline runs**,
+which is exact here because each baseline call sees one row and one passage, so skipping a passage
+removes that call and changes no other.
+
+*RSI pack, 12 routed rows × 15 passages.* Missed = baseline quotes not recalled, against run 1
+(89 quotes) / run 2 (97 quotes). Extra = the arm's quotes that overlap nothing in run 1.
+
+| Arm | Calls | Wall s | Quotes | Missed | Rows losing | Rows emptied | Extra |
+|---|---|---|---|---|---|---|---|
+| baseline run 1 | 180 | 220 | 89 | — / 0 | 0 | 0 | — |
+| baseline run 2 | 180 | 202 | 97 | 0 / — | 0 | 0 | 0 |
+| passage-major (same prompts) | 180 | 213 | 101 | 0 / 0 | 0 | 0 | 11 |
+| 2 rows per call | 90 | 260 | 111 | 33 / 33 | 4 | 0 | 60 |
+| 4 rows per call | 45 | 201 | 66 | 58 / 66 | 4 | 0 | 44 |
+| 6 rows per call | 30 | 170 | 56 | 57 / 65 | 6 | 0 | 34 |
+| 12 rows per call | 15 | 123 | 28 | 62 / 70 | 6 | 0 | 8 |
+| lexical ≥ 1 shared term (sim.) | 49 | 65 | — | 54 / 54 | 4 | 2 | — |
+| lexical ≥ 2 shared terms (sim.) | 11 | 31 | — | 61 / 61 | 7 | 4 | — |
+| embedding top 3 of 15 (sim.) | 36 | 61 | — | 46 / 54 | 6 | 2 | — |
+| embedding top 5 of 15 (sim.) | 60 | 99 | — | 23 / 23 | 6 | 1 | — |
+| embedding top 8 of 15 (sim.) | 96 | 144 | — | 15 / 15 | 5 | 1 | — |
+| embedding top 10 of 15 (sim.) | 120 | 168 | — | 10 / 10 | 3 | 0 | — |
+
+A simulated arm's wall-clock is the sum of the kept calls' measured latencies in run 1. Embedding
+top 12 of 15 (80 % of calls) still loses 7, all on rows 4 and 15; lexical ≥ 1 loses **every** one
+of row 15's 40 quotes and all 7 of row 16's.
+
+*Reference pack, 47 routed rows × 15 passages.* Against run 1 (280 quotes) / run 2 (271).
+
+| Arm | Calls | Wall s | Quotes | Missed | Rows losing | Rows emptied | Extra |
+|---|---|---|---|---|---|---|---|
+| baseline run 1 | 705 | 720 | 280 | — / 1 | — / 1 | 0 | — |
+| baseline run 2 | 705 | 685 | 271 | 11 / — | 3 / — | 0 | 1 |
+| passage-major (same prompts) | 705 | 717 | 292 | 11 / 5 | 5 / 4 | 1 | 21 |
+| 2 rows per call | 360 | 958 | 348 | 138 / 129 | 15 | 0 | 247 |
+| lexical ≥ 1 (sim.) | 207 | 250 | — | 145 / 144 | 17 | 8 | — |
+| lexical ≥ 2 (sim.) | 45 | 90 | — | 193 / 184 | 27 | 18 | — |
+| embedding top 3 of 15 (sim.) | 141 | 214 | — | 132 / 131 | 23 | 10 | — |
+| embedding top 5 of 15 (sim.) | 235 | 336 | — | 58 / 58 | 20 | 5 | — |
+| embedding top 8 of 15 (sim.) | 376 | 459 | — | 35 / 37 | 17 | 5 | — |
+| embedding top 10 of 15 (sim.) | 470 | 538 | — | 26 / 28 | 13 | 3 | — |
+
+**The noise floor.** On the RSI pack two identical runs recalled each other completely (0 misses
+at overlap; 4 and 12 at exact span — they split the same passages differently). On the reference
+pack they did not: 11 misses on 3 rows (ASFE 3, ENIN 5, GSOV 6) one way, 1 the other, and
+passage-major — the baseline's own prompts in another order — reached 11 misses on 5 rows and
+emptied one row. So the floor is **up to about 11 misses on up to 5 rows, and it can empty a row**.
+Every call-cutting arm is well above it; the closest, embedding top 10, loses 26–28 on 13 rows and
+empties 3.
+
+**Why fewer calls did not mean less time.** A least-squares fit over the RSI baseline calls
+(first call excluded; it is a 9.7 s cold load): about **0.2–0.3 s fixed, 0.2–0.6 ms per prompt
+token, and 25 ms per generated token**, the last stable across all six runs. An empty answer costs
+0.60–0.65 s; the baseline's 5.3 k generated tokens are about 135 s of its ~210. Several rows per
+call generates more (8.6 k tokens at two rows per call: quotes repeated under two codes, plus
+misattributed ones), which is why it was slower. **Passage-major order** is the one lever that
+cannot lose evidence, and it bought nothing measurable on these passages (213 s against 202–220 s).
+At the full 900-word budget, on five synthetic passages cut from the sample's text, it saved 11 s of
+174 s (prompt evaluation 26.1 s → 24.2 s): the host reuses an identical prefix (control: 1.68 s of
+prompt evaluation, then 0.03 s) and already appears to hold several passages' prefixes at once, so
+row-major order was mostly cached too. **Not determined:** whether that holds when a course has
+more passages than the host keeps cached. A 15-passage run did not finish — one call exceeded the
+probe's 300 s timeout and was not investigated. The saving is bounded by prompt evaluation's share
+of a call, 15 % in the five-passage run. Deferred, not queued: it would not change this item's
+answer, only whether a recall-neutral reordering is worth building.
+
+**What a real course costs is arithmetic, not a measurement.** The routed rows cost 47 × P calls
+against the reference pack. An empty answer on a full 900-word passage paid 0.41–1.68 s of fresh
+prompt evaluation in the probe's controls, plus the ~0.6 s fixed cost. So a 100-passage course is
+roughly 4 700 calls at 1–2.3 s, **about 1.3–3 hours before any quote is generated**. No real course
+was read, and the passage count is the unknown that matters most.
+
+**Taken: (d).** Keep the full corpus and one row per call, and keep printing the price. The printed
+estimate matched the calls made on all four baseline runs and both passage-major runs (the
+instrument refuses to write a run where it does not). The lever is the reviewer's: fewer routed
+rows (a pack with bindings routes fewer, item 22) or fewer courses per batch. SPEC §06 carries the
+design consequence. **Other models were not measured.** Items 10/11/17 measured `llama3.1:8b`,
+which is no longer installed. Its 7.5 s a call against this model's 1.0–1.2 s means the wall-clock
+figures above describe this model only.
 
 **30 · DONE 2026-09-28 (PR #24). One parse per body per run, shared through the Survey.**
 Measured before it was built, with `scripts/measure_parse_cost.py` (committed; it self-tests in
