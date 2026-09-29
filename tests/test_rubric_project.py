@@ -287,6 +287,121 @@ def test_sufficiently_present_requires_a_detector_that_ran_and_found_nothing() -
     assert any("recorded no qualifying observations" in note for note in entry.notes)
 
 
+def test_a_clean_run_on_a_row_its_bindings_do_not_settle_is_not_a_clean_row() -> None:
+    """Roadmap item 28. The same clean detector, the same binding, two tiers.
+
+    A binding says a capability is *relevant*; the tier says whether it *settles* the row. On Tier
+    A a clean run reads Sufficiently Present. On Tier B it reads No Response with no hours — the
+    detector ran and found nothing, and nothing it can see answers the criterion — and says what
+    was examined, so the reviewer knows the row was looked at and why it is still open.
+    """
+    pack = pack_from(
+        [
+            {"code": "S 1", "section": "S", "text": "a", "tier": "A", "bindings": ["alt_text"]},
+            {"code": "S 2", "section": "S", "text": "b", "tier": "B", "bindings": ["alt_text"]},
+        ]
+    )
+    projection = project(pack, probe_report("P04"), tags=probe_index("P04"), effort=PROBE_COSTS)
+    settled, relevant = row(projection, "S 1"), row(projection, "S 2")
+
+    assert settled.coverage is relevant.coverage is Coverage.DETERMINISTIC
+    assert settled.rating is Rating.SUFFICIENTLY_PRESENT
+    assert relevant.rating is Rating.NO_RESPONSE
+    assert relevant.clean is False
+    assert relevant.hours is None
+    assert relevant.near_boundary is None
+    assert relevant.needs_extraction is True
+    assert any("recorded no qualifying observations" in note for note in relevant.notes)
+    assert any("without settling it" in note for note in relevant.notes)
+    assert not any("without settling" in note for note in settled.notes)
+
+
+def test_a_row_its_bindings_do_not_settle_is_still_proposed_a_band_when_they_find_something() -> (
+    None
+):
+    """The other half of item 28: the binding is right, so its findings still count.
+
+    A Tier B row whose detector found something is proposed the band its effort reaches — the same
+    band a Tier A row reaches on the same findings — with a note that the band covers only what the
+    detector can see.
+    """
+    pack = pack_from(
+        [
+            {"code": "S 1", "section": "S", "text": "a", "tier": "A", "bindings": ["alt_text"]},
+            {"code": "S 2", "section": "S", "text": "b", "tier": "B", "bindings": ["alt_text"]},
+        ]
+    )
+    projection = project(pack, probe_report("P01"), tags=probe_index("P01"), effort=PROBE_COSTS)
+    settled, relevant = row(projection, "S 1"), row(projection, "S 2")
+
+    assert relevant.rating.is_band
+    assert (relevant.rating, relevant.hours) == (settled.rating, settled.hours)
+    assert any("without settling all of it" in note for note in relevant.notes)
+    assert not any("without settling" in note for note in settled.notes)
+
+
+@pytest.mark.parametrize(
+    ("second", "index_ids", "kind"),
+    [
+        ("heading_structure", ("P04",), "no detector implements it yet"),
+        ("not_a_capability_anyone_declared", ("P04",), "not in the vocabulary"),
+        ("heading_structure", ("P04", "P02"), "implemented, and did not run in this review"),
+    ],
+    ids=["pending", "unknown", "not-run"],
+)
+def test_a_tier_a_row_is_not_clean_while_one_of_its_bindings_examined_nothing(
+    second: str, index_ids: tuple[str, ...], kind: str
+) -> None:
+    """Item 28 through a Tier A row. Tier A says the bindings settle the row *together*.
+
+    ``S 1`` binds a capability whose detector ran clean and a second that examined nothing — for
+    each of the three reasons a binding can contribute nothing. The clean half alone is not the
+    answer, so the row stays at No Response naming the binding that was not examined; ``S 2``,
+    bound to the clean capability alone, still reads clean beside it.
+    """
+    pack = pack_from(
+        [
+            {
+                "code": "S 1",
+                "section": "S",
+                "text": "a",
+                "tier": "A",
+                "bindings": ["alt_text", second],
+            },
+            {"code": "S 2", "section": "S", "text": "b", "tier": "A", "bindings": ["alt_text"]},
+        ]
+    )
+    projection = project(
+        pack, probe_report("P04"), tags=probe_index(*index_ids), effort=PROBE_COSTS
+    )
+    partial, whole = row(projection, "S 1"), row(projection, "S 2")
+
+    assert partial.coverage is Coverage.DETERMINISTIC, kind
+    assert partial.rating is Rating.NO_RESPONSE, kind
+    assert partial.hours is None, kind
+    assert any(f"examined by nothing in this review: {second}" in n for n in partial.notes), kind
+    assert whole.rating is Rating.SUFFICIENTLY_PRESENT, kind
+
+
+def test_a_tier_a_row_with_an_unexamined_binding_still_bands_what_the_rest_found() -> None:
+    """The findings of the bindings that did run still count, and the row says the rest did not."""
+    pack = pack_from(
+        [
+            {
+                "code": "S 1",
+                "section": "S",
+                "text": "a",
+                "tier": "A",
+                "bindings": ["alt_text", "heading_structure"],
+            }
+        ]
+    )
+    projection = project(pack, probe_report("P01"), tags=probe_index("P01"), effort=PROBE_COSTS)
+    entry = row(projection, "S 1")
+    assert entry.rating.is_band
+    assert any("covers only what the other capabilities" in note for note in entry.notes)
+
+
 def test_a_detector_that_examined_nothing_never_reads_clean() -> None:
     """The refused-collection case. Acquisition could not read the pages, so the detector opened
     none of them — and a row fed only by that detector has not been established. It is left at the

@@ -33,10 +33,13 @@
 # HOW THE TIERS WERE CHOSEN  (SPEC §02)
 #
 #   A  the bound capabilities, run clean, settle the criterion as written — the row asks for what
-#      they measure and nothing more. Rating computed, stated declaratively, no extraction.
+#      they measure and nothing more. Rating computed, stated declaratively, no extraction. ALL of
+#      them: while one has no detector, the rest running clean leaves the row at No Response.
 #   B  a passage of the course settles it, or the bound capabilities bear on the row without
 #      answering all of it. Detectors still contribute their arithmetic AND the extraction layer
-#      still gathers quotes, so a partial capability cannot close the row on its own.
+#      still gathers quotes, and a partial capability cannot close the row on its own: a Tier B
+#      row is proposed a band when its detectors find something and otherwise stays at No
+#      Response (roadmap item 28). Promoting a row to A is what lets a clean run read clean.
 #   C  pedagogical judgement. Context assembled, never pre-rated.
 #   D  not determinable from course artifacts. Defaults to Not Applicable with a note.
 #

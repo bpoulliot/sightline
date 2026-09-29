@@ -497,12 +497,12 @@ as blocked** pending confirmation of ChatGPT Edu API access; the app functions f
 
 | Rating | Band | Assigned when |
 |---|---|---|
-| Sufficiently Present | — | No qualifying defects found |
+| Sufficiently Present | — | No qualifying defects found, on a **Tier A** criterion |
 | Minor Revision | ≤ 0.5 h | Rolled-up cost within the first band |
 | Moderate Revision | 0.5–2 h | Rolled-up cost within the second band |
 | Major Revision | 2 h + | Rolled-up cost above the second band |
 | Not Applicable | — | Tier D, or the feature is absent by design |
-| No Response | — | **Every Tier C criterion.** Never pre-selected |
+| No Response | — | **Every Tier C criterion.** Never pre-selected. Also a Tier B criterion whose detectors found nothing |
 
 Action-plan ordering is two-axis: the `Essential`/`Important` flag crossed with the computed band.
 Essential + Major sorts to the top. MOB criteria have no priority flag, so ordering must tolerate a
@@ -531,6 +531,14 @@ with a wider margin at Sufficiently Present / Minor, where independent human rev
 most; it is a computed distance, never a confidence. Overrides persist beside the machine proposal
 in the run store's `rating_overrides` table (§09). No course-level total of hours is computed: a
 sum of effort across rows is an aggregate score with a clock face on it (§11).
+
+**As built (item 28).** A pack binding says a capability is *relevant* to a row; the row's tier says
+whether it *settles* it. §02's "A: rating pre-selected" against "B: rating proposed" is read
+literally: only a Tier A row can read Sufficiently Present, and a Tier B row whose detectors found
+nothing stays at No Response with a note naming what was examined. A Tier B row whose detectors did
+find something is proposed a band, noted as covering only what they can see. A Tier A row's
+bindings settle it *together*: while one of them examined nothing (no detector yet, unknown to the
+build, or absent from the run), the others finding nothing leaves it at No Response too.
 
 ---
 

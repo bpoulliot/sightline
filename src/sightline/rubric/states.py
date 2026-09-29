@@ -8,7 +8,8 @@ shape of the bug, and there is nowhere here for one to hide.
     NOT_YET_IMPLEMENTED         the bound capability exists; no detector implements it yet
     NO_DETERMINISTIC_COVERAGE   the row has no binding at all — normal, permanent, routes to
                                 the extraction layer
-    SUFFICIENTLY_PRESENT        a detector ran and found nothing — THE ONLY ONE MEANING CLEAN
+    SUFFICIENTLY_PRESENT        a detector that settles the row (Tier A) ran and found nothing —
+                                THE ONLY ONE MEANING CLEAN
 
 If an absent detector or an unbound row can produce "Sufficiently Present", Sightline reports a
 course clean on criteria it never examined. That is the silent under-detection SPEC §11 names and
@@ -38,15 +39,16 @@ class Coverage(enum.StrEnum):
 class Rating(enum.StrEnum):
     """What a row reads. Internal names; the pack supplies the instrument's own labels."""
 
-    #: A detector ran and found nothing. **The only value that means clean.**
+    #: A detector ran and found nothing, on a Tier A row — the tier that says its bindings settle
+    #: the criterion rather than merely bearing on it (item 28). **The only value meaning clean.**
     SUFFICIENTLY_PRESENT = "sufficiently_present"
     MINOR = "minor"
     MODERATE = "moderate"
     MAJOR = "major"
     #: Tier D, or a feature absent by design.
     NOT_APPLICABLE = "not_applicable"
-    #: The instrument's default cell state. Every Tier C row, and every row the arithmetic could
-    #: not establish. Never a pass and never a failure.
+    #: The instrument's default cell state. Every Tier C row, every Tier B row its detectors found
+    #: nothing on, and every row the arithmetic could not establish. Never a pass, never a failure.
     NO_RESPONSE = "no_response"
 
     @property

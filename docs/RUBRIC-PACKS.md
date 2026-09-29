@@ -221,9 +221,23 @@ Three states come out of a binding, and Sightline keeps them apart everywhere:
 | `not_yet_implemented` | The capability exists; no detector implements it yet | Transient |
 | `no_deterministic_coverage` | No usable binding. Routes to the extraction layer | **Yes, permanently** |
 
-Only a `deterministic` row whose detectors actually examined something and found nothing reads
-**Sufficiently Present**. Nothing else can, ever. An unbound row or an absent detector producing a
-clean reading would mean Sightline reporting a course clean on a criterion it never examined.
+Only a `deterministic` **Tier A** row whose detectors actually examined something and found nothing
+reads **Sufficiently Present**. Nothing else can, ever. An unbound row or an absent detector
+producing a clean reading would mean Sightline reporting a course clean on a criterion it never
+examined.
+
+**A binding says a capability is *relevant*; the tier says whether it *settles* the row.** GSOV 7
+asks what the syllabus states, and binds `syllabus_presence` because a course with no syllabus is a
+finding against it — but a presence check run clean says nothing about what the syllabus states.
+So a Tier B row is *proposed* a band when its detectors found something and stays at `No Response`
+when they found nothing, with a note saying what was examined; only Tier A, whose bindings answer
+the criterion as written, can read clean. The tier is therefore the one place that claim is made:
+promoting a row to Tier A is asserting that its bindings, run clean, settle it (roadmap item 28).
+
+The claim is about **all** of a Tier A row's bindings together. ACD 1 binds the tool inventory and
+the tools' accessibility statements; while one of those has no detector (or is not in this build's
+vocabulary, or did not run), the other finding nothing leaves the row at `No Response`, naming the
+binding nothing examined. Findings from the bindings that did run still propose a band.
 
 **Several detectors may share a tag, and a row may bind several tags.** Both directions work at
 once. A row fed by several detectors sums their effort and bands the total — one rule for every
