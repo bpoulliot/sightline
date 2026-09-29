@@ -36,7 +36,7 @@ on 2026-09-22). Next free item number: **39**.
 | 19 | Uploaded-rubric mapping screen | 3 | **SUPERSEDED by 22** | — |
 | 20 | Multi-course comparison view | 3 | **DECIDED — not building it** | see 25 |
 | 21 | Detector integrity guard | 0 | READY | **DONE** — PR #8 |
-| 22 | Model-proposed bindings, human-confirmed | 3 | READY | **PART 1 DONE** — PR #PRNUM (proposal engine + command-line review). The confirmation **screen** is the remainder: **BLOCKED** on item 36's rubric picker (operator decision 2026-09-25) |
+| 22 | Model-proposed bindings, human-confirmed | 3 | part 2 **BLOCKED** — on item 36 | **PART 1 DONE** — PR #32 (proposal engine + command-line review). The confirmation **screen** is the remainder: **BLOCKED** on item 36's rubric picker (operator decision 2026-09-25) |
 | 23 | Canvas-requested content export | 1 | READY | **DONE** — PR #6 |
 | 24 | Agreement and near-boundary transparency | 2 | READY | **PART 1 DONE** — PR #29 (data, guard, docs); PDF + review-screen rendering waits on 14 and 16 (queued re-run) |
 | 25 | Returned-review ingestion | 3 | **BLOCKED** — needs reviews delivered and returned | — |
@@ -52,7 +52,7 @@ on 2026-09-22). Next free item number: **39**.
 | 35 | The workbook's action plan holds located items; SPEC §08 promises remediation steps | 2 | **NEEDS DISCUSSION** | — |
 | 36 | Run-progress and New run screens | 2 | **BLOCKED** — on item 16 (its review screen is what the run screen links to) | filed 2026-09-29, PR #30 |
 | 37 | Host `__pycache__` ships in locally built images, carrying the developer's home path | 1 | READY | filed 2026-09-29 by item 14, PR #31; queued 99n |
-| 38 | A bound Tier D row is counted in two coverage buckets, and `coverage` exits 1 calling it a bug | 1 | READY | filed 2026-09-29 by item 22, PR #PRNUM; queued 99o |
+| 38 | A bound Tier D row is counted in two coverage buckets, and `coverage` exits 1 calling it a bug | 1 | READY | filed 2026-09-29 by item 22, PR #32; queued 99o |
 
 ---
 
@@ -242,7 +242,7 @@ functions fully without it.
 is usable — is dead. Under item 04 an unbound rubric runs immediately, extraction-only. What remains
 worth building is item 22.
 
-**22 — model-proposed bindings, human-confirmed · PART 1 DONE (PR #PRNUM): the proposal engine and a
+**22 — model-proposed bindings, human-confirmed · PART 1 DONE (PR #32): the proposal engine and a
 command-line review. The confirmation screen is the remainder, BLOCKED on item 36** (operator
 decision 2026-09-25, recorded with the measurement under *Notes carried forward*). Give the model
 the detector catalogue and the uploaded criterion text; it proposes tag bindings a human confirms
@@ -422,7 +422,7 @@ default `/24` collides.
 
 ## Notes carried forward
 
-**22 · PART 1 DONE 2026-09-29 (PR #PRNUM). Model-proposed bindings with a command-line review. The
+**22 · PART 1 DONE 2026-09-29 (PR #32). Model-proposed bindings with a command-line review. The
 confirmation screen is PART 2, BLOCKED on item 36 — never READY by default.**
 
 *Operator decision, 2026-09-25 (bitmap, interactive):* **build the proposal engine with a
@@ -498,7 +498,7 @@ temperature 0, so a second run would move these). Re-run: `scripts/measure_bindi
 | RSI (18, 18) | `qwen3-coder:30b` | 4 | 4 | 0 | 14 | 14 | 0 | 4 / 0 / 0 | 27 s |
 | RSI (18, 18) | `gpt-oss:20b` | 19 | 15 | 4 | 3 | 3 | 3 | 14 / 5 / 0 | 1172 s |
 | 3.1.3 (68, 58) | `qwen3-coder:30b` | 23 | 18 | 5 | 40 | 46 | 0 | 23 / 0 / 0 | 80 s |
-REFGPTOSSROW
+| 3.1.3 (68, 58) | `gpt-oss:20b` | not run to the end — see below | | | | | | | |
 
 What the numbers say, and what they do not:
 - **`qwen3-coder:30b` abstains heavily.** It returned an empty list on 14 of 18 and 46 of 67 asked
@@ -512,13 +512,17 @@ What the numbers say, and what they do not:
 - **The span verifier fired on live output.** `gpt-oss:20b` returned 5 spans that are not in the
   criterion text (RSI 3 ×4, RSI 8 ×1). All were discarded, and those proposals read *no supporting
   span*. No unknown tag was returned by either model: the `enum` in the schema constrained them.
+- **`gpt-oss:20b` over the 3.1.3 pack was started and not finished.** It ran 10 of 67 calls
+  (2 of them `done_reason=length`) in 11 minutes before the session that ran it hit its time
+  limit, and at ~65 s a call the full pass is ~75 minutes, so the next session did not repeat
+  it. No number is reported for it. The instrument re-runs it unchanged.
 - Not determined: agreement between two runs of one model; any model not on the host today; whether
   a reviewer shown these proposals accepts more, fewer or different ones than the shipped reading.
 
 *The coverage defect this surfaced is item 38*, filed below, not fixed here: `PackCoverage` counts
 a bound Tier D row twice.
 
-**38 · FILED 2026-09-29 by item 22's session (PR #PRNUM). READY. A Tier D row with a binding is
+**38 · FILED 2026-09-29 by item 22's session (PR #32). READY. A Tier D row with a binding is
 counted in two coverage buckets, so the report's own arithmetic check fails and `coverage` exits 1,
 saying the report has a bug.**
 
