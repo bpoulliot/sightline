@@ -14,6 +14,9 @@ inserted verbatim. Nothing a language model composed reaches a report.
     Rows to sentences, dispatched on tier and coverage state.
 :mod:`~sightline.voice.narrative`
     The closing narrative's four slots, from computed aggregates.
+:mod:`~sightline.voice.agreement`
+    ``agreement.yaml``: how often independent human reviewers choose the same rating, stated with
+    its limits — a fact about the task, never about Sightline (roadmap item 24).
 
 ``python -m sightline.voice --bundle examples/sample-course --pack uccs-oscqr-3-1-3`` prints a
 plain-text rendering for reading and diffing.

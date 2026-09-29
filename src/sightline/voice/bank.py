@@ -134,6 +134,15 @@ FORMATS: Mapping[str, frozenset[str]] = {
         "effort_calibrated": ("hours",),
         "near_boundary": ("hours", "distance", "below", "above", "threshold", "margin"),
         "action_plan_more": ("lines", "code"),
+        "agreement_range": ("low", "high", "pairs", "courses"),
+        "agreement_scope": ("courses", "majors", "instances"),
+        "agreement_pair": ("passes", "rated", "identical"),
+        "agreement_disagreements": ("disagreements", "at_lowest"),
+        "agreement_limit_small_sample": ("courses",),
+        "agreement_limit_major_boundary": ("majors", "instances"),
+        "agreement_limit_pairings_differ": ("pairs",),
+        "agreement_source": ("measured", "courses", "instrument", "instances"),
+        "near_boundary_legend": ("between", "lowest", "at_lowest", "disagreements"),
     }.items()
 }
 

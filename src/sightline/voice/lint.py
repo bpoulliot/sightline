@@ -19,6 +19,12 @@ The rules, per SPEC §08 and §11:
 ``aggregate``
     No whole-course judgement anywhere, however phrased — including a count of rows over a total,
     which is a compliance percentage with the division left undone.
+``self_assessment``
+    Sightline never states how right it is (SPEC §01): no accuracy, confidence or reliability
+    vocabulary, and no percentage in a sentence that names Sightline or its output. The second half
+    reads the figure in the *whole* sentence, spans included, because a figure is always inserted as
+    a span — it is what keeps a human-agreement figure (roadmap item 24) from ever being worded as
+    a claim about Sightline.
 ``clean_wording``
     The shapes that describe a row nothing computed may never be worded like a clean result. This
     is where silent under-detection would re-enter the product at the last step before a person
@@ -91,6 +97,11 @@ class Register:
     handoff: _Rule
     grading: _Rule
     aggregate: _Rule
+    self_assessment: _Rule
+    #: What names Sightline or its output, read in Sightline's own words.
+    self_named: tuple[tuple[str, re.Pattern[str]], ...]
+    #: A figure, read in the whole sentence including its spans.
+    self_figure: re.Pattern[str]
     clean_forbidden_in: frozenset[str]
     clean: tuple[tuple[str, re.Pattern[str]], ...]
     required: Mapping[str, tuple[tuple[str, re.Pattern[str]], ...]] = field(default_factory=dict)
@@ -123,10 +134,21 @@ class Register:
                 if pattern.search(read):
                     found.append(Violation(rule=rule_name, token=token, where=where, text=text))
 
-        for name in ("hedge", "verdict", "grading", "aggregate"):
+        for name in ("hedge", "verdict", "grading", "aggregate", "self_assessment"):
             rule: _Rule = getattr(self, name)
             if register in rule.applies_to:
                 hits(name, rule.patterns)
+        if register in self.self_assessment.applies_to and self.self_figure.search(text):
+            for token, pattern in self.self_named:
+                if pattern.search(read):
+                    found.append(
+                        Violation(
+                            rule="self_assessment",
+                            token=f"a figure beside {token}",
+                            where=where,
+                            text=text,
+                        )
+                    )
         handed_over = any(pattern.search(read) for _, pattern in self.handoff.patterns)
         if sentence and register in self.handoff.applies_to and not handed_over:
             found.append(
@@ -218,6 +240,19 @@ def parse_register(payload: Any, *, origin: str = REGISTER_FILENAME) -> Register
             applies_to=_applies_to(aggregate, "aggregate"),
             patterns=tuple((p, re.compile(p, re.IGNORECASE)) for p in patterns),
         )
+        own = payload["self_assessment"]
+        rules["self_assessment"] = _Rule(
+            applies_to=_applies_to(own, "self_assessment"),
+            patterns=_tokens(own, "self_assessment"),
+        )
+        named = own.get("named")
+        figure = own.get("figure")
+        if not isinstance(named, list) or not named or not all(isinstance(n, str) for n in named):
+            raise RegisterConfigError("self_assessment.named must be a non-empty list of patterns")
+        if not isinstance(figure, str) or not figure:
+            raise RegisterConfigError("self_assessment.figure must be a pattern")
+        self_named = tuple((n, re.compile(n, re.IGNORECASE)) for n in named)
+        self_figure = re.compile(figure)
         clean = payload["clean_wording"]
         forbidden_in = clean.get("forbidden_in")
         if not isinstance(forbidden_in, list) or not forbidden_in:
@@ -241,6 +276,9 @@ def parse_register(payload: Any, *, origin: str = REGISTER_FILENAME) -> Register
         handoff=rules["handoff"],
         grading=rules["grading"],
         aggregate=rules["aggregate"],
+        self_assessment=rules["self_assessment"],
+        self_named=self_named,
+        self_figure=self_figure,
         clean_forbidden_in=frozenset(forbidden_in),
         clean=_tokens(clean, "clean_wording"),
         required=required,
