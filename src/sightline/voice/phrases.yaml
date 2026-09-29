@@ -89,7 +89,7 @@ formats:
   # about Sightline: the `self_assessment` rule refuses a figure in a sentence that names it.
   # `agreement_range` and `agreement_scope` are the short form the PDF and the review screen carry;
   # the rest are the long form the README carries. A limit is never left out of either.
-  agreement_range: {register: A, text: "Human reviewers rating the same course independently chose the same rating on {low} to {high} of the criteria both rated, in {pairs} pairings of passes over {courses} courses, and every disagreement between them was one band apart."}
+  agreement_range: {register: A, text: "Human reviewers rating the same course independently chose the same rating on {low} to {high} of the criteria both rated, across {pairs} pairings of passes in a corpus of {courses} courses, and every disagreement between them was one band apart."}
   agreement_scope: {register: A, text: "That is a measure of how hard the task is, not of how often Sightline is right: {courses} courses is a small sample, and {majors} Major Revision ratings among {instances} say nothing about where the Major Revision threshold falls."}
   agreement_pair: {register: A, text: "{passes}: {rated} criteria rated by both, the same rating chosen on {identical} of them."}
   agreement_disagreements: {register: A, text: "Every one of the {disagreements} disagreements was exactly one band apart, and {at_lowest} of them set Sufficiently Present against Minor Revision; none set Major Revision against Sufficiently Present."}

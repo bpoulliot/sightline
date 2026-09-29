@@ -913,7 +913,7 @@ right, and no sentence Sightline writes says otherwise.
 <!-- agreement:begin — rendered from src/sightline/voice/agreement.yaml by
 sightline.voice.agreement.markdown(); tests/test_agreement.py fails if the two differ -->
 
-Human reviewers rating the same course independently chose the same rating on 72% to 91% of the criteria both rated, in 4 pairings of passes over 5 courses, and every disagreement between them was one band apart. That is a measure of how hard the task is, not of how often Sightline is right: 5 courses is a small sample, and 2 Major Revision ratings among 326 say nothing about where the Major Revision threshold falls.
+Human reviewers rating the same course independently chose the same rating on 72% to 91% of the criteria both rated, across 4 pairings of passes in a corpus of 5 courses, and every disagreement between them was one band apart. That is a measure of how hard the task is, not of how often Sightline is right: 5 courses is a small sample, and 2 Major Revision ratings among 326 say nothing about where the Major Revision threshold falls.
 
 - An instructional designer and a reviewer: 54 criteria rated by both, the same rating chosen on 91% of them.
 - A faculty member and a reviewer: 59 criteria rated by both, the same rating chosen on 78% of them.
