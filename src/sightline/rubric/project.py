@@ -316,6 +316,9 @@ class Projection:
     #: projection and not the pack.
     priority_order: tuple[str, ...] = ()
     effort: EffortModel = field(default_factory=default_effort_model)
+    #: The instrument's own rating words. Carried so a surface can name a rating no row reached —
+    #: "no row reads Sufficiently Present" — without going back to the pack.
+    rating_scale: RatingScale | None = None
 
     def row(self, code: str) -> RowResult | None:
         """The row with this code. Keyed on the code, never on a position."""
@@ -433,6 +436,7 @@ def project(
         omitted=tuple(criterion.code for criterion in pack.omitted_criteria()),
         priority_order=pack.priority_order,
         effort=model,
+        rating_scale=pack.rating_scale,
     )
 
 

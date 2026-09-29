@@ -1,0 +1,36 @@
+# PLANTED PHRASES. Each `planted_*` variant breaks exactly the rule its name says, and the suite
+# asserts the register lint rejects it for that rule. Each `control` variant is the same fact worded
+# correctly, and the suite asserts it passes: a lint that rejects everything would pass the first
+# half and fail this one. A lint that has never failed is indistinguishable from a lint that cannot.
+#
+# Shaped like a section of phrases.yaml, so the lint reads it through the same entry point.
+
+A:
+  # SPEC §08's own Tier A example, hedged. A computed count is not hedged.
+  planted_hedge:
+    - "{code}: 38 images across 12 pages appear to have no alt text."
+  control:
+    - "{code}: 38 images across 12 pages have no alt text. Module 3 accounts for 21 of them."
+
+B:
+  planted_grading:
+    - "{code}: the syllabus scores low on stated response times."
+  control:
+    - "{code}: the syllabus states a 48-hour response commitment for email."
+
+C:
+  # SPEC §08's own Tier C example, with the call taken rather than handed over.
+  planted_verdict:
+    - "{code}: of 17 graded activities, 12 use recall-level verbs, which is insufficient; the activities should be revised. Whether that suits a 1000-level survey is your call."
+  planted_no_handoff:
+    - "{code}: of 17 graded activities, 12 use recall-level verbs and none reach evaluate or create."
+  control:
+    - "{code}: of 17 graded activities, 12 use recall-level verbs and none reach evaluate or create. Whether that suits a 1000-level survey is your call."
+
+D:
+  planted_aggregate:
+    - "Overall, this course needs significant work."
+  planted_percentage:
+    - "Sightline reached a clean reading on 41 of 68 criteria."
+  control:
+    - "Device testing cannot be checked from course materials."
