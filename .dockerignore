@@ -20,8 +20,11 @@ private/
 *.sqlite
 *.sqlite3
 *.db
-__pycache__/
-*.py[cod]
+# Any depth, not just the context root: Docker matches a bare pattern against the root only, so
+# without `**/` the host's bytecode under src/ and tests/ -- and the absolute path each .pyc was
+# compiled under -- rode into the image with COPY (roadmap item 37).
+**/__pycache__
+**/*.py[cod]
 .venv/
 venv/
 .pytest_cache/

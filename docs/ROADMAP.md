@@ -6,7 +6,7 @@ Labels: **READY** · **NEEDS DISCUSSION** · **NEEDS MEASUREMENT** · **BLOCKED*
 Nothing unready enters the queue. One item per conversation, one PR per item.
 
 Queue lives at `~/docker/overnight/projects/sightline/` (moved from `~/docker/overnight-sightline/`
-on 2026-09-22). Next free item number: **39**.
+on 2026-09-22). Next free item number: **40**.
 
 ---
 
@@ -51,8 +51,9 @@ on 2026-09-22). Next free item number: **39**.
 | 34 | Acquisition drops every outcome when it records an export note | 1 | READY | **DONE** — PR #33 |
 | 35 | The workbook's action plan holds located items; SPEC §08 promises remediation steps | 2 | **NEEDS DISCUSSION** | — |
 | 36 | Run-progress and New run screens | 2 | **BLOCKED** — on item 16 (its review screen is what the run screen links to) | filed 2026-09-29, PR #30 |
-| 37 | Host `__pycache__` ships in locally built images, carrying the developer's home path | 1 | READY | filed 2026-09-29 by item 14, PR #31; queued 99n |
+| 37 | Host `__pycache__` ships in locally built images, carrying the developer's home path | 1 | READY | **DONE** — PR #34. 177 → 0 files in the dev image, 94 → 0 in runtime |
 | 38 | A bound Tier D row is counted in two coverage buckets, and `coverage` exits 1 calling it a bug | 1 | READY | filed 2026-09-29 by item 22, PR #32; queued 99o |
+| 39 | Every other bare pattern in `.dockerignore` is root-only too | 3 | READY | filed 2026-09-29 by item 37, PR #34; not queued — latent, nothing matches today |
 
 ---
 
@@ -911,6 +912,22 @@ The near-boundary marker and `agreement.brief()` belong to item 24's re-run, not
   afterwards.
 - The full suite is green, ruff and black exit codes are read separately, and all CI jobs are green.
 
+**39 · FILED 2026-09-29 by item 37's session (PR #34). READY, not queued: latent, nothing
+matches today. Every other bare pattern in `.dockerignore` excludes at the context root only.**
+
+*Evidence.* Item 37 measured that Docker matches a bare `.dockerignore` pattern against the
+context root only (177 host `.pyc` files reached the dev image through `__pycache__/`). The same
+holds for the rest of the file: `.env`, `.env.*`, `*.imscc`, `*.pem`, `*.key`, `*.token`,
+`config.local.*`, `*.sqlite`, `*.sqlite3`, `*.db`, `secrets/`, `private/`, `instance/` and the
+cache directories. `.gitignore` means the same lines at any depth, so a `.env` or an `.imscc`
+dropped under `examples/`, `src/` or `tests/` is kept out of git and still copied into the image.
+A walk of the working tree on 2026-09-29 found **0** such nested files, so nothing has shipped.
+
+*Fix.* Prefix each secret- and data-shaped pattern with `**/`, keep `.dockerignore` mirroring
+`.gitignore`'s intent, and extend `tests/test_dockerignore.py` to assert the set. `data/` is a
+judgement: it is the data root only at the top level, and `**/data/` would also drop any package
+directory named `data` — check `src/` for one before widening it.
+
 **37 · FILED 2026-09-29 by item 14's session (PR #31). READY. `.dockerignore` keeps host
 bytecode out of the build context only at the top level, so a locally built image carries the
 developer's `__pycache__` — and the home directory each `.pyc` was compiled under.**
@@ -928,6 +945,17 @@ and a test that reads `.dockerignore` and asserts both patterns are there. Check
 dev image from a tree with bytecode in it and counting the files under `/app` that contain the host
 path (0 expected). Count by content, not by `.pyc` name: whether the image's own `uv sync` compiles
 anything under `/app/src` was not checked.
+
+*DONE — PR #34.* `**/__pycache__` and `**/*.py[cod]`, and `tests/test_dockerignore.py`. Measured
+on a `git archive` extract of `058411b` after the suite had run in it on the host (177 `.pyc` under
+`src/` and `tests/`), building each stage before and after, counting files under `/app` whose
+content holds the extract's path (`grep -rlaF`; controls: a marker string that cannot occur reads
+0, `OSCQR` reads non-zero): dev image **177 → 0**, runtime image **94 → 0**. The open question is
+answered: the image's own `uv sync` compiles nothing under `/app/src` — no `.pyc` outside
+`/app/.venv` in either image after the fix. In the dev image the suite read 1844 passed / 2 skipped
+before and 1844 / 4 after (the new test skips where there is no build context; CI's checkout runs
+it), and before the fix pytest named every test file by the host path. The test fails against the
+old `.dockerignore` and passes against the new one.
 
 **36 · FILED 2026-09-29 (PR #30) under operator decision D2 (2026-09-25; quoted in item 16's entry).
 BLOCKED on item 16. The run-progress screen and the New run screen.** SPEC §09 lists both, and
