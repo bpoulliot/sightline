@@ -22,6 +22,11 @@ digest is read from ``/api/tags`` and recorded beside the numbers.
 * ``multi`` is candidate (a): one call per passage carrying ``--rows-per-call`` criteria, each
   finding keyed by criterion code. Every returned quote goes through the same
   :meth:`~sightline.extract.base.Extractor.accept` the baseline uses.
+* ``passage-major`` sends the baseline's own prompts (:func:`~sightline.extract.base.prompt_for`
+  with each row's ask, the same schema) in passage-then-row order instead of row-then-passage. The
+  prompt carries the passage *before* the criterion, so consecutive calls share a prefix the host
+  may reuse. Same calls, same prompts: its misses should sit inside the baseline's own noise, and
+  whatever it saves is saved without reading less.
 * Candidates (b) and (c) — narrowing a row's corpus by a lexical pre-filter or by embedding
   similarity — are **simulated from the baseline runs, not re-run**. Each baseline call sees exactly
   one passage and one row, so skipping a passage removes that call and changes no other: the
@@ -59,10 +64,17 @@ from typing import Any
 from sightline.acquire.bundle import load_bundle
 from sightline.batch.pipeline import estimated_calls
 from sightline.detect.runner import run_detectors
-from sightline.extract.base import Corpus
+from sightline.extract.base import Corpus, prompt_for
 from sightline.extract.passages import Passage
 from sightline.extract.runner import RowExtractor, answer_requests, thinking_for
-from sightline.extract.schema import MAX_LOCATION_CHARS, MAX_QUOTE_CHARS, RawFinding
+from sightline.extract.schema import (
+    MAX_LOCATION_CHARS,
+    MAX_QUOTE_CHARS,
+    RESPONSE_SCHEMA,
+    RawFinding,
+    SchemaViolation,
+    parse_response,
+)
 from sightline.extract.verify import verify
 from sightline.llm.client import OllamaClient
 from sightline.rubric.project import project
@@ -299,6 +311,67 @@ async def run_multi(client, card, requests, passages, per_call: int) -> dict[str
     return {"rows": rows, "calls": calls}
 
 
+async def run_passage_major(client, card, requests, passages) -> dict[str, Any]:
+    """The baseline's calls, prompt for prompt, visited passage-first so a prefix can be reused."""
+    thinking = thinking_for(card)
+    extractors = [RowExtractor(request) for request in requests]
+    rows: dict[str, Any] = {
+        request.criterion: {
+            "evidence": [],
+            "discarded": 0,
+            "failures": 0,
+            "passages_examined": len(passages),
+        }
+        for request in requests
+    }
+    calls: list[dict[str, Any]] = []
+    for passage in passages:
+        for request, extractor in zip(requests, extractors, strict=True):
+            code = request.criterion
+            started = time.perf_counter()
+            completion = await client.chat(
+                card,
+                prompt_for(extractor, passage, ask=extractor.ask),
+                thinking=thinking,
+                operation=f"extract.{extractor.id}",
+                response_format=RESPONSE_SCHEMA,
+            )
+            latency = round((time.perf_counter() - started) * 1000, 2)
+            try:
+                returned = parse_response(completion.content)
+                error = None
+            except SchemaViolation as violation:
+                returned, error = (), str(violation)
+            calls.append(
+                {
+                    "rows": [code],
+                    "passage": passage.label,
+                    "ok": error is None,
+                    "error": error,
+                    "latency_ms": latency,
+                    "prompt_tokens": completion.prompt_tokens,
+                    "completion_tokens": completion.completion_tokens,
+                }
+            )
+            if error is not None:
+                rows[code]["failures"] += 1
+                continue
+            for finding in returned:
+                match = extractor.accept(finding, passage)
+                if match is None:
+                    rows[code]["discarded"] += 1
+                    continue
+                rows[code]["evidence"].append(
+                    {
+                        "quote": match.text,
+                        "passage": passage_key(passage),
+                        "start": match.start,
+                        "end": match.end,
+                    }
+                )
+    return {"rows": rows, "calls": calls}
+
+
 async def command_run(args: argparse.Namespace) -> None:
     endpoint = endpoint_of(args)
     document, requests, passages = setup(args.pack, args.rows)
@@ -308,11 +381,13 @@ async def command_run(args: argparse.Namespace) -> None:
     clock = time.perf_counter()
     if args.arm == "baseline":
         result = await run_baseline(client, card, document, requests, passages)
+    elif args.arm == "passage-major":
+        result = await run_passage_major(client, card, requests, passages)
     else:
         result = await run_multi(client, card, requests, passages, args.rows_per_call)
     wall = time.perf_counter() - clock
     estimate = estimated_calls(document, requests)
-    if args.arm == "baseline" and len(result["calls"]) != estimate:
+    if args.arm != "multi" and len(result["calls"]) != estimate:
         # The acceptance item 33 carries: the price printed at the project stage is the price paid.
         raise SystemExit(
             f"The project stage estimated {estimate} call(s) and the run made "
@@ -320,7 +395,7 @@ async def command_run(args: argparse.Namespace) -> None:
         )
     payload = {
         "estimated_calls": estimate,
-        "arm": args.arm if args.arm == "baseline" else f"multi-{args.rows_per_call}",
+        "arm": args.arm if args.arm != "multi" else f"multi-{args.rows_per_call}",
         "pack": args.pack,
         "model": card.name,
         "digest": digest_of(endpoint, args.model),
@@ -637,7 +712,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
     sub = parser.add_subparsers(dest="command", required=True)
     run = sub.add_parser("run")
-    run.add_argument("--arm", choices=("baseline", "multi"), required=True)
+    run.add_argument("--arm", choices=("baseline", "passage-major", "multi"), required=True)
     run.add_argument("--rows-per-call", type=int, default=4)
     run.add_argument("--model", required=True)
     run.add_argument("--pack", default="uccs-oscqr-rsi")
