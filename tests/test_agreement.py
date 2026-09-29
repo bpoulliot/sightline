@@ -353,4 +353,6 @@ def test_the_workbook_carries_no_agreement_statement() -> None:
     for sentence in full():
         assert sentence.text not in cells
     assert _hits(cells) == []
-    assert "workbook deliberately does not" in (ROOT / "src" / "sightline" / "workbook.py").read_text()
+    assert (
+        "workbook deliberately does not" in (ROOT / "src" / "sightline" / "workbook.py").read_text()
+    )

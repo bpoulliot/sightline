@@ -2,9 +2,9 @@
 
 Hand-completed reviews were analysed on 2026-09-08, and independent human passes over the same
 course did not always choose the same rating — the figures, with their sample size, are in
-``agreement.yaml`` and nowhere else. That is a fact about **the difficulty of the task**. It tells a reader
-what a first pass can possibly be worth, and it is the most direct support there is for SPEC §01's
-posture: a tool that says where reviewers disagree is plainly not pretending to be one.
+``agreement.yaml`` and nowhere else. That is a fact about **the difficulty of the task**. It tells a
+reader what a first pass can possibly be worth, and it is the most direct support there is for SPEC
+§01's posture: a tool that says where reviewers disagree is plainly not pretending to be one.
 
 **It says nothing about how often Sightline is right**, and no sentence may imply that it does. The
 register lint's ``self_assessment`` rule refuses a percentage in any sentence that names Sightline
@@ -183,7 +183,9 @@ def parse_agreement(payload: Any, *, origin: str = AGREEMENT_FILENAME) -> Agreem
             if not isinstance(entry, Mapping):
                 raise AgreementError(f"{where} must be a mapping")
             _only(entry, _PAIR, where)
-            percent = _count(entry["identical_percent"], f"{where}.identical_percent", positive=False)
+            percent = _count(
+                entry["identical_percent"], f"{where}.identical_percent", positive=False
+            )
             if percent > 100:
                 raise AgreementError(f"{where}.identical_percent is over 100")
             pairs.append(
@@ -418,9 +420,7 @@ def markdown(agreement: Agreement | None = None, voice: Voice | None = None) -> 
     return "\n".join(lines) + "\n"
 
 
-def violations(
-    sentences: Sequence[Sentence], register: Register | None = None
-) -> list[Violation]:
+def violations(sentences: Sequence[Sentence], register: Register | None = None) -> list[Violation]:
     """Every register violation in ``sentences``. Empty for everything this module renders."""
     rules = register or default_register()
     return [violation for sentence in sentences for violation in sentence.lint(rules)]
