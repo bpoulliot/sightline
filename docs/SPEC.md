@@ -390,7 +390,8 @@ capability tag, and reaches a row through the routing contract in `sightline.rub
 
 ## §06 The model layer
 
-Target host is an AGX Orin 64GB running Ollama 0.20.6. **The endpoint is configuration, never
+Target host is an AGX Orin 64GB running Ollama (0.20.6 when item 09 measured it, 0.34.2 when item
+33 did; its installed models change too). **The endpoint is configuration, never
 hardcoded.** Concurrency defaults to 1. Every call logs latency, token counts and the serving model
 from the first commit — the failure mode that killed an earlier local-AI pipeline on this network
 was silent, not loud.
@@ -484,6 +485,30 @@ runs returned different spans is marked *needs attention*.
   carries a `needs_attention` object — present only when the runs differed, absent rather than
   false when they agreed, so a renderer cannot read the key as a boolean to sort on. The review
   screen of §09 is roadmap item 16 and is not built yet; that payload is what it renders.
+
+### What a routed row costs, measured 2026-09-28 (item 33)
+
+A routed row is answered **one passage per call, one row per call, over every passage of the
+course**, and that stays the design. Item 33 measured the three ways of making fewer calls against
+the current behaviour as ground truth, on one model (`qwen3-coder:30b`) over the synthetic sample
+course, and every one lost verified quotes well beyond two identical runs' disagreement with each
+other:
+
+- **Several rows per call** loses a third or more of the evidence at two rows per call and
+  attaches quotes to rows they do not bear on (an instructor-response sentence filed under
+  "getting to know the instructor" and "formative feedback"). It was also **slower**: a call's
+  time is mostly the tokens it generates (about 25 ms each), not the call, so halving the calls
+  and generating more saved nothing.
+- **A word-overlap pre-filter** and **embedding similarity** narrow a row's corpus, and a row whose
+  evidence is spread across the course — a Tier C row such as "varied types of activities" had
+  quotes in 12 of 15 passages — loses it wherever the filter looked away. Keeping two thirds of the
+  passages by embedding rank still lost quotes on 13 of 47 reference rows and emptied 3.
+
+**What this means for a later change.** A narrowing that ships anyway must say on the row how much
+of the course it read ("5 of 15 passages examined"), because a row that looked at a third of the
+course and reports nothing is not the same artifact as one that read all of it. Asking about the
+same passage twice and picking an answer is ruled out by §01. The numbers, and the instrument that
+reproduces them, are in `docs/ROADMAP.md` under item 33.
 
 ### Escalation
 

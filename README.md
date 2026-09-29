@@ -802,10 +802,21 @@ course, which is 43 artifacts and 15 passages:
 | `uccs-oscqr-rsi` | 18 | 12 | about 180 |
 | `uccs-oscqr-3-1-3` | 68 | 47 | about 705 |
 
-Plus the ten topic extractors, which answer the course once rather than once per row. At a few
-seconds a call on a local host that is an hour or more for one course against the reference
-instrument, so the cap of sixteen is a ceiling on a long wait rather than a throughput target.
-Bounding that cost is roadmap item 33; the number is printed rather than discovered.
+Plus the ten topic extractors, which answer the course once rather than once per row. Measured on
+the target host with `qwen3-coder:30b` (item 33, 2026-09-28): the 180 calls took 202–220 s and
+the 705 took 685–720 s, about a second a call, with the printed estimate equal to the calls made
+every time. **Most of a call's time is the quotes it writes, not the call itself** — about 25 ms per
+generated token against a fraction of a second of fixed cost — so the price grows with how many
+passages a course has and how much evidence they hold. The sample's passages average 64 words; a
+real course's run up to 900, so its per-call cost is higher and its passage count is the
+multiplier.
+
+**Nothing bounds it, on purpose.** Item 33 measured three ways of making fewer calls — several rows
+per call, a word-overlap pre-filter, and embedding similarity — and every one lost verified quotes
+the one-row-per-call run found, well beyond two identical runs' disagreement with each other.
+Several rows per call was also *slower*. The lever is the reviewer's: fewer routed rows (a pack
+with bindings routes fewer), or fewer courses per batch. The measurement and its instrument are in
+`docs/ROADMAP.md` (item 33) and `scripts/measure_row_extraction.py`.
 
 ## Canvas token scopes
 
