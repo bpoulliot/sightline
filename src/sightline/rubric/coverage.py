@@ -94,11 +94,21 @@ class PackCoverage:
 
     @property
     def deterministic(self) -> tuple[RowCoverage, ...]:
-        return tuple(row for row in self.rows if row.coverage is Coverage.DETERMINISTIC)
+        """Rows a parser answers. Never a Tier D row, whatever it binds."""
+        return tuple(
+            row
+            for row in self.rows
+            if row.tier is not Tier.D and row.coverage is Coverage.DETERMINISTIC
+        )
 
     @property
     def not_yet_implemented(self) -> tuple[RowCoverage, ...]:
-        return tuple(row for row in self.rows if row.coverage is Coverage.NOT_YET_IMPLEMENTED)
+        """Rows bound only to capabilities no detector implements yet. Never a Tier D row."""
+        return tuple(
+            row
+            for row in self.rows
+            if row.tier is not Tier.D and row.coverage is Coverage.NOT_YET_IMPLEMENTED
+        )
 
     @property
     def evidence_only(self) -> tuple[RowCoverage, ...]:
@@ -106,7 +116,11 @@ class PackCoverage:
 
     @property
     def not_determinable(self) -> tuple[RowCoverage, ...]:
-        """Tier D rows. Out of scope by the instrument's own reading, not a gap in Sightline."""
+        """Tier D rows. Out of scope by the instrument's own reading, not a gap in Sightline.
+
+        Bucketed by tier first, whatever the row binds (roadmap item 38): a Tier D row reads Not
+        Applicable bound or not, so it is counted here and in no other bucket.
+        """
         return tuple(row for row in self.rows if row.tier is Tier.D)
 
     @property
@@ -178,8 +192,9 @@ class PackCoverage:
     def detail(self) -> str:
         """The statement plus a per-section breakdown and the tags nothing recognises."""
         lines = [self.statement()]
+        answered = {row.code for row in self.deterministic}
         for section, rows in self.by_section().items():
-            deterministic = sum(1 for row in rows if row.coverage is Coverage.DETERMINISTIC)
+            deterministic = sum(1 for row in rows if row.code in answered)
             lines.append(f"  {section}: {deterministic} of {len(rows)} with coverage")
         if self.not_yet_implemented:
             names = ", ".join(

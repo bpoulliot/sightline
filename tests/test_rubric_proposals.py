@@ -20,6 +20,7 @@ import io
 import json
 import re
 from collections.abc import Iterator, Sequence
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -32,6 +33,7 @@ from sightline.extract.schema import SchemaViolation
 from sightline.llm.client import OllamaClient
 from sightline.logging import configure_logging
 from sightline.rubric import __main__ as cli
+from sightline.rubric.coverage import pack_coverage
 from sightline.rubric.mapping import loads as load_mapping_text
 from sightline.rubric.pack import RubricPack, load
 from sightline.rubric.proposals import (
@@ -42,6 +44,7 @@ from sightline.rubric.proposals import (
     ProposalSet,
     accept,
     consequence,
+    coverage_delta,
     fingerprint,
     loads,
     mapping_from_pack,
@@ -555,6 +558,41 @@ def test_the_mapping_applies_through_import_and_the_delta_equals_coverage(
     assert moved == after_counts["deterministic"] - before_counts["deterministic"]
     assert remain == after_counts["evidence_only"]
     assert moved > 0
+
+
+def test_the_coverage_delta_equals_coverage_when_a_tier_d_row_is_bound() -> None:
+    """Roadmap item 38: a hand-written mapping may bind a Tier D row, which the proposer never
+    asks about. Binding the reference pack's MOB 5 alongside an unbound Tier B row, the delta moves
+    only the Tier B row, and every bucket's change in `coverage` is exactly what the delta moved
+    into it less what it moved out."""
+    pack = load(REF_PACK)
+    tier_b = next(c for c in pack.criteria if c.tier is Tier.B and not c.bindings)
+    updated = replace(
+        pack,
+        criteria=tuple(
+            (
+                replace(c, bindings=(*c.bindings, "alt_text"))
+                if c.code in {"MOB 5", tier_b.code}
+                else c
+            )
+            for c in pack.criteria
+        ),
+    )
+    before, after = pack_coverage(pack), pack_coverage(updated)
+    assert before.ok and after.ok, after.detail()
+
+    delta = coverage_delta(pack, updated)
+    assert dict(delta.moved) == {("evidence-only", "deterministic"): (tier_b.code,)}
+    names = {
+        "deterministic": "deterministic",
+        "not_yet_implemented": "bound to a capability no detector implements yet",
+        "evidence_only": "evidence-only",
+        "not_determinable": "not determinable",
+    }
+    for key, name in names.items():
+        into = sum(len(codes) for (_, end), codes in delta.moved.items() if end == name)
+        out = sum(len(codes) for (start, _), codes in delta.moved.items() if start == name)
+        assert after.counts[key] - before.counts[key] == into - out, key
 
 
 def test_a_shipped_pack_without_its_mapping_is_refused_because_of_its_join_key() -> None:
