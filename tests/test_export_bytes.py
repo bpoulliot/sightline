@@ -20,6 +20,7 @@ import io
 import json
 import shutil
 import zipfile
+from dataclasses import fields
 from types import SimpleNamespace
 from typing import Any
 
@@ -29,6 +30,7 @@ import detector_fixtures as fx
 from canvas_recordings import EXAMPLE_BASE_URL, FAKE_TOKEN
 from sightline.acquire import CourseAcquisition
 from sightline.acquire.cache import DocumentCache
+from sightline.acquire.service import _with_examination
 from sightline.batch import CourseWork, ReviewPipeline, Stage
 from sightline.batch.pipeline import CanvasSource
 from sightline.batch.service import live_pipeline_factory
@@ -37,7 +39,13 @@ from sightline.config import Settings
 from sightline.credentials import CredentialStore
 from sightline.detect.runner import DetectionReport, run_detectors
 from sightline.detect.sources import ExportFileSource, NoFileSource, export_file_source
-from sightline.model import EXPORT_FILES_KEY, CourseDocument
+from sightline.model import (
+    EXPORT_FILES_KEY,
+    CourseDocument,
+    Examination,
+    ExaminationState,
+    Source,
+)
 from sightline.paths import DataPaths
 from sightline.preferences import PreferenceStore
 from sightline.rubric.shipped import shipped_pack
@@ -408,3 +416,63 @@ async def test_a_local_path_climbing_out_of_the_export_is_refused(paths: DataPat
     assert source.read(climbing) is None
     inside = next(item for item in document.files if item.filename == "week2-reading.pdf")
     assert source.read(inside) == READING_PDF
+
+
+# -- the export note must not cost the document anything else (roadmap item 34) -----------------
+
+OUTCOME_LINK = {
+    "outcome": {"id": 7101, "title": "Synthetic outcome", "description": "<p>Explain it.</p>"},
+    "outcome_group": {"id": 61, "title": "Synthetic group"},
+}
+
+
+def with_outcome(instance: Instance) -> Instance:
+    instance.bodies[f"/api/v1/courses/{COURSE}/outcome_group_links"] = [OUTCOME_LINK]
+    return instance
+
+
+async def test_an_outcome_survives_acquisition_without_an_export_note(paths: DataPaths) -> None:
+    """The positive control: no export asked for, no note recorded, the outcome is there."""
+    result = await acquire(paths, with_outcome(Instance()), include_export=False)
+    assert [item.canvas_id for item in result.document.outcomes] == ["7101"]
+    assert "content_export" not in {item.collection for item in result.document.examinations}
+
+
+async def test_an_outcome_survives_acquisition_with_an_export_note(paths: DataPaths) -> None:
+    """Recording the export note used to rebuild the document from a field list that forgot
+    ``outcomes``, so every course acquired with its export lost every outcome."""
+    result = await acquire(paths, with_outcome(Instance()))
+    assert "content_export" in {item.collection for item in result.document.examinations}
+    assert [item.canvas_id for item in result.document.outcomes] == ["7101"]
+
+
+async def test_an_outcome_survives_acquisition_when_the_export_is_absent(
+    paths: DataPaths,
+) -> None:
+    instance = with_outcome(Instance())
+    del instance.bodies[f"/api/v1/courses/{COURSE}/content_exports"][0]
+    result = await acquire(paths, instance)
+    assert "content_export" in {item.collection for item in result.document.examinations}
+    assert [item.canvas_id for item in result.document.outcomes] == ["7101"]
+
+
+def test_recording_an_examination_carries_every_document_field() -> None:
+    """Every field but ``examinations`` comes back as the very object that went in — including a
+    field added to :class:`CourseDocument` after this test was written."""
+    carried = [item.name for item in fields(CourseDocument) if item.name != "examinations"]
+    sentinels = {name: object() for name in carried}
+    document = CourseDocument(**sentinels, examinations=())  # type: ignore[arg-type]
+    entry = Examination(
+        collection="content_export",
+        state=ExaminationState.ABSENT,
+        examined=0,
+        source=Source.EXPORT,
+        endpoint="/courses/:id/content_exports",
+        detail="synthetic",
+    )
+
+    rebuilt = _with_examination(document, entry)
+
+    assert rebuilt.examinations == (entry,)
+    for name in carried:
+        assert getattr(rebuilt, name) is sentinels[name], name

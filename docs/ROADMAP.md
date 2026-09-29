@@ -48,7 +48,7 @@ on 2026-09-22). Next free item number: **39**.
 | 31 | `plain_text()` reads a tag with a regex, and two shapes of course HTML defeat it | 1 | READY | **DONE** — PR #25 |
 | 32 | The suite reads the developer's `.env`; the fixture that promises it does not, does not | 1 | READY | **DONE** — PR #16 |
 | 33 | A routed row costs one call per passage, and nothing bounds the total | 2 | MEASURED | **DONE** — PR #26. Outcome (d): nothing changes |
-| 34 | Acquisition drops every outcome when it records an export note | 1 | READY | queued 99m |
+| 34 | Acquisition drops every outcome when it records an export note | 1 | READY | **DONE** — PR #33 |
 | 35 | The workbook's action plan holds located items; SPEC §08 promises remediation steps | 2 | **NEEDS DISCUSSION** | — |
 | 36 | Run-progress and New run screens | 2 | **BLOCKED** — on item 16 (its review screen is what the run screen links to) | filed 2026-09-29, PR #30 |
 | 37 | Host `__pycache__` ships in locally built images, carrying the developer's home path | 1 | READY | filed 2026-09-29 by item 14, PR #31; queued 99n |
@@ -1744,6 +1744,13 @@ and reports itself as *could not run* (`NothingExamined`) on every course that r
 silent — it surfaces as a detector fault — so filed sorting after every pending item. The fix is
 small (`dataclasses.replace(document, examinations=...)` or an equivalent that cannot forget a
 field) plus a test that fails when a `CourseDocument` field is added and not carried.
+
+**DONE 2026-09-29, PR #33.** `_with_examination` is now `dataclasses.replace(document,
+examinations=...)`. Tests in `tests/test_export_bytes.py`, through the real acquisition with one
+outcome group link: 1 outcome without a note (control), 1 with an OK note, 1 with an ABSENT note —
+the latter two failed on main (0). A fourth test builds a `CourseDocument` with a sentinel in every
+field and asserts each comes back by identity, so a field added later and not carried fails it.
+D11 and the cache signature are unchanged. Suite 1840 → 1844 passed, 2 skipped.
 
 **26 · FILED 2026-09-17 by item 06's session.** `ExportFileSource` exists and the detectors that
 read document bytes take one, but **nothing can build one**: `CourseAcquisition.acquire` returns
