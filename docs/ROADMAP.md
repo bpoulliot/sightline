@@ -51,9 +51,9 @@ on 2026-09-22). Next free item number: **40**.
 | 34 | Acquisition drops every outcome when it records an export note | 1 | READY | **DONE** — PR #33 |
 | 35 | The workbook's action plan holds located items; SPEC §08 promises remediation steps | 2 | **NEEDS DISCUSSION** | — |
 | 36 | Run-progress and New run screens | 2 | **BLOCKED** — on item 16 (its review screen is what the run screen links to) | filed 2026-09-29, PR #30 |
-| 37 | Host `__pycache__` ships in locally built images, carrying the developer's home path | 1 | READY | **DONE** — PR #PRNUM. 177 → 0 files in the dev image, 94 → 0 in runtime |
+| 37 | Host `__pycache__` ships in locally built images, carrying the developer's home path | 1 | READY | **DONE** — PR #34. 177 → 0 files in the dev image, 94 → 0 in runtime |
 | 38 | A bound Tier D row is counted in two coverage buckets, and `coverage` exits 1 calling it a bug | 1 | READY | filed 2026-09-29 by item 22, PR #32; queued 99o |
-| 39 | Every other bare pattern in `.dockerignore` is root-only too | 3 | READY | filed 2026-09-29 by item 37, PR #PRNUM; not queued — latent, nothing matches today |
+| 39 | Every other bare pattern in `.dockerignore` is root-only too | 3 | READY | filed 2026-09-29 by item 37, PR #34; not queued — latent, nothing matches today |
 
 ---
 
@@ -912,7 +912,7 @@ The near-boundary marker and `agreement.brief()` belong to item 24's re-run, not
   afterwards.
 - The full suite is green, ruff and black exit codes are read separately, and all CI jobs are green.
 
-**39 · FILED 2026-09-29 by item 37's session (PR #PRNUM). READY, not queued: latent, nothing
+**39 · FILED 2026-09-29 by item 37's session (PR #34). READY, not queued: latent, nothing
 matches today. Every other bare pattern in `.dockerignore` excludes at the context root only.**
 
 *Evidence.* Item 37 measured that Docker matches a bare `.dockerignore` pattern against the
@@ -946,7 +946,7 @@ dev image from a tree with bytecode in it and counting the files under `/app` th
 path (0 expected). Count by content, not by `.pyc` name: whether the image's own `uv sync` compiles
 anything under `/app/src` was not checked.
 
-*DONE — PR #PRNUM.* `**/__pycache__` and `**/*.py[cod]`, and `tests/test_dockerignore.py`. Measured
+*DONE — PR #34.* `**/__pycache__` and `**/*.py[cod]`, and `tests/test_dockerignore.py`. Measured
 on a `git archive` extract of `058411b` after the suite had run in it on the host (177 `.pyc` under
 `src/` and `tests/`), building each stage before and after, counting files under `/app` whose
 content holds the extract's path (`grep -rlaF`; controls: a marker string that cannot occur reads
