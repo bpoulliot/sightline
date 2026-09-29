@@ -44,6 +44,7 @@ from .base import (
     DetectorResult,
     Finding,
     NothingExamined,
+    Parses,
     ResultState,
     Tier,
     Undetermined,
@@ -127,12 +128,17 @@ def run_detectors(
     :class:`~sightline.detect.links.NoLinkResolver`: no detector reaches the network unless a
     caller hands one in, which is why the suite and CI need no network and a batch run does not
     silently become a crawl.
+
+    Every detector gets its own survey, and therefore its own examined count, but they share one
+    :class:`~sightline.detect.base.Parses`: each body is parsed once for the whole run rather than
+    once per detector that reads it. It is made here and dropped when this returns.
     """
     selected = tuple(only) if only is not None else detectors()
+    parses = Parses()
     results: list[DetectorResult] = []
     for detector in selected:
         try:
-            results.append(detector.run(document, files=files, links=links))
+            results.append(detector.run(document, files=files, links=links, parses=parses))
         except NothingExamined as exc:
             log.warning(
                 "detector_examined_nothing",

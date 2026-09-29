@@ -44,7 +44,7 @@ on 2026-09-22). Next free item number: **35**.
 | 27 | One detector's crash must not take the whole review with it | 1 | READY | **DONE** — PR #22 |
 | 28 | A binding says *relevant*; rating reads it as *sufficient* | 1 | READY | **DONE** — PR #23 |
 | 29 | `Scan.text` fuses two words at every block seam | 1 | READY | **DONE** — PR #13 |
-| 30 | Every HTML detector re-parses every body | 2 | READY | queued 99c — **measure first** |
+| 30 | Every HTML detector re-parses every body | 2 | READY | **DONE** — PR #24 |
 | 31 | `plain_text()` reads a tag with a regex, and two shapes of course HTML defeat it | 1 | READY | queued 99c1 — take with 30 |
 | 32 | The suite reads the developer's `.env`; the fixture that promises it does not, does not | 1 | READY | **DONE** — PR #16 |
 | 33 | A routed row costs one call per passage, and nothing bounds the total | 2 | **NEEDS MEASUREMENT** | queued 99d |
@@ -130,13 +130,8 @@ them against a model that does not exist yet would mean three sessions each inve
 
 ## Not queued, and why
 
-**30 is queued at `99c-` and its first instruction is to measure.** Item 08 counted 180 `scan()`
-calls over the sample course's 15 bodies — twelve body-reading detectors each parsing all fifteen —
-and the whole run still costs 30ms, because the sample is fifteen short pages. That number decides
-nothing about a real course, so the item builds a synthetic course of realistic size first, and
-closing it as measured-and-rejected is an acceptable outcome written into the prompt. It sorts after
-every pending item because it is neither a blocker nor wrong output: the parse is deterministic and
-every detector sees the same tree, so what is lost is time and not agreement.
+**30 is DONE (PR #24)** — measured first, as its prompt required, and the measurement said build
+it. See *Notes carried forward*.
 
 **05 and 13 are now queued** — see *Queued order* above. Both were held as "blocked by 04 in code
 only", which was never a reason to leave them uncomposed: the queue's own ordering satisfies a
@@ -397,6 +392,25 @@ default `/24` collides.
   settled; a later move toward stock OSCQR 3.1 / 4.0 is a pack change, not a code change.
 
 ## Notes carried forward
+
+**30 · DONE 2026-09-28 (PR #24). One parse per body per run, shared through the Survey.**
+Measured before it was built, with `scripts/measure_parse_cost.py` (committed; it self-tests in
+both directions before it reports). On a synthetic course of 281 bodies of 8.6 KB — the sample's
+bodies concatenated and repeated with distinct ids — the detector stage made 3,696 `scan()` calls
+(13.2 per body) and spent 6.4 s of its 7.2 s inside them. The parse was nine tenths of the stage,
+so the saving was worth the framework change. It now makes 281 calls, one per body, and takes 1.2 s.
+Findings over the sample course are byte-identical before and after.
+
+**What later items inherit.** `run_detectors` makes one `Parses` per run and hands it to every
+`Survey`. A detector reaches a tree with `survey.parse(body)` or `survey.parse(artifact)`, which
+**refuses any artifact that survey did not hand out**, so the shared parses are never a route to
+uncounted markup. Each detector keeps its own `Survey` and its own examined count. The cache is
+keyed on id *and* markup, and lives exactly as long as the run: there is no module-level cache,
+so course text does not outlive the review. A new HTML detector reads `self.pages(survey)` or
+`survey.parse(...)`, never `scan(artifact.body_html)` directly; a direct call still works, but it
+re-parses. `Element.attrs` is now a read-only mapping, because a shared tree must not be editable by
+the detector holding it. `extract/passages.py` still parses for itself (a different stage, not
+measured here). `structure.has_heading()` has no caller, and it was left alone.
 
 **12a · DONE 2026-09-25 (PR #20). The effort model: detector-keyed costs, a near-boundary marker,
 and the override record.**
@@ -747,6 +761,12 @@ is the one item 30 is already measuring — scan each body once and let the stru
 `Scan.text` — so this is queued at `99c1-`, immediately after it, and should be taken with it rather
 than before it. If item 30 lands the shared parse, this item is closed by it and says so; if item 30
 measures the parse as too expensive to share, this one narrows the regex instead.
+**UPDATE 2026-09-28, item 30's session: the shared parse landed (PR #24), but this item is NOT
+closed by it.** Item 30 is a performance change and did not move a single detector off
+`plain_text()`, so both regex defects are still live. What changed is the cost: a structure
+detector can now read `survey.parse(artifact).text` without adding a parse. After item 30, the
+regex is 12% of what is left of the detector stage on the 281-body synthetic course (142 ms of
+1.2 s).
 
 **28 · FILED 2026-09-17 by item 05's session.** **A pack's `bindings` list carries two different
 claims and the rating code can only read one of them.** Authoring the two shipped packs against

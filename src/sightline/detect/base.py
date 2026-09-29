@@ -66,6 +66,7 @@ from ..model import (
     RubricSummary,
     Syllabus,
 )
+from .html_scan import Scan, scan
 from .links import LinkCheck, LinkResolver, NoLinkResolver
 from .sources import FileSource
 
@@ -310,10 +311,51 @@ class DetectorResult:
 
 @dataclass(frozen=True, slots=True)
 class Body:
-    """An artifact that carries markup, paired with the one parse of it."""
+    """An artifact that carries markup. Its parse is :meth:`Survey.parse`, asked for by body."""
 
     artifact: Artifact
     html: str
+
+
+class Parses:
+    """One parse per body per detector run, shared by every detector in that run.
+
+    Every HTML detector reads the same tree of the same body, and until roadmap item 30 each of
+    them built its own: twelve body-reading detectors, twelve parses of every body, and the parse
+    was nine tenths of the detector stage's wall time. :func:`~sightline.detect.run_detectors`
+    makes one of these per run and hands it to every :class:`Survey`, so a body is parsed the first
+    time a detector asks for it and read from here every time after.
+
+    **What is shared is the parse, never the count.** Each detector still gets its own
+    :class:`Survey`, which is what counts the artifacts it examined; a detector that asks for no
+    body is counted for none, however many bodies other detectors had parsed before it. And nothing
+    here is reachable except through :meth:`Survey.parse`, which answers only for a body that same
+    survey handed out — so a detector cannot use the shared parses to read a body it never asked
+    for, and the survey stays the only route to an artifact.
+
+    **Its lifetime is the run.** It is an object the runner holds, not module state: when the run
+    ends the parses go with it, so instructor-authored course text does not sit in a process-wide
+    cache between runs or between courses.
+
+    Keyed on the artifact id *and* the markup, so the same id carrying different markup can never
+    be handed the wrong tree. A :class:`~sightline.detect.html_scan.Scan` is immutable, which is
+    what makes one safe to hand to several detectors.
+    """
+
+    __slots__ = ("_scans",)
+
+    def __init__(self) -> None:
+        self._scans: dict[tuple[str, str], Scan] = {}
+
+    def __len__(self) -> int:
+        return len(self._scans)
+
+    def _of(self, artifact_id: str, html: str) -> Scan:
+        key = (artifact_id, html)
+        page = self._scans.get(key)
+        if page is None:
+            page = self._scans[key] = scan(html)
+        return page
 
 
 class Survey:
@@ -331,11 +373,14 @@ class Survey:
         *,
         files: FileSource | None = None,
         links: LinkResolver | None = None,
+        parses: Parses | None = None,
     ) -> None:
         self._document = document
         self._detector = detector
         self._files = files
         self._links = links or NoLinkResolver()
+        # None is a detector run on its own, which still parses each body once within the run.
+        self._parses = parses if parses is not None else Parses()
         self._examined: set[str] = set()
         self._subjects = 0
         self._undetermined: list[Undetermined] = []
@@ -367,6 +412,22 @@ class Survey:
         for artifact in self._document.bodies():
             self._examined.add(artifact.id)
             yield Body(artifact=artifact, html=artifact.body_html or "")
+
+    def parse(self, subject: Body | Artifact) -> Scan:
+        """The one parse of a body this survey handed out, shared across the run (:class:`Parses`).
+
+        Takes a :class:`Body` from :meth:`bodies` or an artifact from any other accessor — a
+        syllabus, a page — and parses the markup it carries. Refuses anything this survey did not
+        hand out: every artifact reached through an accessor was counted on the way, so this cannot
+        become a route to markup nobody counted.
+        """
+        artifact = subject.artifact if isinstance(subject, Body) else subject
+        if artifact.id not in self._examined:
+            raise LookupError(
+                f"{self._detector.id} asked for the parse of {artifact.id}, which its survey never "
+                "handed out. Reach an artifact through a Survey accessor, so that it is counted."
+            )
+        return self._parses._of(artifact.id, artifact.body_html or "")
 
     def embeds(self) -> Iterator[Embed]:
         for embed in self._document.embeds:
@@ -705,9 +766,14 @@ class Detector:
         *,
         files: FileSource | None = None,
         links: LinkResolver | None = None,
+        parses: Parses | None = None,
     ) -> DetectorResult:
-        """Run this detector over one course. Not overridable — see :meth:`__init_subclass__`."""
-        survey = Survey(document, self, files=files, links=links)
+        """Run this detector over one course. Not overridable — see :meth:`__init_subclass__`.
+
+        ``parses`` is the run's shared :class:`Parses`, handed in by the runner; omitted, this run
+        parses for itself.
+        """
+        survey = Survey(document, self, files=files, links=links, parses=parses)
         findings = tuple(self.examine(survey))
         examined = survey.examined
         unreadable = survey.unreadable()
@@ -853,6 +919,7 @@ __all__ = [
     "Finding",
     "Location",
     "NothingExamined",
+    "Parses",
     "ResultState",
     "Severity",
     "Survey",

@@ -158,7 +158,8 @@ def test_prose_is_read_the_way_the_page_renders_it() -> None:
 
 def test_the_seam_rule_is_one_rule_and_the_scanner_agrees_with_it() -> None:
     """``plain_text`` reads the string and ``scan`` reads the tree, and they are separate code
-    because item 30 has not measured what a parse per body costs yet. They are not allowed to be
+    until item 31 decides whether the structure detectors move to the run's shared parse (item 30
+    made that parse free to reuse). They are not allowed to be
     separate *rules*: a detector's answer must not depend on which helper it happened to call."""
     for html, expected in SEAM_CASES:
         assert scan(html).text == expected, html

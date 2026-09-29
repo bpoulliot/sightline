@@ -50,7 +50,7 @@ from ..model import (
 )
 from .base import Detector, Finding, Severity, Survey, Tier
 from .documents import inspect_pdf
-from .html_scan import HEADING_TAGS, INLINE_TAGS, excerpt, scan, verbatim
+from .html_scan import HEADING_TAGS, INLINE_TAGS, Scan, excerpt, scan, verbatim
 from .links import LinkState
 
 # ---------------------------------------------------------------------------------------------
@@ -109,9 +109,10 @@ def plain_text(html: str | None) -> str:
     its code in the prose here and is dropped there. Neither is a seam; both are why the scanner is
     the one to reach for when a detector needs the tree anyway.
 
-    What keeps this function is the parse it avoids. The twenty detectors here read prose and never
-    touch the tree, and routing them through the scanner would add a parse per body per detector —
-    roadmap item 30's measurement to take, not this function's to pre-empt.
+    What kept this function was the parse it avoided, and since roadmap item 30 there is no such
+    parse to avoid: a run parses each body once and shares it through ``Survey.parse``, so a
+    detector here reading ``survey.parse(artifact).text`` costs no extra parse. Whether they
+    should is item 31's change to make, not this docstring's.
 
     Script and style blocks go first, because their contents are not prose however much CSS looks
     like words when the tags come off.
@@ -129,16 +130,20 @@ def body_text(artifact: Artifact | None) -> str:
     return plain_text(artifact.body_html)
 
 
-def links_in(artifact: Artifact | None) -> tuple[Link, ...]:
+def links_in(artifact: Artifact | None, page: Scan | None = None) -> tuple[Link, ...]:
     """Every address in a body: marked-up anchors first, then addresses written as prose.
 
     Both halves are needed and the second is the one that gets missed. A syllabus that types the
     help desk's address into a paragraph has linked the help desk as far as a learner is concerned,
     and a detector that only read ``<a href>`` would report it as absent.
+
+    ``page`` is the body's parse when the caller already holds it — a detector passes
+    ``survey.parse(artifact)``, the run's shared parse — and is parsed here when omitted.
     """
     if artifact is None or not artifact.body_html:
         return ()
-    page = scan(artifact.body_html)
+    if page is None:
+        page = scan(artifact.body_html)
     found: list[Link] = []
     for anchor in page.of("a"):
         href = (anchor.attr("href") or "").strip()
@@ -275,7 +280,7 @@ class SyllabusPrintability(Detector):
         survey.counted(len(attachments))
 
         if syllabus is not None and syllabus.body_html:
-            page = scan(syllabus.body_html)
+            page = survey.parse(syllabus)
             headings = page.of(*HEADING_TAGS)
             if page.text and not headings:
                 yield survey.finding(
@@ -298,7 +303,8 @@ class SyllabusPrintability(Detector):
         first, and a course that uploads ``syllabus.pdf`` and links it from Modules by the second.
         """
         found: dict[str, CourseFile] = {}
-        for link in links_in(syllabus):
+        page = survey.parse(syllabus) if syllabus is not None and syllabus.body_html else None
+        for link in links_in(syllabus, page):
             candidate = survey.find_file(link.url)
             if candidate is not None and candidate.extension in _PRINTABLE:
                 found[candidate.id] = candidate
@@ -1007,7 +1013,8 @@ class _LinkVocabularyDetector(Detector, abstract=True):
         """Every link in ``artifacts`` whose address or label names the vocabulary."""
         found: list[tuple[Artifact, Link]] = []
         for artifact in artifacts:
-            for link in links_in(artifact):
+            page = survey.parse(artifact) if artifact.body_html else None
+            for link in links_in(artifact, page):
                 if matches(self.vocabulary, link.url, link.label):
                     found.append((artifact, link))
         return found

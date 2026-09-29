@@ -34,7 +34,6 @@ from .html_scan import (
     Scan,
     excerpt,
     heading_level,
-    scan,
     verbatim,
 )
 from .styles import (
@@ -69,22 +68,23 @@ _WHITE = Colour(255, 255, 255, written=ASSUMED_BACKGROUND)
 class HtmlDetector(Detector, abstract=True):
     """Shared walk for the detectors that read course markup.
 
-    **One parser, not one parse.** Every detector here reaches a body through this method and
-    therefore through the same :func:`~sightline.detect.html_scan.scan`, which is what makes them
-    agree: two parsers disagreeing about whether an unclosed tag ended is how one reports three
-    images and another four over the same page, and neither number can then be checked.
+    **One parser, and one parse per body per run.** Every detector here reaches a body through
+    this method and therefore through the same :func:`~sightline.detect.html_scan.scan`, which is
+    what makes them agree: two parsers disagreeing about whether an unclosed tag ended is how one
+    reports three images and another four over the same page, and neither number can then be
+    checked.
 
-    Each detector still parses each body for itself, because each gets its own
-    :class:`Survey` and there is nowhere yet to hang a shared result. That is a cost rather than a
-    correctness problem — the parse is deterministic, so the trees are identical — and roadmap
-    item 30 is the measurement and the fix.
+    The parse itself comes from :meth:`Survey.parse`, which reads it from the run's shared
+    :class:`~sightline.detect.base.Parses`: the first detector to reach a body parses it, and every
+    later one in the same run is handed the same immutable tree. Each detector still has its own
+    :class:`Survey` and is counted only for the bodies it walked (roadmap item 30).
     """
 
     collections = BODY_COLLECTIONS
 
     def pages(self, survey: Survey) -> Iterator[tuple[Body, Scan]]:
         for body in survey.bodies():
-            yield body, scan(body.html)
+            yield body, survey.parse(body)
 
 
 # ---------------------------------------------------------------------------------------------

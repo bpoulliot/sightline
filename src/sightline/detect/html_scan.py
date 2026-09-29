@@ -33,6 +33,7 @@ import re
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from html.parser import HTMLParser
+from types import MappingProxyType
 
 #: Elements that never have an end tag. Closed the moment they open, so a page full of ``<br>``
 #: does not nest every later element inside the first one.
@@ -316,7 +317,7 @@ def scan(html: str) -> Scan:
         elements.append(
             Element(
                 tag=node.tag,
-                attrs=dict(node.attrs),
+                attrs=MappingProxyType(dict(node.attrs)),
                 ordinal=node.ordinal,
                 index=counts[node.tag],
                 line=node.line,
