@@ -42,7 +42,7 @@ whose export downloaded perfectly well, which reads as an honest answer and is n
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -464,33 +464,13 @@ def _provenance(
 
 
 def _with_examination(document: CourseDocument, entry: Examination) -> CourseDocument:
+    """``document`` with ``entry`` added to its examinations and every other field carried.
+
+    ``dataclasses.replace`` rather than a rebuild from a list of field names: a hand-written list
+    once forgot ``outcomes`` and dropped every outcome from every acquisition with an export note.
+    """
     examinations = tuple(sorted((*document.examinations, entry), key=lambda item: item.collection))
-    return CourseDocument(
-        **{
-            **{
-                field: getattr(document, field)
-                for field in (
-                    "schema_version",
-                    "base_url",
-                    "course",
-                    "syllabus",
-                    "modules",
-                    "pages",
-                    "assignments",
-                    "quizzes",
-                    "discussions",
-                    "announcements",
-                    "files",
-                    "embeds",
-                    "navigation",
-                    "assignment_groups",
-                    "rubrics",
-                    "provenance",
-                )
-            },
-            "examinations": examinations,
-        }
-    )
+    return replace(document, examinations=examinations)
 
 
 __all__ = [
