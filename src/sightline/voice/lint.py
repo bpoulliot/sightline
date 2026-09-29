@@ -1,9 +1,9 @@
 """The register lint: the check that Sightline's sentences say what their tier allows and no more.
 
-**This is item 15's real deliverable.** The phrase bank can be edited by anyone, and the renderer can
-be extended by any later item; neither is safe unless something reads every sentence and refuses the
-ones that drift. The word lists are data, in ``register.yaml`` beside this module, so the voice can
-be tightened without touching this file or the test that runs it.
+**This is item 15's real deliverable.** The phrase bank can be edited by anyone, and the renderer
+can be extended by any later item; neither is safe unless something reads every sentence and
+refuses the ones that drift. The word lists are data, in ``register.yaml`` beside this module, so
+the voice can be tightened without touching this file or the test that runs it.
 
 The rules, per SPEC §08 and §11:
 
@@ -127,16 +127,13 @@ class Register:
             rule: _Rule = getattr(self, name)
             if register in rule.applies_to:
                 hits(name, rule.patterns)
-        if sentence and register in self.handoff.applies_to:
-            if not any(pattern.search(read) for _, pattern in self.handoff.patterns):
-                found.append(
-                    Violation(
-                        rule="handoff",
-                        token="(none of the handoff phrases)",
-                        where=where,
-                        text=text,
-                    )
+        handed_over = any(pattern.search(read) for _, pattern in self.handoff.patterns)
+        if sentence and register in self.handoff.applies_to and not handed_over:
+            found.append(
+                Violation(
+                    rule="handoff", token="(none of the handoff phrases)", where=where, text=text
                 )
+            )
         if shape is not None and shape in self.clean_forbidden_in:
             hits("clean_wording", self.clean)
         if shape is not None and shape in self.required:
@@ -157,7 +154,9 @@ class Register:
     ) -> list[Violation]:
         """Lint a bank variant as written: every ``{placeholder}`` is masked, the words are not."""
         spans = [match.span() for match in _PLACEHOLDER.finditer(template)]
-        return self.lint(template, register, where=where, shape=shape, sentence=sentence, spans=spans)
+        return self.lint(
+            template, register, where=where, shape=shape, sentence=sentence, spans=spans
+        )
 
 
 def mask(text: str, spans: Sequence[tuple[int, int]]) -> str:
@@ -168,7 +167,9 @@ def mask(text: str, spans: Sequence[tuple[int, int]]) -> str:
     cursor = 0
     for start, end in sorted(spans):
         if start < cursor or end < start or end > len(text):
-            raise ValueError(f"span {(start, end)} is out of order or outside a {len(text)}-char text")
+            raise ValueError(
+                f"span {(start, end)} is out of order or outside a {len(text)}-char text"
+            )
         out.append(text[cursor:start])
         out.append(MASK)
         cursor = end
@@ -194,7 +195,9 @@ def _tokens(entry: Mapping[str, Any], name: str) -> tuple[tuple[str, re.Pattern[
 def _applies_to(entry: Mapping[str, Any], name: str) -> frozenset[str]:
     applies = entry.get("applies_to")
     if not isinstance(applies, list) or not applies or not set(applies) <= set(REGISTERS):
-        raise RegisterConfigError(f"{name}.applies_to must be a non-empty list drawn from {REGISTERS}")
+        raise RegisterConfigError(
+            f"{name}.applies_to must be a non-empty list drawn from {REGISTERS}"
+        )
     return frozenset(applies)
 
 
@@ -206,9 +209,7 @@ def parse_register(payload: Any, *, origin: str = REGISTER_FILENAME) -> Register
         rules: dict[str, _Rule] = {}
         for name in ("hedge", "verdict", "handoff", "grading"):
             entry = payload[name]
-            rules[name] = _Rule(
-                applies_to=_applies_to(entry, name), patterns=_tokens(entry, name)
-            )
+            rules[name] = _Rule(applies_to=_applies_to(entry, name), patterns=_tokens(entry, name))
         aggregate = payload["aggregate"]
         patterns = aggregate.get("patterns")
         if not isinstance(patterns, list) or not patterns:

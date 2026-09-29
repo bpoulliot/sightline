@@ -19,8 +19,8 @@ from collections.abc import Mapping
 from pathlib import Path
 
 import httpx
-import ollama_recordings as recordings
 
+import ollama_recordings as recordings
 from sightline.acquire import load_bundle
 from sightline.detect import DetectionReport, run_detectors
 from sightline.extract.runner import RowExtraction, answer_requests
@@ -89,7 +89,9 @@ def _stand_in_host(texts: Mapping[str, tuple[str, ...]]) -> httpx.MockTransport:
 
 
 async def stand_in_extractions(
-    projection: Projection, document: CourseDocument, codes: Mapping[str, tuple[str, ...]] = STAND_IN
+    projection: Projection,
+    document: CourseDocument,
+    codes: Mapping[str, tuple[str, ...]] = STAND_IN,
 ) -> dict[str, RowExtraction]:
     """Answer the routed rows named in ``codes`` through the real extraction path.
 
@@ -99,6 +101,8 @@ async def stand_in_extractions(
     routing = manifest(projection.rows)
     wanted = [request for request in routing.requests if request.criterion in codes]
     by_text = {request.text: codes[request.criterion] for request in wanted}
-    async with OllamaClient(recordings.EXAMPLE_ENDPOINT, transport=_stand_in_host(by_text)) as client:
+    async with OllamaClient(
+        recordings.EXAMPLE_ENDPOINT, transport=_stand_in_host(by_text)
+    ) as client:
         answered = await answer_requests(wanted, document, client, MODEL)
     return {entry.criterion: entry for entry in answered}

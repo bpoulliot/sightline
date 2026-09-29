@@ -818,6 +818,54 @@ Several rows per call was also *slower*. The lever is the reviewer's: fewer rout
 with bindings routes fewer), or fewer courses per batch. The measurement and its instrument are in
 `docs/ROADMAP.md` (item 33) and `scripts/measure_row_extraction.py`.
 
+## The voice layer
+
+Every sentence Sightline writes about a course comes from one place, `sightline.voice`, and the
+workbook, the PDF and the review screen all call it. **The model does not write prose.** A sentence
+is a variant from a committed phrase bank with computed facts put into it — counts, locations, the
+instrument's own labels, and the extraction layer's verified quotes, inserted exactly as the course
+wrote them. The closing narrative is assembled the same way; it is the most quotable paragraph in a
+report, so it is the last place a freely written sentence could be allowed.
+
+```sh
+python -m sightline.voice --bundle examples/sample-course --pack uccs-oscqr-3-1-3
+```
+
+prints the sample course's review as plain text. It makes no model call, so every row that would
+have been asked about says its evidence was not gathered — and the narrative's last slot counts them.
+
+**The voice is data, in two files anyone can edit.** `src/sightline/voice/phrases.yaml` holds the
+phrase bank, organised by tier and by the shape of the fact being stated; `register.yaml` holds the
+word lists the register lint enforces. Both are checked when they load, and a bad edit fails the
+load rather than a test somebody might skip:
+
+- **every variant of a shape uses exactly the same placeholders**, so rotation varies how a fact is
+  introduced and never which facts are stated;
+- **no hedge in Tier A** ("appears", "may"), **no verdict in Tier C** ("insufficient", "should
+  be"), and **every Tier C sentence hands the call to the reviewer** in so many words;
+- **no grading vocabulary and no whole-course judgement in any tier** — including a count of rows
+  over a total, which is a compliance percentage with the division left undone;
+- **the shapes that describe a row nothing computed may never be worded like a clean one.** Not yet
+  implemented, no check assigned, and examined-and-clean are three different sentences.
+
+The lint reads only Sightline's own words. A quote, a title, a measured value or an instrument
+label is recorded by position as it is inserted and masked by position, so a syllabus that says
+"Grades are posted in the gradebook" is quoted without tripping the grading rule, while the same
+word written by Sightline does. `tests/test_voice.py` fires the lint on planted phrases first — a
+hedged Tier A line and a verdict-bearing Tier C line among them — because a lint that has never
+failed cannot be told from one that cannot.
+
+**Which variant a sentence uses is a hash of the criterion's code and the finding's own identity.**
+Never random, never the clock, never a count of sentences rendered so far: with a counter, fixing
+one defect in Module 2 would reword unrelated criteria on the next run, and two reviews of the same
+course could no longer be diffed. The suite renders a subset and a superset and asserts the rows
+they share are byte-identical.
+
+**A clean row says what it examined** — "GSOV 2: 1 check examined 8 artifacts and found none of the
+conditions checked for" — never "No issues found", which cannot tell a check that opened eight
+artifacts from one that crashed on the first. Counts are never summed across checks: two checks
+over the same fifteen pages examined fifteen pages, not thirty, so they read "15 and 21 artifacts".
+
 ## Canvas token scopes
 
 So an institution can issue a least-privilege token rather than an administrative one, here is
@@ -1056,6 +1104,8 @@ src/sightline/   the application
   llm/           the Ollama client, the capability filter, and the curated model manifest
   extract/       the ten model-backed extractors, the response schema, and quote verification
   rubric/        the pack format, its JSON Schema, the importer, the mapping file, the projection
+  batch/         the batch runner: stages, resume, and the export gate
+  voice/         the phrase bank, the register lint, the renderer and the closing narrative
   capabilities.yaml  the capability-tag vocabulary: the one thing detectors and packs share
   model.py       the normalized document model every detector reads
 tests/           the suite

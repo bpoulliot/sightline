@@ -81,9 +81,7 @@ class Narrative:
 
     def sentences(self) -> tuple[Sentence, ...]:
         return tuple(
-            sentence
-            for slot in self.slots
-            for sentence in (slot.heading, *slot.sentences)
+            sentence for slot in self.slots for sentence in (slot.heading, *slot.sentences)
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -94,7 +92,11 @@ def _heading(voice: Voice, name: str) -> Sentence:
     register, _ = voice.bank.fmt(name)
     piece = voice.fragment(name)
     return Sentence(
-        role="heading", shape=f"formats.{name}", register=register, text=piece.text, spans=piece.spans
+        role="heading",
+        shape=f"formats.{name}",
+        register=register,
+        text=piece.text,
+        spans=piece.spans,
     )
 
 
@@ -236,7 +238,9 @@ def _limits(projection, report, gathered, voice, say):  # type: ignore[no-untype
     crashed = report.crashed if report is not None else ()
     unread = [row for row in rows if held_unread(row)]
     pending = [
-        row for row in rows if row.coverage is Coverage.NOT_YET_IMPLEMENTED and row.tier is not Tier.D
+        row
+        for row in rows
+        if row.coverage is Coverage.NOT_YET_IMPLEMENTED and row.tier is not Tier.D
     ]
     unbound = [
         row

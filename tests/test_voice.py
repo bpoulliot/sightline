@@ -15,7 +15,6 @@ from pathlib import Path
 
 import pytest
 import yaml
-from voice_fixtures import STAND_IN, sample_document, sample_projection, stand_in_extractions
 
 from sightline.detect import DetectionReport, Tier
 from sightline.detect.base import ResultState
@@ -38,6 +37,7 @@ from sightline.voice.__main__ import main, plain_text
 from sightline.voice.bank import SHAPES, choose, parse_bank
 from sightline.voice.lint import mask
 from sightline.voice.narrative import SLOTS
+from voice_fixtures import STAND_IN, sample_document, sample_projection, stand_in_extractions
 
 VOICE_DIR = Path(__file__).resolve().parents[1] / "src" / "sightline" / "voice"
 PLANTED = Path(__file__).resolve().parent / "fixtures" / "voice" / "planted.yaml"
@@ -95,7 +95,7 @@ def every_sample_rendering(document: CourseDocument, extractions) -> list[Render
     return out
 
 
-# -- THE HEADLINE TEST: the lint fires --------------------------------------------------------------
+# -- THE HEADLINE TEST: the lint fires -------------------------------------------------------------
 
 
 def test_the_lint_fires_on_a_planted_hedged_tier_a_phrase_and_a_verdict_tier_c_phrase() -> None:
@@ -130,7 +130,9 @@ def test_a_planted_phrase_in_the_real_bank_is_refused_at_load() -> None:
     )
     with pytest.raises(PhraseBankError) as caught:
         parse_bank(hedged)
-    assert any("hedge rule" in problem and "'appear'" in problem for problem in caught.value.problems)
+    assert any(
+        "hedge rule" in problem and "'appear'" in problem for problem in caught.value.problems
+    )
 
     verdict = yaml.safe_load((VOICE_DIR / "phrases.yaml").read_text(encoding="utf-8"))
     verdict["C"]["question"][0] += " The coverage is inadequate."
@@ -384,15 +386,15 @@ def test_the_extraction_outcomes_read_differently(reference) -> None:
     row = projection.row("GSOV 3")
 
     def result(**overrides) -> RowExtraction:
-        base = dict(
-            extractor="ROW GSOV 3",
-            title="t",
-            tier=Tier.B,
-            state=ResultState.EXAMINED,
-            examined=15,
-            passages=15,
-            answered=15,
-        )
+        base = {
+            "extractor": "ROW GSOV 3",
+            "title": "t",
+            "tier": Tier.B,
+            "state": ResultState.EXAMINED,
+            "examined": 15,
+            "passages": 15,
+            "answered": 15,
+        }
         base.update(overrides)
         return RowExtraction(
             criterion="GSOV 3",

@@ -29,7 +29,7 @@ on 2026-09-22). Next free item number: **35**.
 | 12b | Effort model — fit the costs | 1 | **BLOCKED** — item 06/07/08 detectors have all landed; unblocked in code, still needs the calibration corpus | — |
 | 13 | XLSX writer | 2 | READY | staged 13 |
 | 14 | PDF course report | 2 | READY | staged 14 |
-| 15 | Narrative generator and voice contract | 2 | READY | staged 12 |
+| 15 | Narrative generator and voice contract | 2 | READY | **DONE** — PR #27 |
 | 16 | Review UI | 2 | READY | staged 15 |
 | 17 | Batch runner | 2 | READY | **DONE** — PR #18 |
 | 18 | Escalation adapter | 3 | **BLOCKED** — ChatGPT Edu API access | — |
@@ -106,7 +106,7 @@ which is what forced items 07 and 08 to comply without their prompts needing to 
 **Batch 3 — output and UI. Composed in `staged/`, decided 2026-09-08.**
 
 ```
-12-sightline-item15-voice-contract.md    # FIRST — 13, 14 and 16 all render text
+12-sightline-item15-voice-contract.md    # DONE — PR #27. sightline.voice; the lint is proven to fire
 13-sightline-item13-xlsx-writer.md       # the exhaustive artifact the PDF defers to
 14-sightline-item14-pdf-report.md
 15-sightline-item16-review-ui.md
@@ -170,6 +170,18 @@ in either workbook prices a defect.
 **14 / 15 / 16 — output and UI · READY, decided 2026-09-08 as one cluster.** They were decided
 together because they are three answers to one question — how much evidence to show, and in what
 register — and deciding them apart reliably produces three inconsistent answers.
+
+**15 — DONE, PR #27.** Built as `sightline.voice`: `phrases.yaml` (the bank, by tier and fact
+shape) and `register.yaml` (the lint's word lists), both enforced at load; one renderer every
+surface calls; the four-slot narrative from computed aggregates. Items 13, 14 and 16 call
+`sightline.voice.render_review` and must not write a sentence of their own. Two things they
+inherit: each row's `notes` and each detector's `observed` string are still English written outside
+this layer (by the projection and the detectors); the renderer states the notes' facts through the
+bank and never prints `notes`, and it inserts `observed` as a *measured value* — a verbatim span the
+lint masks, like a quote — so a surface should give it that treatment rather than style it as
+Sightline's prose. Rotation is keyed on the criterion code and the finding's identity; the
+Tier C question an extractor drafts (`ExtractorResult.question`) is likewise not rendered — the
+bank's `C.question` shapes state the same distribution.
 
 **15 — the narrative is assembled from computed facts; the model does not write prose.** No shipped
 artifact contains a sentence a language model composed freely. §01 requires every machine-authored

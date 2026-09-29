@@ -98,10 +98,7 @@ def fill(template: str, values: Mapping[str, Piece | str | int]) -> Piece:
         if name is None:
             continue
         value = values[name]
-        if isinstance(value, Piece):
-            out = out + value
-        else:
-            out = out + plain(str(value))
+        out = out + (value if isinstance(value, Piece) else plain(str(value)))
     return out
 
 
@@ -244,8 +241,8 @@ class Voice:
 
     def place(self, location: Location) -> Piece:
         title = verbatim(location.title)
-        # A detector often names the line inside ``within`` already ("h5 at line 5", "line 8"); saying
-        # it twice reads as two places.
+        # A detector often names the line inside ``within`` already ("h5 at line 5", "line 8");
+        # saying it twice reads as two places.
         line = location.line
         if line is not None and location.within and f"line {line}" in location.within:
             line = None
@@ -483,9 +480,7 @@ def _headline(row: RowResult, ctx: _Context) -> Iterable[Sentence]:
         )
         unexamined = _unexamined(row)
         if unexamined and row.tier is Tier.A:
-            yield voice.say(
-                "A.findings_partial", key, "headline", tags=voice.codes(unexamined)
-            )
+            yield voice.say("A.findings_partial", key, "headline", tags=voice.codes(unexamined))
         return
     # No Response on a Tier A or B row with checks behind it: say which reason.
     if not_run:

@@ -17,11 +17,11 @@ ROTATION IS A PURE FUNCTION OF A STABLE KEY
 -------------------------------------------
 :meth:`PhraseBank.variant` picks by hashing the shape name and a key the caller builds from the
 criterion's code and the finding's own identity. Never ``random``, never the clock, and never a
-counter. A counter is the trap: if the variant chosen for GSOV 4 depended on how many sentences were
-rendered before it, fixing one defect in Module 2 would reword unrelated criteria on the next run and
-two reviews of the same course could no longer be diffed. ``random.seed(0)`` at import is the same
-counter with extra steps. ``tests/test_voice.py`` renders a subset and a superset and asserts the
-rows they share are byte-identical.
+counter. A counter is the trap: if the variant chosen for GSOV 4 depended on how many sentences
+were rendered before it, fixing one defect in Module 2 would reword unrelated criteria on the next
+run and two reviews of the same course could no longer be diffed. ``random.seed(0)`` at import is
+the same counter with extra steps. ``tests/test_voice.py`` renders a subset and a superset and
+asserts the rows they share are byte-identical.
 """
 
 from __future__ import annotations
@@ -350,7 +350,9 @@ def parse_bank(
     return PhraseBank(shapes=found, formats=fixed, nouns=nouns, kinds=kinds)
 
 
-def lint_bank(payload: Any, *, register: Register | None = None, origin: str = "bank") -> list[Violation]:
+def lint_bank(
+    payload: Any, *, register: Register | None = None, origin: str = "bank"
+) -> list[Violation]:
     """Every register violation in a bank-shaped mapping, **without** the structural checks.
 
     For a fragment of a bank — the suite's planted phrases — where the contract with the renderer
