@@ -15,12 +15,13 @@ its own :func:`run_detectors` call, so each gets a fresh ``Parses`` — which is
 detector did before item 30, when each parsed every body for itself.
 
 It reports the number of :func:`~sightline.detect.html_scan.scan` calls, the wall time of the
-whole detector run, and the share of it spent inside ``scan()`` and inside the structure cluster's
-regex-based ``plain_text()`` (item 31's subject).
+whole detector run, and the share of it spent inside ``scan()``. Until item 31 it also timed the
+structure cluster's regex-based ``plain_text()``; item 31 moved those detectors onto the shared
+parse and retired the helper, so ``scan()`` is now the only way a detector reads a body's text.
 
 **The counter self-tests in both directions before it reports.** One body-reading detector run
 alone (D21) must count exactly one parse per body, and a detector that reads no bodies (D11) must
-count zero parses and zero ``plain_text()`` calls. Either failing refuses the report: a counter
+count zero parses. Either failing refuses the report: a counter
 wrapped around the wrong name reads zero and looks like a free parse, and one wrapped twice reads
 double and looks like a problem worth fixing.
 """
@@ -46,10 +47,9 @@ from sightline.model import CourseDocument
 REPO = Path(__file__).resolve().parent.parent
 BODY_FIELDS = ("pages", "assignments", "quizzes", "discussions", "announcements")
 
-#: Every module that binds ``scan`` or ``plain_text`` by name. A call through a module missing
-#: here is not counted — which is what the self-test exists to catch.
+#: Every module that binds ``scan`` by name. A call through a module missing here is not
+#: counted — which is what the self-test exists to catch.
 SCAN_SITES = (html_scan, base, structure, mobile, passages)
-TEXT_SITES = (structure, mobile)
 
 
 @dataclass
@@ -85,12 +85,9 @@ def counted(
 def measure(
     document: CourseDocument, *, shared: bool = True, only: tuple[Detector, ...] | None = None
 ) -> dict[str, float]:
-    scans, texts = Tally(), Tally()
+    scans = Tally()
     selected = only if only is not None else detectors()
-    with (
-        counted(SCAN_SITES, "scan", html_scan.scan, scans),
-        counted(TEXT_SITES, "plain_text", structure.plain_text, texts),
-    ):
+    with counted(SCAN_SITES, "scan", html_scan.scan, scans):
         start = time.perf_counter()
         if shared:
             run_detectors(document, only=selected)
@@ -102,8 +99,6 @@ def measure(
         "wall": wall,
         "scan_calls": scans.calls,
         "scan_seconds": scans.seconds,
-        "text_calls": texts.calls,
-        "text_seconds": texts.seconds,
     }
 
 
@@ -142,7 +137,7 @@ def self_test(document: CourseDocument) -> None:
                 f"the counter saw {alone['scan_calls']} (shared={shared})"
             )
         none = measure(document, shared=shared, only=by_id("D11"))
-        if none["scan_calls"] != 0 or none["text_calls"] != 0:
+        if none["scan_calls"] != 0:
             sys.exit(f"SELF-TEST FAILED: D11 reads no bodies and was counted parsing: {none}")
     print(f"self-test passed: D21 alone parses {bodies} times over {bodies} bodies; D11 parses 0")
 
@@ -170,14 +165,12 @@ def main() -> int:
             runs = [measure(document, shared=shared) for _ in range(args.repeats)]
             wall = statistics.median(run["wall"] for run in runs)
             scan_s = statistics.median(run["scan_seconds"] for run in runs)
-            text_s = statistics.median(run["text_seconds"] for run in runs)
             calls = runs[0]["scan_calls"]
             print(
                 f"  {'shared  ' if shared else 'unshared'}  scan() {calls:5d} calls "
                 f"({calls / max(bodies, 1):4.1f}/body)  wall {wall * 1000:7.0f} ms  "
                 f"in scan() {scan_s * 1000:7.0f} ms ({scan_s / wall:3.0%})  "
-                f"in plain_text() {text_s * 1000:5.0f} ms ({text_s / wall:3.0%})  "
-                f"[{runs[0]['text_calls']} calls; median of {args.repeats}]"
+                f"[median of {args.repeats}]"
             )
     return 0
 
