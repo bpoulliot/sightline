@@ -478,11 +478,14 @@ from its costliest detector, and ten missing alt attributes read Minor Revision.
 **The near-boundary marker.** A banded row whose hours fall within a margin of a threshold carries
 `near_boundary` — the threshold, the ratings either side, the distance in hours and the margin
 applied. The margin at the **Sufficiently Present / Minor** boundary is wider than the others,
-because that is where independent human reviewers disagree most (29 of 34 disagreements in the same
-corpus) and where the arithmetic is smallest and so looks most certain. It is **a computed
+because that is where independent human reviewers disagree most (see
+[How often two reviewers choose the same rating](#how-often-two-reviewers-choose-the-same-rating))
+and where the arithmetic is smallest and so looks most certain. It is **a computed
 distance, not a confidence score**: no percentage, no probability, checkable against the row's own
 findings. It is computed once and persisted with the row in the review file, so every output
-surface shows the same marker; nothing renders it yet (roadmap item 24 does). A row reading
+surface shows the same marker. The workbook shows it in its own column (item 13); the PDF and the
+review screen are to show it beside the rating, explained once by
+`sightline.voice.agreement.near_boundary_legend`, when items 14 and 16 land (item 24). A row reading
 Sufficiently Present carries none — it has no effort figure to measure from.
 
 **Overrides are the calibration data.** `sightline.rubric.overrides.record_override` appends a
@@ -849,6 +852,24 @@ load rather than a test somebody might skip:
 - **the shapes that describe a row nothing computed may never be worded like a clean one.** Not yet
   implemented, no check assigned, and examined-and-clean are three different sentences.
 
+The lint reads only Sightline's own words. A quote, a title, a measured value or an instrument
+label is recorded by position as it is inserted and masked by position, so a syllabus that says
+"Grades are posted in the gradebook" is quoted without tripping the grading rule, while the same
+word written by Sightline does. `tests/test_voice.py` fires the lint on planted phrases first — a
+hedged Tier A line and a verdict-bearing Tier C line among them — because a lint that has never
+failed cannot be told from one that cannot.
+
+**Which variant a sentence uses is a hash of the criterion's code and the finding's own identity.**
+Never random, never the clock, never a count of sentences rendered so far: with a counter, fixing
+one defect in Module 2 would reword unrelated criteria on the next run, and two reviews of the same
+course could no longer be diffed. The suite renders a subset and a superset and asserts the rows
+they share are byte-identical.
+
+**A clean row says what it examined** — "GSOV 2: 1 check examined 8 artifacts and found none of the
+conditions checked for" — never "No issues found", which cannot tell a check that opened eight
+artifacts from one that crashed on the first. Counts are never summed across checks: two checks
+over the same fifteen pages examined fifteen pages, not thirty, so they read "15 and 21 artifacts".
+
 ## The workbook
 
 `sightline.workbook` writes the exhaustive artifact: every row of the selected rubric, in the
@@ -881,23 +902,52 @@ for everything else.
 `build_workbook(...)` returns the table model and `to_xlsx(model)` its bytes; `export_workbook(gate,
 course_id, data)` writes them to the course's export directory through the gate.
 
-The lint reads only Sightline's own words. A quote, a title, a measured value or an instrument
-label is recorded by position as it is inserted and masked by position, so a syllabus that says
-"Grades are posted in the gradebook" is quoted without tripping the grading rule, while the same
-word written by Sightline does. `tests/test_voice.py` fires the lint on planted phrases first — a
-hedged Tier A line and a verdict-bearing Tier C line among them — because a lint that has never
-failed cannot be told from one that cannot.
+## How often two reviewers choose the same rating
 
-**Which variant a sentence uses is a hash of the criterion's code and the finding's own identity.**
-Never random, never the clock, never a count of sentences rendered so far: with a counter, fixing
-one defect in Module 2 would reword unrelated criteria on the next run, and two reviews of the same
-course could no longer be diffed. The suite renders a subset and a superset and asserts the rows
-they share are byte-identical.
+The PDF and the review screen carry one measured fact about the people who do this work: how often
+two of them, rating the same course independently, choose the same rating. It is there so a reader
+can calibrate what a first pass can be worth. It describes the difficulty of the task, and it is a
+statement about people agreeing with each other; nothing in it describes how often Sightline is
+right, and no sentence Sightline writes says otherwise.
 
-**A clean row says what it examined** — "GSOV 2: 1 check examined 8 artifacts and found none of the
-conditions checked for" — never "No issues found", which cannot tell a check that opened eight
-artifacts from one that crashed on the first. Counts are never summed across checks: two checks
-over the same fifteen pages examined fifteen pages, not thirty, so they read "15 and 21 artifacts".
+<!-- agreement:begin — rendered from src/sightline/voice/agreement.yaml by
+sightline.voice.agreement.markdown(); tests/test_agreement.py fails if the two differ -->
+
+Human reviewers rating the same course independently chose the same rating on 72% to 91% of the criteria both rated, across 4 pairings of passes in a corpus of 5 courses, and every disagreement between them was one band apart. That is a measure of how hard the task is, not of how often Sightline is right: 5 courses is a small sample, and 2 Major Revision ratings among 326 say nothing about where the Major Revision threshold falls.
+
+- An instructional designer and a reviewer: 54 criteria rated by both, the same rating chosen on 91% of them.
+- A faculty member and a reviewer: 59 criteria rated by both, the same rating chosen on 78% of them.
+- An instructional designer and a faculty member: 54 criteria rated by both, the same rating chosen on 76% of them.
+- Two instructional designer passes, the second on a later revision of the instrument: 32 criteria rated by both, the same rating chosen on 72% of them.
+
+Every one of the 34 disagreements was exactly one band apart, and 29 of them set Sufficiently Present against Minor Revision; none set Major Revision against Sufficiently Present.
+
+- 5 courses is a small sample, not a survey.
+- Only 2 of the 326 ratings were Major Revision, so this corpus cannot characterise the Major Revision boundary, and no statement here rests on it.
+- The 4 figures are separate measurements, not one statistic: the pairs combine different roles, and one is two passes by the same role on a later revision of the instrument.
+
+Measured 2026-09-08 from 5 hand-completed reviews on the OSCQR 3.1.3 instrument, 326 rated criterion instances in all; the reviews themselves are not part of this repository.
+
+<!-- agreement:end -->
+
+**One source.** The figures exist once, in `src/sightline/voice/agreement.yaml`, with the number
+of criteria behind each pair, the scope, where they came from and the three limits beside them. The
+words are in `phrases.yaml`, and `sightline.voice.agreement` puts the two together for every
+surface. The block above is that rendering, and the suite fails the build if the block drifts from
+the data or if one of these figures is typed anywhere else in the package or this README. When the
+corpus grows, the numbers change in one file.
+
+**Where a reader meets it.** The PDF's *what this document is* block and the review screen carry
+the two-sentence form, `sightline.voice.agreement.brief()`, with the sample size and the Major
+limit in the same breath; they take it up when items 14 and 16 land. The workbook carries none of
+it: one header row per sheet and a lossless CSV round-trip leave a paragraph no honest place to
+live, and the workbook is the designer's working copy rather than the one forwarded to faculty.
+
+**The guard.** The register lint's `self_assessment` rule refuses, in every tier, the vocabulary a
+machine uses to describe how right it is, and refuses a figure in any sentence that names Sightline
+or its output. It reads the figure in the whole sentence, so a figure inserted as a span is never
+excused. `tests/test_agreement.py` plants the forbidden constructions and proves the rule fires on
+each, and on the correctly worded control proves it stays quiet.
 
 ## Canvas token scopes
 

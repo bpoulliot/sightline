@@ -38,7 +38,7 @@ on 2026-09-22). Next free item number: **36**.
 | 21 | Detector integrity guard | 0 | READY | **DONE** — PR #8 |
 | 22 | Model-proposed bindings, human-confirmed | 3 | READY | 09 has landed; still blocked by 10 in code |
 | 23 | Canvas-requested content export | 1 | READY | **DONE** — PR #6 |
-| 24 | Agreement and near-boundary transparency | 2 | READY | staged 16 |
+| 24 | Agreement and near-boundary transparency | 2 | READY | **PART 1 DONE** — PR #29 (data, guard, docs); PDF + review-screen rendering waits on 14 and 16 (queued re-run) |
 | 25 | Returned-review ingestion | 3 | **BLOCKED** — needs reviews delivered and returned | — |
 | 26 | Wire document bytes from the export to the detectors | 1 | READY | **DONE** — PR #21 |
 | 27 | One detector's crash must not take the whole review with it | 1 | READY | **DONE** — PR #22 |
@@ -111,7 +111,7 @@ which is what forced items 07 and 08 to comply without their prompts needing to 
 13-sightline-item13-xlsx-writer.md       # DONE — PR #28. sightline.workbook; CSV-clean, all text
 14-sightline-item14-pdf-report.md
 15-sightline-item16-review-ui.md
-16-sightline-item24-agreement-and-uncertainty.md   # LAST — it annotates the other three
+16-sightline-item24-agreement-and-uncertainty.md   # PART 1 DONE — PR #29; the rest re-runs after 14 + 16
 ```
 
 Item 15 leads the batch because the workbook, the PDF and the review screen all render sentences,
@@ -273,7 +273,8 @@ something from comparing courses.** That is a calibration argument, not a UI one
 
 **The real missing signal is what happens to a review AFTER it is handed over** — which is item 25.
 
-**24 — agreement and near-boundary transparency · NEW, READY, staged `16-`.** Ship, in the product,
+**24 — agreement and near-boundary transparency · READY; PART 1 DONE (PR #29), the PDF and review-screen
+rendering follows items 14 and 16 — see *Notes carried forward*.** Ship, in the product,
 the measured fact that qualified human reviewers rating the same course independently agree between
 72% and 91% of the time, that every disagreement observed was exactly one band, and that 29 of 34
 were Sufficiently Present versus Minor Revision. Stated with its sample size and its limits, in the
@@ -408,6 +409,45 @@ default `/24` collides.
   settled; a later move toward stock OSCQR 3.1 / 4.0 is a pack change, not a code change.
 
 ## Notes carried forward
+
+**24 · PART 1 DONE 2026-09-29 (PR #29). How often two reviewers choose the same rating: one data
+file, the guard, the README. The PDF and review-screen halves wait for those surfaces.**
+
+*Why only part of it.* The item annotates the PDF (item 14) and the review screen (item 16), and
+when it ran neither was on `main` (both still staged). **Operator decision, 2026-09-25 (bitmap,
+interactive): re-run item 24 after item 16 lands, gated on 14 and 16 being on `main`, finishing
+whatever this run left undone.** So this run built everything that does not need those surfaces,
+and built it so the re-run only has to call it.
+
+*What shipped.*
+- `src/sightline/voice/agreement.yaml` — the pairwise human-agreement figures, **the only place
+  they live**, with the corpus size, scope, provenance and the three limits (small sample; too few
+  Major Revision ratings to say anything about that boundary; the pairs are different pairings,
+  one of them the same role twice on a later instrument revision). The loader refuses a file that
+  drops a limit, a key nobody decided to publish (a rating distribution is refused by name in the
+  tests), and inconsistent counts.
+- `sightline.voice.agreement` — templated sentences from that data and `phrases.yaml`, no model:
+  `brief()` (the two-sentence form **for the PDF's *what this document is* block and the review
+  screen**), `full()` / `markdown()` (the long form; the README block must equal `markdown()`), and
+  `near_boundary_legend()` (the marker's one explanation, margins in hours, never a percentage).
+  A template that the data stops supporting ("every disagreement was one band") raises rather than
+  renders.
+- The register lint's **`self_assessment` rule**, every tier: accuracy / confidence / reliability /
+  "unsure" vocabulary in Sightline's own words, and **any percentage in a sentence that names
+  Sightline or its output** — read across spans, because every figure is inserted as a span.
+  `tests/test_agreement.py` plants the forbidden constructions in every register and proves it
+  fires, with correctly worded controls that must pass.
+- A test that no figure from the data is typed anywhere in `src/`, `docs/SPEC.md`,
+  `docs/RUBRIC-PACKS.md`, `examples/` or the README outside its rendered block. The prose in
+  `effort.py` and `costs.yaml` that hand-typed them now points at the data file.
+- `workbook.py` says why the workbook carries no agreement statement. The per-row near-boundary
+  marker is already in its own column (item 13).
+
+*What the re-run does.* Render `brief()` in item 14's *what this document is* block and near
+item 16's rating controls; render 12a's persisted `near_boundary` on the affected criterion in both
+(no percentage, star, colour ramp or hedge word), explained once by `near_boundary_legend()`; lint
+it; screenshot-QA the review screen at 1400 px and 390 px; keep 14's byte-identical PDF test green.
+None of that needs new wording or new data.
 
 **13 · DONE 2026-09-29 (PR #28). The workbook: `sightline.workbook`, every row of the pack, and
 every cell text.**

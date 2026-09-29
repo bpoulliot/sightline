@@ -30,8 +30,8 @@ default_hours: 0.1
 
 # The near-boundary marker (see sightline.rubric.effort). A row whose rolled-up hours fall within
 # this many hours of a band threshold carries a marker saying so. `lowest` is the Sufficiently Present /
-# first-band boundary and is WIDER on purpose: in five hand-completed reviews, 29 of 34 disagreements
-# between independent reviewers were Sufficiently Present versus Minor Revision. UNCALIBRATED.
+# first-band boundary and is WIDER on purpose: it is where independent human reviewers disagree
+# most (the figures: src/sightline/voice/agreement.yaml). UNCALIBRATED.
 near_boundary:
   lowest: 0.25
   between_bands: 0.1

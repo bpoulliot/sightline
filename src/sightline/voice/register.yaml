@@ -13,7 +13,8 @@
 # spans and nothing else — a curly-quoted phrase typed into the bank is NOT masked.
 #
 # SPEC §08: hedging is proportional to determinacy, not applied globally. SPEC §11: the vocabulary is
-# review and refresh, there is no aggregate course score, and no sentence may imply one.
+# review and refresh, there is no aggregate course score, and no sentence may imply one. SPEC §01:
+# Sightline never states how right it is (`self_assessment`, below).
 
 # A computed count is not hedged. Hedging it is not politeness, it is inaccuracy (SPEC §08).
 # Tier A states a count; Tier D states a limit plainly. Both are held to this list.
@@ -123,6 +124,53 @@ aggregate:
     - '\b\d+\s+(?:of|out of)\s+(?:the\s+)?\d+\s+(?:rows|criteria|criterion)\b'
     - '\b(?:total|sum) of (?:the )?(?:hours|effort)\b'
     - '\bhours in total\b'
+
+# Sightline never rates itself (SPEC §01: verbalized self-confidence is worse than useless). Two
+# checks, both in every tier (roadmap item 24):
+#
+#   tokens   Vocabulary that describes how right a machine is. Read in Sightline's own words only, so
+#            a syllabus quoted saying "builds confidence" is quoted, not written.
+#   named +  A percentage in the same sentence as something naming Sightline or its output. The
+#   figure  names are read in Sightline's own words; the figure is read in the WHOLE sentence,
+#            spans included, because a figure is always inserted as a span. This is what stops a
+#            human-agreement figure from `agreement.yaml` being turned into a claim about Sightline:
+#            "Sightline agrees with reviewers N% of the time" is refused however it is worded.
+#
+# The human agreement figures describe people agreeing with each other. They are never a
+# statement about Sightline, and no sentence may make them one.
+self_assessment:
+  applies_to: [A, B, C, D]
+  tokens:
+    - accuracy
+    - accurate
+    - accurately
+    - inaccurate
+    - inaccuracy
+    - confidence
+    - confident
+    - confidently
+    - reliability
+    - reliable
+    - reliably
+    - unreliable
+    - certainty
+    - uncertain
+    - uncertainty
+    - unsure
+    - trustworthy
+    - agrees with
+    - agree with
+    - agreed with
+    - in agreement with
+    - hit rate
+    - success rate
+    - error rate
+  named:
+    - '\bsightline\b'
+    - '\bthis (?:tool|review|report|pass|document)\b'
+    - '\bthe (?:tool|model|machine)\b'
+    - '\b(?:proposed|machine) ratings?\b'
+  figure: '\d+(?:\.\d+)?\s*%'
 
 # Wording that reads as a clean result. The three coverage states must stay distinguishable to a
 # reader who is not looking for the difference (item 04): a row no check examined, and a row with no

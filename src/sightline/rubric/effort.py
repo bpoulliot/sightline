@@ -48,11 +48,11 @@ Alongside a band, the model emits a :class:`NearBoundary` when the row's rolled-
 a configured margin of a threshold: the lowest one (Sufficiently Present / Minor Revision, at zero
 hours) or one between two bands (0.5 h, 2 h on the reference instrument).
 
-**The Sufficiently Present / Minor margin is wider by default, and that is the point.** Across five
-hand-completed reviews, independent human passes over the same course agreed 72–91% of the time;
-every disagreement was exactly one band, and 29 of 34 were Sufficiently Present versus Minor
-Revision. The boundary qualified humans are least consistent about is the one with the *smallest*
-computed effort — where arithmetic is cleanest and a naive implementation most confident.
+**The Sufficiently Present / Minor margin is wider by default, and that is the point.** When
+independent human passes over the same course disagree, it is overwhelmingly at that boundary (the
+measured figures live in one place, ``sightline/voice/agreement.yaml``, roadmap item 24). The
+boundary qualified humans are least consistent about is the one with the *smallest* computed
+effort — where arithmetic is cleanest and a naive implementation most confident.
 
 **It is a computed distance, not a confidence score.** It carries the threshold, the two ratings
 either side, the distance in hours and the margin that was applied — every one of them checkable

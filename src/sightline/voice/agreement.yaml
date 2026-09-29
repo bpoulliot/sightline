@@ -1,0 +1,71 @@
+# HOW OFTEN TWO QUALIFIED PEOPLE CHOOSE THE SAME RATING. THE ONLY PLACE THESE FIGURES LIVE.
+#
+# Roadmap item 24. Every surface that states them — the PDF's "what this document is" block, the
+# review screen, the README — renders from this file through `sightline.voice.agreement`, in words
+# from `phrases.yaml`. When the corpus grows, the numbers change here and nowhere else; a test fails
+# the build if a percentage from this file is typed anywhere else in the package or the README.
+#
+# WHAT THESE NUMBERS ARE. Independent human passes over the SAME course, compared pairwise: for the
+# criteria both passes rated, how often the two chose the same rating. They describe the difficulty
+# of the task. THEY SAY NOTHING ABOUT HOW OFTEN SIGHTLINE IS RIGHT, and the register lint's
+# `self_assessment` rule refuses any sentence that puts one of them beside Sightline's name.
+#
+# WHAT IS DELIBERATELY NOT HERE. Only the pairwise agreement figures are published. The source
+# reviews are not in this repository, and nothing else measured from them is shipped.
+#
+# The figures are recorded as measured. Do not recompute them from one another, and do not round
+# them differently: `identical_percent` is the figure the analysis reported for that pair.
+
+measured: "2026-09-08"
+instrument: OSCQR 3.1.3
+
+corpus:
+  courses: 5
+  rated_instances: 326
+  # Major Revision ratings among the rated instances. So few that the Major boundary cannot be
+  # characterised from this corpus at all, and no statement may rest on it.
+  major_ratings: 2
+
+scope: >-
+  Independent human passes over the same course, compared pairwise. For each pair, the criteria
+  both passes rated, and how often the two passes chose the same rating for one.
+
+source: >-
+  Hand-completed reviews on the instrument, analysed on the date above. The reviews themselves are
+  not part of this repository and are not distributed with it.
+
+# Four pairs, four figures. They are not one statistic: the pairs are different pairings of roles,
+# and the last is two passes by the same role on a later revision of the instrument.
+pairs:
+  - id: designer_reviewer
+    passes: An instructional designer and a reviewer
+    rated_by_both: 54
+    identical_percent: 91
+  - id: faculty_reviewer
+    passes: A faculty member and a reviewer
+    rated_by_both: 59
+    identical_percent: 78
+  - id: designer_faculty
+    passes: An instructional designer and a faculty member
+    rated_by_both: 54
+    identical_percent: 76
+  - id: designer_revision
+    passes: Two instructional designer passes, the second on a later revision of the instrument
+    rated_by_both: 32
+    identical_percent: 72
+
+# Every disagreement across the four pairs, by how far apart the two ratings were.
+disagreements:
+  total: 34
+  one_band: 34
+  two_bands_or_more: 0
+  # Of the one-band disagreements, how many set Sufficiently Present against Minor Revision.
+  sufficiently_present_vs_minor: 29
+  major_vs_sufficiently_present: 0
+
+# The three limits stated in the same breath as the numbers. The loader refuses this file if any
+# of them is missing: omitting a limit is the failure this list exists to prevent.
+limits:
+  - small_sample
+  - major_boundary
+  - pairings_differ

@@ -83,6 +83,24 @@ formats:
   effort_calibrated: {register: A, text: "{hours}, an estimate from the calibrated cost table"}
   near_boundary: {register: A, text: "{hours} is {distance} from the {below} / {above} threshold at {threshold} (margin {margin})"}
   action_plan_more: {register: A, text: "{lines} further lines for {code} are on the Action Plan sheet."}
+  # How often independent human reviewers choose the same rating (roadmap item 24). Every figure
+  # comes from `agreement.yaml` through `sightline.voice.agreement`; no number is typed here. These
+  # are statements about PEOPLE AGREEING WITH EACH OTHER — the difficulty of the task — and never
+  # about Sightline: the `self_assessment` rule refuses a figure in a sentence that names it.
+  # `agreement_range` and `agreement_scope` are the short form the PDF and the review screen carry;
+  # the rest are the long form the README carries. A limit is never left out of either.
+  agreement_range: {register: A, text: "Human reviewers rating the same course independently chose the same rating on {low} to {high} of the criteria both rated, across {pairs} pairings of passes in a corpus of {courses} courses, and every disagreement between them was one band apart."}
+  agreement_scope: {register: A, text: "That is a measure of how hard the task is, not of how often Sightline is right: {courses} courses is a small sample, and {majors} Major Revision ratings among {instances} say nothing about where the Major Revision threshold falls."}
+  agreement_pair: {register: A, text: "{passes}: {rated} criteria rated by both, the same rating chosen on {identical} of them."}
+  agreement_disagreements: {register: A, text: "Every one of the {disagreements} disagreements was exactly one band apart, and {at_lowest} of them set Sufficiently Present against Minor Revision; none set Major Revision against Sufficiently Present."}
+  agreement_limit_small_sample: {register: A, text: "{courses} courses is a small sample, not a survey."}
+  agreement_limit_major_boundary: {register: A, text: "Only {majors} of the {instances} ratings were Major Revision, so this corpus cannot characterise the Major Revision boundary, and no statement here rests on it."}
+  agreement_limit_pairings_differ: {register: A, text: "The {pairs} figures are separate measurements, not one statistic: the pairs combine different roles, and one is two passes by the same role on a later revision of the instrument."}
+  agreement_source: {register: A, text: "Measured {measured} from {courses} hand-completed reviews on the {instrument} instrument, {instances} rated criterion instances in all; the reviews themselves are not part of this repository."}
+  # The near-boundary marker's one explanation, for the surface where a reader first meets it. The
+  # marker is a computed distance from a threshold; this says which margins were applied and why
+  # the lowest one is wider. It is never a percentage, a star or a word about how sure anything is.
+  near_boundary_legend: {register: A, text: "A proposal marked near a band threshold has estimated hours within {between} of a threshold between two bands, or within {lowest} of the Sufficiently Present / Minor Revision boundary; that margin is wider because {at_lowest} of the {disagreements} disagreements between human reviewers fell at that boundary."}
 
 # Fixed words with no placeholders: sheet names, column headers, and the values of the workbook's
 # categorical columns (roadmap item 13). Linted at load like everything else — a column header is
