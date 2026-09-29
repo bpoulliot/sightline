@@ -6,7 +6,7 @@ Labels: **READY** · **NEEDS DISCUSSION** · **NEEDS MEASUREMENT** · **BLOCKED*
 Nothing unready enters the queue. One item per conversation, one PR per item.
 
 Queue lives at `~/docker/overnight/projects/sightline/` (moved from `~/docker/overnight-sightline/`
-on 2026-09-22). Next free item number: **37**.
+on 2026-09-22). Next free item number: **39**.
 
 ---
 
@@ -36,7 +36,7 @@ on 2026-09-22). Next free item number: **37**.
 | 19 | Uploaded-rubric mapping screen | 3 | **SUPERSEDED by 22** | — |
 | 20 | Multi-course comparison view | 3 | **DECIDED — not building it** | see 25 |
 | 21 | Detector integrity guard | 0 | READY | **DONE** — PR #8 |
-| 22 | Model-proposed bindings, human-confirmed | 3 | READY | 09 and 10 have landed; part one (proposal engine + command-line review) queued |
+| 22 | Model-proposed bindings, human-confirmed | 3 | READY | **PART 1 DONE** — PR #PRNUM (proposal engine + command-line review). The confirmation **screen** is the remainder: **BLOCKED** on item 36's rubric picker (operator decision 2026-09-25) |
 | 23 | Canvas-requested content export | 1 | READY | **DONE** — PR #6 |
 | 24 | Agreement and near-boundary transparency | 2 | READY | **PART 1 DONE** — PR #29 (data, guard, docs); PDF + review-screen rendering waits on 14 and 16 (queued re-run) |
 | 25 | Returned-review ingestion | 3 | **BLOCKED** — needs reviews delivered and returned | — |
@@ -52,6 +52,7 @@ on 2026-09-22). Next free item number: **37**.
 | 35 | The workbook's action plan holds located items; SPEC §08 promises remediation steps | 2 | **NEEDS DISCUSSION** | — |
 | 36 | Run-progress and New run screens | 2 | **BLOCKED** — on item 16 (its review screen is what the run screen links to) | filed 2026-09-29, PR #30 |
 | 37 | Host `__pycache__` ships in locally built images, carrying the developer's home path | 1 | READY | filed 2026-09-29 by item 14, PR #31; queued 99n |
+| 38 | A bound Tier D row is counted in two coverage buckets, and `coverage` exits 1 calling it a bug | 1 | READY | filed 2026-09-29 by item 22, PR #PRNUM; queued 99o |
 
 ---
 
@@ -241,10 +242,11 @@ functions fully without it.
 is usable — is dead. Under item 04 an unbound rubric runs immediately, extraction-only. What remains
 worth building is item 22.
 
-**22 — model-proposed bindings, human-confirmed · READY; 09 and 10 have landed.** Give the model
+**22 — model-proposed bindings, human-confirmed · PART 1 DONE (PR #PRNUM): the proposal engine and a
+command-line review. The confirmation screen is the remainder, BLOCKED on item 36** (operator
+decision 2026-09-25, recorded with the measurement under *Notes carried forward*). Give the model
 the detector catalogue and the uploaded criterion text; it proposes tag bindings a human confirms
-**once per rubric, never per course**. An accelerator, not a prerequisite. The model layer (09)
-and extraction (10) it needed are DONE.
+**once per rubric, never per course**. An accelerator, not a prerequisite.
 
 **No confidence signal on a proposal — decided 2026-09-08, do not reintroduce.** Proposals are
 shown as proposals and every one is freely changeable. A confidence number would have become a
@@ -419,6 +421,122 @@ default `/24` collides.
   settled; a later move toward stock OSCQR 3.1 / 4.0 is a pack change, not a code change.
 
 ## Notes carried forward
+
+**22 · PART 1 DONE 2026-09-29 (PR #PRNUM). Model-proposed bindings with a command-line review. The
+confirmation screen is PART 2, BLOCKED on item 36 — never READY by default.**
+
+*Operator decision, 2026-09-25 (bitmap, interactive):* **build the proposal engine with a
+COMMAND-LINE review now; the confirmation SCREEN comes later.** Why it had to be decided: this entry
+put confirmation "on the rubric import/selection path, shown once per pack", and no such screen
+exists — `python -m sightline.rubric` was the only rubric surface, and the New run screen, which
+carries the rubric picker, is item 36. So the item is split there. **Part 2 (the screen) waits on
+item 36's rubric picker**, which itself waits on item 16. When 36 is DONE, part 2 needs its own
+specification pass against what part 1 left, not a straight queue: the screen consumes a
+`ProposalSet` and `accept()`, and the decisions of 2026-09-08 above (unchecked boxes, check-all,
+the three things per proposal, the delta) are its contract.
+
+*What shipped.* `sightline.rubric.proposals`: `propose(pack, client, model)` → `ProposalSet` (one
+schema-constrained call per row through item 09's client, concurrency 1, the picker's usability
+rule; the thinking pin from `extract.runner.thinking_for`); `review()` → the text a person reads;
+`accept(proposals, pack, names=|accept_all=|conflicts=, base=)` → `Acceptance` (the accepted
+proposals, a `PackMapping`, the updated pack, and `CoverageDelta` over `pack_coverage` before and
+after). `sightline.rubric.mapping.dumps` — the loader's exact inverse, tested on both shipped
+mappings. `python -m sightline.rubric propose | review | accept`. Instrument:
+`scripts/measure_binding_proposals.py` (`selftest`, `run`, `compare`).
+
+*How each 2026-09-08 decision landed.*
+- **No confidence signal.** The response schema has `tag` and `span` and nothing else, and a
+  response carrying any other key is refused, not trimmed. Proposals are numbered in instrument
+  order and alphabetically within a row, so not even the model's own order survives. A test scans
+  every key of the file and every printed word for confidence-shaped vocabulary, and a second test
+  proves the scan fires on a planted field.
+- **Nothing by inertia.** `propose` changes nothing and prints a proposal file whose every
+  proposal is unaccepted. `accept` with no `--accept`, `--accept-all` or `--accept-conflict` is
+  refused (exit 2, empty stdout) rather than printing a mapping that looks like a decision.
+- **WHY is a checkable artifact.** The span is verified against the criterion text by
+  `sightline.extract.verify.verify`; what is kept is the criterion's own words at the match. An
+  empty span reads *no supporting span*; a span not in the text is discarded and its words are
+  never shown. There is no rationale field.
+- **HOW it changes the review** is computed (`consequence()`) from the tier, the coverage before and
+  after, and the detectors behind the tag. **The entry's wording "moves a row from evidence-only
+  Tier B to deterministic Tier A arithmetic" is not what the code does, and the review says what
+  the code does:** a binding never changes a row's tier. A Tier B row that gains a binding becomes
+  deterministic in *coverage*, its observations are banded, and a clean run still reads No Response
+  (item 28); only a Tier A row gets arithmetic that can read Sufficiently Present. A Tier C row
+  stays at No Response whatever it binds to, and the review says so.
+- **Existing bindings are never replaced.** Acceptance only adds. A proposal on a row already bound
+  to other tags is a conflict: `--accept-all` leaves it out and it needs `--accept-conflict N`.
+- **The output is a mapping file** that `import --map` applies. It carries everything the pack
+  already said that a mapping can express plus the accepted tags. A pack imported with a declared
+  join key records the key's values but not its column, so `accept` refuses it without `--map` and
+  checks a supplied mapping against the pack's tiers and bindings first. A proposal file made
+  against another state of the pack (a sha256 over id, version and every row's code, text, tier and
+  bindings) is refused.
+
+*Readings this session took where the entry left room, each stated so it can be reversed.*
+- **Tier D rows are not asked.** A Tier D row reads Not Applicable bound or not, so a proposal could
+  change nothing, and binding one trips item 38. Each is recorded as *not asked* with the reason.
+- **The row code is not sent to the model**, only the criterion text: a code the model recognises
+  from another rubric is an invitation to answer from memory. Nothing assumes an OSCQR derivative.
+- **The catalogue sent is the whole vocabulary**, including tags no detector implements yet, each
+  with what its detectors report; a proposal of an unimplemented tag says it changes nothing
+  computed and, on Tier A, keeps the row from reading Sufficiently Present.
+- **A row whose call failed is a failure, never "none proposed"**, and `propose` exits 1 when any
+  row failed, as `python -m sightline.extract` does.
+
+*Measured 2026-09-29, once, against the live host (Ollama 0.34.2; `/api/tags` read first; nothing
+pulled or deleted).* Each shipped pack with every binding stripped (tiers, codes and text kept),
+proposed over by `propose` exactly as shipped, and scored against the shipped bindings as sets of
+(row, tag) pairs. **These are a fact about two models on these packs on this day. They are not a
+product claim, the tool prints nothing like them, and the shipped bindings are one author's
+reading, not ground truth** — a proposed-not-shipped pair is a disagreement with that reading.
+Sample: every row of both packs, one run per model per pack (the host is not deterministic at
+temperature 0, so a second run would move these). Re-run: `scripts/measure_binding_proposals.py`.
+
+| Pack (rows, shipped pairs) | Model | Proposed | Proposed & shipped | Proposed, not shipped | Shipped, not proposed | Rows with none | Rows failed | Spans verified / discarded / absent | Wall time |
+|---|---|---|---|---|---|---|---|---|---|
+| RSI (18, 18) | `qwen3-coder:30b` | 4 | 4 | 0 | 14 | 14 | 0 | 4 / 0 / 0 | 27 s |
+| RSI (18, 18) | `gpt-oss:20b` | 19 | 15 | 4 | 3 | 3 | 3 | 14 / 5 / 0 | 1172 s |
+| 3.1.3 (68, 58) | `qwen3-coder:30b` | 23 | 18 | 5 | 40 | 46 | 0 | 23 / 0 / 0 | 80 s |
+REFGPTOSSROW
+
+What the numbers say, and what they do not:
+- **`qwen3-coder:30b` abstains heavily.** It returned an empty list on 14 of 18 and 46 of 67 asked
+  rows. What it proposed agreed with the shipped reading 22 times in 27. Fast (~0.6 s per empty
+  answer).
+- **`gpt-oss:20b` (thinking on) proposes far more and agrees with far more of the shipped reading
+  on RSI (15 of 18), at ~65 s a call.** Its 3 failed rows are all `done_reason=length`: reasoning
+  used the 8192-token window (up to ~5,800 completion tokens) before the answer. They are recorded
+  as failures, not as "none". Whether a wider window for this one call is worth it is a question
+  for part 2's specification, not a change made here.
+- **The span verifier fired on live output.** `gpt-oss:20b` returned 5 spans that are not in the
+  criterion text (RSI 3 ×4, RSI 8 ×1). All were discarded, and those proposals read *no supporting
+  span*. No unknown tag was returned by either model: the `enum` in the schema constrained them.
+- Not determined: agreement between two runs of one model; any model not on the host today; whether
+  a reviewer shown these proposals accepts more, fewer or different ones than the shipped reading.
+
+*The coverage defect this surfaced is item 38*, filed below, not fixed here: `PackCoverage` counts
+a bound Tier D row twice.
+
+**38 · FILED 2026-09-29 by item 22's session (PR #PRNUM). READY. A Tier D row with a binding is
+counted in two coverage buckets, so the report's own arithmetic check fails and `coverage` exits 1,
+saying the report has a bug.**
+
+*Evidence.* `PackCoverage.deterministic` and `.not_yet_implemented` filter on coverage alone;
+`.not_determinable` filters on tier alone; `.evidence_only` is the only bucket that excludes Tier
+D. Reproduced on the reference pack by binding its one Tier D row (MOB 5) to `alt_text` in memory:
+counts go from 41 + 8 + 18 + 1 = 68 (`ok: True`) to 42 + 8 + 18 + 1 = 69 against 68 criteria
+(`ok: False`), and `detail()` prints "the buckets above do not account for every row, which is a
+bug here". Not reachable from either shipped pack (MOB 5 is unbound) or from item 22's proposer
+(which does not ask about Tier D rows). It is reachable by any hand-written mapping that binds a
+Tier D row, which the format allows. It is loud rather than silent: the exit code and the line both
+say so.
+
+*Fix.* Tier first, as `evidence_only` already does: a Tier D row is in `not_determinable` whatever
+its bindings, and in neither `deterministic` nor `not_yet_implemented`. Test: the reproduction
+above reads `ok: True` with the row counted once, under not determinable. Check that the
+projection's rating for such a row stays Not Applicable, which `_rate` already does, and that
+item 22's `CoverageDelta` still agrees with `coverage` before and after.
 
 **14 · DONE 2026-09-29 (PR #31). The PDF course report, written through the export gate, and
 the review file read back.** Built to the re-specified entry below, which stays as the contract.
