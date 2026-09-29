@@ -141,6 +141,18 @@ class Evidence:
             payload["context"] = dict(sorted(self.context.items()))
         return payload
 
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> Evidence:
+        return cls(
+            extractor=str(payload["extractor"]),
+            tier=Tier(payload["tier"]),
+            quote=str(payload["quote"]),
+            location=Location.from_dict(payload["location"]),
+            stated_location=str(payload["model_stated_location_unverified"]),
+            occurrences=int(payload.get("occurrences", 1)),
+            context=dict(payload.get("context") or {}),
+        )
+
 
 @dataclass(frozen=True, kw_only=True, slots=True)
 class Discarded:
@@ -164,6 +176,17 @@ class Discarded:
             "reason": self.reason,
         }
 
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> Discarded:
+        return cls(
+            extractor=str(payload["extractor"]),
+            artifact_id=str(payload["artifact_id"]),
+            artifact_title=str(payload["artifact_title"]),
+            excerpt=str(payload["excerpt"]),
+            stated_location=str(payload["model_stated_location_unverified"]),
+            reason=str(payload["reason"]),
+        )
+
 
 @dataclass(frozen=True, kw_only=True, slots=True)
 class Failure:
@@ -185,6 +208,17 @@ class Failure:
             "reason": self.reason,
             "detail": self.detail,
         }
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> Failure:
+        return cls(
+            extractor=str(payload["extractor"]),
+            passage=str(payload["passage"]),
+            artifact_id=str(payload["artifact_id"]),
+            kind=FailureKind(payload["kind"]),
+            reason=str(payload["reason"]),
+            detail=payload.get("detail"),
+        )
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)
@@ -222,6 +256,25 @@ class CallRecord:
             "discarded": self.discarded,
             "error": self.error,
         }
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> CallRecord:
+        """The inverse of :meth:`to_dict`. ``tokens_reported`` is recomputed, never read back."""
+        return cls(
+            extractor=str(payload["extractor"]),
+            passage=str(payload["passage"]),
+            artifact_id=str(payload["artifact_id"]),
+            model=str(payload["model"]),
+            ok=bool(payload["ok"]),
+            latency_ms=payload.get("latency_ms"),
+            prompt_tokens=payload.get("prompt_tokens"),
+            completion_tokens=payload.get("completion_tokens"),
+            thinking_pinned=payload.get("thinking_pinned"),
+            returned=int(payload.get("returned", 0)),
+            accepted=int(payload.get("accepted", 0)),
+            discarded=int(payload.get("discarded", 0)),
+            error=payload.get("error"),
+        )
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)
@@ -319,6 +372,26 @@ class ExtractorResult:
         if self.not_examined_because is not None:
             payload["not_examined_because"] = self.not_examined_because
         return payload
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> ExtractorResult:
+        """The inverse of :meth:`to_dict`. ``complete`` and the statement are recomputed."""
+        return cls(
+            extractor=str(payload["extractor"]),
+            title=str(payload["title"]),
+            tier=Tier(payload["tier"]),
+            state=ResultState(payload["state"]),
+            examined=int(payload["examined"]),
+            passages=int(payload["passages"]),
+            answered=int(payload["answered"]),
+            evidence=tuple(Evidence.from_dict(item) for item in payload.get("evidence", ())),
+            discarded=tuple(Discarded.from_dict(item) for item in payload.get("discarded", ())),
+            failures=tuple(Failure.from_dict(item) for item in payload.get("failures", ())),
+            calls=tuple(CallRecord.from_dict(item) for item in payload.get("calls", ())),
+            summary=dict(payload.get("summary") or {}),
+            question=payload.get("question"),
+            not_examined_because=payload.get("not_examined_because"),
+        )
 
 
 class Corpus:

@@ -1,0 +1,18 @@
+{
+  "opened_at": "2026-09-29T11:27:00.492506+00:00",
+  "environment": {
+    "cssselect2": "0.10.1",
+    "fontconfig": "2.15.0",
+    "fonttools": "4.66.0",
+    "freetype": "2.13.3",
+    "harfbuzz": "10.2.0",
+    "harfbuzz-subset": "yes",
+    "pango": "1.56.3",
+    "pydyf": "0.12.1",
+    "pyphen": "0.18.1",
+    "tinycss2": "1.5.1",
+    "tinyhtml5": "2.1.0",
+    "weasyprint": "70.0"
+  },
+  "model": "qwen3-coder:30b"
+}

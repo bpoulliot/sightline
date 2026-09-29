@@ -28,7 +28,7 @@ on 2026-09-22). Next free item number: **37**.
 | 12a | Effort model — ship it | 1 | READY | **DONE** — PR #20 |
 | 12b | Effort model — fit the costs | 1 | **BLOCKED** — item 06/07/08 detectors have all landed; unblocked in code, still needs the calibration corpus | — |
 | 13 | XLSX writer | 2 | READY | **DONE** — PR #28 |
-| 14 | PDF course report | 2 | READY | re-specified 2026-09-29, PR #30 — see *Notes carried forward* |
+| 14 | PDF course report | 2 | READY | **DONE** — PR #31 |
 | 15 | Narrative generator and voice contract | 2 | READY | **DONE** — PR #27 |
 | 16 | Review UI | 2 | **NEEDS DISCUSSION** — Q1 who an override records, Q2 whether exports carry the reviewer's rating | re-specified 2026-09-29, PR #30 — see *Notes carried forward* |
 | 17 | Batch runner | 2 | READY | **DONE** — PR #18 |
@@ -51,6 +51,7 @@ on 2026-09-22). Next free item number: **37**.
 | 34 | Acquisition drops every outcome when it records an export note | 1 | READY | queued 99m |
 | 35 | The workbook's action plan holds located items; SPEC §08 promises remediation steps | 2 | **NEEDS DISCUSSION** | — |
 | 36 | Run-progress and New run screens | 2 | **BLOCKED** — on item 16 (its review screen is what the run screen links to) | filed 2026-09-29, PR #30 |
+| 37 | Host `__pycache__` ships in locally built images, carrying the developer's home path | 1 | READY | filed 2026-09-29 by item 14, PR #31; queued 99n |
 
 ---
 
@@ -110,7 +111,7 @@ which is what forced items 07 and 08 to comply without their prompts needing to 
 ```
 12-sightline-item15-voice-contract.md    # DONE — PR #27. sightline.voice; the lint is proven to fire
 13-sightline-item13-xlsx-writer.md       # DONE — PR #28. sightline.workbook; CSV-clean, all text
-14-sightline-item14-pdf-report.md       # SUPERSEDED 2026-09-29 — re-specified, PR #30; runs as 99i-
+14-sightline-item14-pdf-report.md       # SUPERSEDED 2026-09-29 — re-specified, PR #30; ran as 99i-, DONE — PR #31
 15-sightline-item16-review-ui.md        # SUPERSEDED 2026-09-29 — re-specified, PR #30; NEEDS DISCUSSION
 16-sightline-item24-agreement-and-uncertainty.md   # PART 1 DONE — PR #29; the rest re-runs after 14 + 16
 ```
@@ -418,6 +419,50 @@ default `/24` collides.
   settled; a later move toward stock OSCQR 3.1 / 4.0 is a pack change, not a code change.
 
 ## Notes carried forward
+
+**14 · DONE 2026-09-29 (PR #31). The PDF course report, written through the export gate, and
+the review file read back.** Built to the re-specified entry below, which stays as the contract.
+
+*What shipped.* `sightline.report`: `loader` (`read_review` / `parse_review` / `load_review` →
+`LoadedReview`, which `render()`s through `render_review`), `model` (`build_report(review,
+created=)` → `ReportModel`, linted), `pdf` (`to_pdf(model)` → bytes, `export_report(gate, course,
+data)` → `ExportGate.save`), and `python -m sightline.report export COURSE`, which writes
+`report.pdf` and `review.xlsx`. `from_dict` inverses on `Location`, `Finding`, `Undetermined`,
+`DetectorResult`, `DetectionReport`, `Evidence`, `Discarded`, `Failure`, `CallRecord`,
+`ExtractorResult`, `RowExtraction`, `Margins`, `NearBoundary`, `Contribution`, `RowResult` and
+`Projection` (which takes the pack for `priority_order` and `rating_scale` and refuses another
+version). No `to_dict` needed a new key: the renderer reads the effort model's `calibrated` flag,
+which the file carries; the per-detector cost table it does not carry is not needed, since every
+hour figure is on its row. Fonts vendored under `assets/fonts/` with their licence texts; WeasyPrint
+70.0 and the native libraries recorded in the README with versions and licences read from the
+packages. `examples/sample-report/` made by `scripts/make-sample-report.sh` (D1).
+
+*Readings this session took where the entry left room, each stated so it can be reversed.*
+- **The action plan lists criteria, not items.** One entry per criterion with a located item or a
+  question, in `action_plan_order()`, with its priority, reading and a count of what was located,
+  linking to its entry below. The items themselves are printed once — in full for ACD and ENIN,
+  and in the workbook for everything — rather than twice in the PDF.
+- **A compact line's "link" is one link per Canvas item something was located in**, titled with
+  the item's name. "No check ran" replaces an observation count on a row nothing examined, and a
+  Tier C row's reading is "no rating proposed: the reviewer's call", never No Response.
+- **Blocks follow the register, in the order A, B, C, D** — counted, located and quoted, the
+  question, the limits of the pass — each with a bank heading and its own tokens treatment.
+- **`write_pdf` is guarded when given a target**, not by name: the bare name would refuse the one
+  legitimate call. Proven by a planted `document.write_pdf("/tmp/escaped.pdf")` in
+  `report/pdf.py`, which failed the guard, before it was removed.
+- **SOURCE_DATE_EPOCH.** WeasyPrint 70.0 stamps no clock of its own (dates only from the
+  document's `dcterms` metadata, pinned to the opened-at moment; no file identifier). Its
+  fontTools fallback subsetter — used where `libharfbuzz-subset` is absent — stamps each embedded
+  subset's `head.modified` from the clock unless `SOURCE_DATE_EPOCH` is set, so the render sets it
+  to the same moment under a lock and restores it. Two renders differed before that and not after.
+- **Byte identity is checked where it can hold.** `render.json` records the render environment
+  (pango, harfbuzz, fontconfig, freetype and the Python packages); the comparison runs where it
+  matches and is required in the dev image (`SIGHTLINE_SAMPLE_REPORT_REQUIRED`), and CI's image job
+  runs it there. The runner-host `test` job skips it, naming what differs.
+- **The RSI pack has no ACD or ENIN section**, so a report on it prints every row compactly.
+
+*Not done here.* The near-boundary marker and the agreement statement (item 24's re-run), a
+reviewer's overrides in exports (item 16, Q2), remediation wording (item 35).
 
 **14 · RE-SPECIFIED 2026-09-29 (PR #30). READY. The PDF course report, written through the export
 gate. This entry is the build contract.** The 2026-09-08 decisions under *Not queued, and why* are
@@ -744,6 +789,24 @@ The near-boundary marker and `agreement.brief()` belong to item 24's re-run, not
   afterwards.
 - The full suite is green, ruff and black exit codes are read separately, and all CI jobs are green.
 
+**37 · FILED 2026-09-29 by item 14's session (PR #31). READY. `.dockerignore` keeps host
+bytecode out of the build context only at the top level, so a locally built image carries the
+developer's `__pycache__` — and the home directory each `.pyc` was compiled under.**
+
+*Evidence.* `.dockerignore` lists `__pycache__/` and `*.py[cod]`. Docker matches those against the
+context root, so `src/sightline/**/__pycache__/` and `tests/__pycache__/` are copied by `COPY src`
+and `COPY tests`. Measured on images built from a working tree that had run the suite: 106 of the
+106 files in the dev image's `/app/tests/__pycache__/` contain the string `/home/<user>/dev/sightline`,
+and 93 files under the runtime image's `/app/src` do; a pytest failure inside the dev image prints
+the host path as the test's file name. A CI checkout has no bytecode, so CI's images are clean and
+nothing has been published; it is a local-build leak of a username and a path, not of a secret.
+
+*Fix.* `**/__pycache__` and `**/*.py[cod]` in `.dockerignore` (Docker's `**` matches any depth),
+and a test that reads `.dockerignore` and asserts both patterns are there. Check it by building the
+dev image from a tree with bytecode in it and counting the files under `/app` that contain the host
+path (0 expected). Count by content, not by `.pyc` name: whether the image's own `uv sync` compiles
+anything under `/app/src` was not checked.
+
 **36 · FILED 2026-09-29 (PR #30) under operator decision D2 (2026-09-25; quoted in item 16's entry).
 BLOCKED on item 16. The run-progress screen and the New run screen.** SPEC §09 lists both, and
 until D2 no item built either.
@@ -887,9 +950,9 @@ fired by mutation: disabling the CR normalisation failed the round-trip, and un-
 type failed the formula test.
 
 *Not done here.* No sample workbook in `examples/sample-report/` (the 2026-09-25 decision puts it
-behind a `scripts/` generator through the gate; item 14's re-spec owns it). No caller wires
-`export_workbook` into a screen or CLI yet — item 16's review screen is the human action that
-opens the gate. The action-plan column holds located items rather than remediation advice; that
+behind a `scripts/` generator through the gate; item 14's re-spec owns it — item 14 shipped it).
+No caller wired `export_workbook` into a screen or CLI; item 14's `python -m sightline.report
+export` now does, after the human action that opens the gate. The action-plan column holds located items rather than remediation advice; that
 gap against SPEC §08 is item 35.
 
 **35 · FILED 2026-09-29 by item 13's session. NEEDS DISCUSSION. SPEC §08 says the workbook's

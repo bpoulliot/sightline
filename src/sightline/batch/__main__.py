@@ -15,8 +15,9 @@ local model host is an hour of silence otherwise. What prints is what the stage 
 count it examined and its own statement — never a verdict about the course.
 
 **This command does not export anything and cannot be made to.** ``open-review`` records that a
-person opened a course's review, which is the gate roadmap items 13 and 14 will write through;
-Sightline still generates no report on its own (SPEC §09).
+person opened a course's review, which is the gate the workbook and the PDF report are written
+through — by ``python -m sightline.report export``, a separate command a person runs. Sightline
+still generates no report on its own (SPEC §09).
 """
 
 from __future__ import annotations

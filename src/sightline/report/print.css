@@ -1,0 +1,320 @@
+/* The PDF course report's print stylesheet (roadmap item 14).
+ *
+ * Every colour is a token from docs/tokens.css, which is loaded before this file; the document root
+ * carries data-theme="light", so both dark blocks in the tokens are excluded and a report prints the
+ * same on every machine whatever its colour scheme.
+ *
+ * The four block treatments are SPEC §02's visual channels, and they follow the tokens' tier
+ * convention: filled rule for a count (A), washed for located evidence (B), dashed for a question
+ * (C), dotted for a limit (D). No text is generated here — content: carries a page number and
+ * nothing else — because every word in the report comes from the phrase bank.
+ */
+
+@page {
+  size: Letter;
+  margin: 0.8in 0.75in 0.85in 0.75in;
+  @top-left {
+    content: element(running);
+    vertical-align: bottom;
+    padding-bottom: 6pt;
+  }
+  @bottom-right {
+    content: counter(page);
+    font-family: var(--f-mono);
+    font-size: 7.5pt;
+    color: var(--ink-soft);
+  }
+}
+
+html {
+  font-size: 9.5pt;
+}
+
+body {
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--f-body);
+  line-height: 1.45;
+  margin: 0;
+}
+
+.running {
+  position: running(running);
+  font-family: var(--f-mono);
+  font-size: 7.5pt;
+  color: var(--ink-soft);
+}
+
+a {
+  color: var(--accent-ink);
+  text-decoration: none;
+}
+
+h1, h2, h3, h4 {
+  font-weight: 400;
+  line-height: 1.2;
+  break-after: avoid;
+}
+
+h1 {
+  font-family: var(--f-display);
+  font-size: 24pt;
+  margin: 0 0 4pt;
+}
+
+h1 a {
+  color: var(--ink);
+}
+
+h2 {
+  font-family: var(--f-display);
+  font-size: 16pt;
+  margin: 18pt 0 6pt;
+  padding-bottom: 3pt;
+  border-bottom: 1pt solid var(--rule-strong);
+}
+
+h3 {
+  font-size: 10.5pt;
+  font-weight: 600;
+  margin: 12pt 0 4pt;
+}
+
+h4 {
+  font-family: var(--f-mono);
+  font-size: 7pt;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--ink-mid);
+  margin: 0 0 3pt;
+}
+
+p {
+  margin: 0 0 3pt;
+}
+
+.masthead .instrument,
+.masthead .opened {
+  color: var(--ink-mid);
+}
+
+.masthead .opened {
+  font-family: var(--f-mono);
+  font-size: 8pt;
+}
+
+.about p {
+  max-width: 44em;
+}
+
+.intro {
+  color: var(--ink-mid);
+  margin-bottom: 6pt;
+}
+
+.code {
+  font-family: var(--f-mono);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* The tier chips come from tokens.css. It lays them out as inline-flex, which the PDF renderer
+ * sets as a full-width bar, and sizes them in rem, which reads small in print. */
+.tier {
+  display: inline-block;
+  font-size: 6.5pt;
+  min-width: 0;
+  padding: 0 3pt;
+  vertical-align: 1pt;
+  text-align: center;
+}
+
+/* -- tables ------------------------------------------------------------------------------------ */
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 8pt;
+}
+
+th, td {
+  text-align: left;
+  vertical-align: top;
+  padding: 3pt 4pt;
+  border-bottom: .5pt solid var(--rule);
+}
+
+thead th {
+  background: var(--surface-2);
+  border-bottom: 1pt solid var(--rule-strong);
+  font-weight: 600;
+}
+
+thead {
+  display: table-header-group;
+}
+
+tr {
+  break-inside: avoid;
+}
+
+table.counts td {
+  text-align: right;
+  font-family: var(--f-mono);
+}
+
+table.counts td.zero {
+  color: var(--ink-soft);
+}
+
+table.plan-table td:nth-child(3) {
+  width: 44%;
+}
+
+/* -- a criterion in full ------------------------------------------------------------------------ */
+
+.criterion {
+  margin: 0 0 12pt;
+}
+
+.criterion h3 {
+  margin-top: 14pt;
+}
+
+.fields {
+  margin: 0 0 6pt;
+  font-size: 8pt;
+  break-inside: avoid;
+}
+
+.criterion h3,
+.fields {
+  break-after: avoid;
+}
+
+.fields .field {
+  display: block;
+  margin: 0 0 1pt;
+}
+
+.fields dt {
+  display: inline;
+  font-weight: 600;
+  color: var(--ink-mid);
+}
+
+.fields dt::after {
+  content: "\00a0";
+}
+
+.fields dd {
+  display: inline;
+  margin: 0;
+}
+
+.block {
+  margin: 0 0 6pt;
+  padding: 5pt 7pt;
+  border: 1pt solid transparent;
+}
+
+.block-a {
+  border-left: 3pt solid var(--accent);
+}
+
+.block-b {
+  background: var(--accent-wash);
+  border-left: 1pt solid var(--accent);
+}
+
+.block-c {
+  border: 1pt dashed var(--rule-strong);
+}
+
+.block-d {
+  border: .75pt dotted var(--rust);
+}
+
+.block-d h4 {
+  color: var(--rust);
+}
+
+.line {
+  margin: 0 0 3pt;
+  break-inside: avoid;
+}
+
+.line a {
+  color: var(--ink);
+}
+
+.line-check {
+  color: var(--ink-mid);
+  font-size: 8.5pt;
+}
+
+/* A long Canvas address or a long unbroken quote must wrap inside the page box. */
+.line,
+.url,
+.where,
+td {
+  overflow-wrap: anywhere;
+}
+
+.url {
+  display: block;
+  font-family: var(--f-mono);
+  font-size: 7pt;
+  color: var(--ink-soft);
+  word-break: break-all;
+}
+
+.url-note {
+  font-family: var(--f-mono);
+  font-size: 7pt;
+  color: var(--amber);
+}
+
+/* -- one line per criterion --------------------------------------------------------------------- */
+
+.compact h3 {
+  font-family: var(--f-display);
+  font-weight: 400;
+  font-size: 12.5pt;
+}
+
+.compact-line {
+  padding: 4pt 0 5pt;
+  border-bottom: .5pt solid var(--rule);
+  break-inside: avoid;
+}
+
+.compact-line .head {
+  margin: 0 0 1pt;
+}
+
+.compact-line .facts {
+  font-size: 8pt;
+  color: var(--ink-mid);
+  margin: 0 0 1pt;
+}
+
+.compact-line .fact {
+  margin-right: 10pt;
+}
+
+.compact-line .where {
+  font-size: 8pt;
+}
+
+.compact-line .where .sep {
+  margin-right: 8pt;
+}
+
+/* -- the closing narrative ---------------------------------------------------------------------- */
+
+.narrative .block h3 {
+  margin-top: 0;
+  font-size: 9.5pt;
+}

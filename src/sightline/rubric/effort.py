@@ -133,6 +133,10 @@ class Margins:
     def to_dict(self) -> dict[str, float]:
         return {"lowest": self.lowest, "between_bands": self.between_bands}
 
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> Margins:
+        return cls(lowest=float(payload["lowest"]), between_bands=float(payload["between_bands"]))
+
 
 @dataclass(frozen=True, kw_only=True, slots=True)
 class NearBoundary:
@@ -176,6 +180,18 @@ class NearBoundary:
             "margin_hours": self.margin_hours,
             "lowest": self.lowest,
         }
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> NearBoundary:
+        """The inverse of :meth:`to_dict`. ``lowest`` is recomputed from ``below``, never read."""
+        return cls(
+            below=str(payload["below"]),
+            above=str(payload["above"]),
+            threshold_hours=float(payload["threshold_hours"]),
+            hours=float(payload["hours"]),
+            distance_hours=float(payload["distance_hours"]),
+            margin_hours=float(payload["margin_hours"]),
+        )
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)

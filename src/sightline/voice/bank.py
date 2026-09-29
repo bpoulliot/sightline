@@ -143,6 +143,13 @@ FORMATS: Mapping[str, frozenset[str]] = {
         "agreement_limit_pairings_differ": ("pairs",),
         "agreement_source": ("measured", "courses", "instrument", "instances"),
         "near_boundary_legend": ("between", "lowest", "at_lowest", "disagreements"),
+        "report_title": ("course", "instrument"),
+        "report_instrument": ("instrument", "version"),
+        "report_opened": ("date",),
+        "report_about": ("instrument",),
+        "report_full_heading": ("title",),
+        "report_compact_intro": ("workbook",),
+        "report_running": ("course", "instrument"),
     }.items()
 }
 
@@ -181,6 +188,25 @@ LABELS: frozenset[str] = frozenset(
         "link_item",
         "link_search",
         "link_none",
+        "report_about_heading",
+        "report_summary_heading",
+        "report_summary_intro",
+        "report_summary_question",
+        "report_plan_heading",
+        "report_plan_intro",
+        "report_plan_none",
+        "report_col_located",
+        "report_col_where",
+        "report_compact_heading",
+        "report_narrative_heading",
+        "report_block_A",
+        "report_block_B",
+        "report_block_C",
+        "report_block_D",
+        "report_reading_question",
+        "report_no_check_ran",
+        "report_not_gathered",
+        "report_nothing_to_link",
     }
 )
 
@@ -193,6 +219,7 @@ NOUNS: frozenset[str] = frozenset(
         "item_of_interest",
         "observation",
         "passage",
+        "question",
         "quote",
         "row",
         "unreadable",

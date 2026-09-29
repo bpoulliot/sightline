@@ -788,8 +788,10 @@ A completed run leaves a reviewable result per course under `<data root>/runs/<r
 and leaves `reports/` **empty**. The only path to a file under `reports/` is
 `sightline.batch.gate.ExportGate` (`destination`, and `save` for the bytes a writer renders), which
 refuses for a course whose review nobody has opened, and `tests/test_export_gate.py` scans the
-package's syntax tree so that no writer can quietly reach past it. The XLSX writer (item 13) renders
-to bytes and writes through `ExportGate.save`; the PDF report (item 14) is to do the same.
+package's syntax tree so that no writer can quietly reach past it. The XLSX writer (item 13) and
+the PDF report (item 14) both render to bytes and write through `ExportGate.save`, and
+`python -m sightline.report export COURSE` is the command that does it (see *The PDF course
+report*).
 
 It is not access control — Sightline is one local process with no login. It stops a *program*
 exporting unattended, which is the failure the rule is about: a report delivered to a faculty
@@ -901,6 +903,110 @@ for everything else.
 
 `build_workbook(...)` returns the table model and `to_xlsx(model)` its bytes; `export_workbook(gate,
 course_id, data)` writes them to the course's export directory through the gate.
+
+## The PDF course report
+
+`sightline.report` writes the document an instructional designer reads and forwards: addressed to
+the designer, and written so it can go to the instructor unchanged — one document, one register.
+
+```sh
+python -m sightline.batch open-review COURSE     # a person opens the review (item 16's screen, later)
+python -m sightline.report export COURSE         # writes report.pdf and review.xlsx through the gate
+```
+
+`COURSE` is a run-store course id, as `python -m sightline.batch status RUN` lists it. A course
+nobody has opened is refused with the gate's own message and nothing is written. The export reads
+the course back from the review file its run saved — `sightline.report.loader`, which the review
+screen will read through too — and **re-runs nothing**: not detection, not projection, not
+extraction. The instrument's priority order and rating words come from the shipped pack the file
+names, at the version it names; a different version, or a key the renderer needs and the file lacks,
+is refused with the reason rather than filled in.
+
+**In this order** (decided 2026-09-08): what this document is — a review pass, not an assessment of
+the instructor; ratings in effort, not in how well anything is taught; judgement criteria posed as
+questions with no rating; no figure for the course as a whole — then counts of criteria by category
+and reading, with nothing added up; the action plan, criterion by criterion in the instrument's
+priority order and then by band, with a null priority last; the accessibility (ACD) and interaction
+(ENIN) categories **in full**, every sentence the voice layer gives them with quotes, counts,
+locations and Canvas links; every other criterion as **one line** — its reading, its coverage, what
+was located and where — with the statement that the workbook holds everything; and the closing
+narrative.
+
+- **Tier A counts and Tier C questions never share a visual channel** (SPEC §02). A criterion in
+  full is split into one block per register — counted, located and quoted, a question for the
+  reviewer, the limits of the pass — chosen from each sentence's `register`, never from its text,
+  each with its own heading and its own treatment from `docs/tokens.css`. A block that mixed them is
+  refused before anything is printed.
+- **The coverage states stay apart in one line.** A clean Tier A row, a row no check examines yet,
+  a row no check is assigned to, a Tier B row left at No Response and a Tier C question each read
+  differently: the coverage is in the bank's words, a Tier C row reads "no rating proposed", and the
+  *located* cell says "no check ran" where none did rather than printing a reassuring zero.
+- **Every word is the voice layer's.** Sentences come from `render_review`; headings and fixed
+  words are `labels` and `formats` in the phrase bank; the template prints nothing of its own, and
+  the suite reads the PDF back to prove it — every word on the page is one the linted model
+  supplied, and item 15's lint passes over the extracted text.
+- **Every located item links to it in Canvas**, the page or item and never the editor. A link that
+  can only find the item by search says so.
+- **Byte-identical on a rerun.** WeasyPrint writes a date only from the document's own metadata,
+  which is pinned to the moment the review was opened; its fontTools font subsetter stamps the clock
+  unless `SOURCE_DATE_EPOCH` is set, so the render sets it to that same moment and puts it back.
+  Nothing else in the file comes from the clock, and no file identifier is written.
+- **Bytes, never a path.** `to_pdf(model)` returns bytes and `export_report(gate, course_id, data)`
+  writes them through `ExportGate.save`. `tests/test_paths.py` refuses `write_pdf` called with a
+  target anywhere in the package, so the shortcut round the gate cannot be taken quietly.
+
+It does not render the near-boundary marker or the human-agreement statement (roadmap item 24's
+re-run adds both), a reviewer's overrides (item 16, open question Q2), or remediation wording (item
+35) — the action plan names what was located.
+
+### What the report adds, and under what licence
+
+Authorised by roadmap item 14 in so many words. Licences as read from each package: the Python
+packages' own licence files, Debian's `copyright` files in the image, and the font files' licence
+texts.
+
+| Added | Version | Licence |
+|---|---|---|
+| `weasyprint` (HTML to PDF) | 70.0, in `uv.lock` | BSD-3-Clause |
+| its dependencies `pydyf`, `tinycss2`, `cssselect2`, `webencodings` | 0.12.1, 1.5.1, 0.10.1, 0.6.1 | BSD-3-Clause |
+| `tinyhtml5` | 2.1.0 | MIT |
+| `fonttools`, `brotli` | 4.66.0, 1.2.0 | MIT |
+| `pillow` | 12.3.0 | MIT-CMU |
+| `zopfli` | 0.4.3 | Apache-2.0 |
+| `pyphen` (hyphenation; the report does not hyphenate) | 0.18.1 | GPL-2.0+ **or** LGPL-2.1+ **or** MPL-1.1, at the user's choice |
+| Debian `libpango-1.0-0`, `libpangoft2-1.0-0` | 1.56.3 in the current image | LGPL-2+ |
+| Debian `libharfbuzz0b`, `libharfbuzz-subset0` | 10.2.0 | MIT |
+| Debian `libfontconfig1` | 2.15.0 | MIT-style (Keith Packard's permission notice) |
+| pulled in with them: `libfreetype6`, `libfribidi0`, `libglib2.0-0t64`, `libthai0`, `libgraphite2-3`, `libdatrie1` | as the base image's Debian release ships them | FTL; LGPL-2.1+; LGPL-2.1+; LGPL-2.1+; LGPL-2.1+ or MPL-1.1 or GPL-2+; LGPL-2.1+ |
+| Instrument Serif (`assets/fonts/`) | 1.000 | SIL OFL 1.1 |
+| IBM Plex Sans, IBM Plex Mono (`assets/fonts/`) | 3.005, 2.005 | SIL OFL 1.1 |
+
+`pyphen` is tri-licensed and is used unmodified as a library, under its LGPL or MPL option; whether
+that sits with how this repository is licensed is the operator's decision, not this table's. The
+native libraries add about 145 MB to the dev image. `assets/fonts/README.md` records where each font
+file came from and its checksum.
+
+### The sample report
+
+`examples/sample-report/` holds what the report and the workbook look like for the synthetic
+`examples/sample-course`, and the review file and `render.json` they were made from. It is made the
+way a person makes one (operator decision D1, 2026-09-25), by `scripts/make-sample-report.sh
+MODEL_HOST MODEL`: a normal batch run over the sample course into a **scratch** data folder, the
+review opened, the export through the gate — all inside the dev image — and then the script, which
+lives outside `src/sightline`, copies the result in. Read the model host's `/api/tags` for a model
+to name.
+
+`tests/test_sample_report.py` re-renders the committed review file with no model, no network and no
+clock, and compares the PDF **byte for byte** and the workbook cell by cell. The PDF's bytes depend
+on the native text stack as well as on `uv.lock`, and `render.json` records both, so the byte
+comparison runs where the environment matches and is **required** in the dev image
+(`SIGHTLINE_SAMPLE_REPORT_REQUIRED`); CI's image job runs it there on every change. Elsewhere it
+skips, naming the library that differs.
+
+**When it fails, re-run the script and commit the result with the change that moved it.** A change to
+the phrase bank, the templates, the stylesheet, the fonts or `uv.lock` moves the bytes, and so can a
+rebuild with no code change at all: the base image's tag floats, and a new pango or harfbuzz
+release in it is a new rendering.
 
 ## How often two reviewers choose the same rating
 
@@ -1046,6 +1152,10 @@ uv run ruff check .
 uv run black --check .
 ```
 
+The PDF report's tests need pango, harfbuzz and fontconfig from the system — the Dockerfile's
+`PDF_LIBS`. Outside the dev image the committed sample report's byte comparison skips, naming the
+library whose version differs (see *The sample report*).
+
 ## Configuration
 
 Every deployment-specific value is configuration with an environment fallback. There is no default
@@ -1162,9 +1272,9 @@ Gitea Actions, five jobs on every pull request:
 |---|---|
 | `lint` | `ruff check .` |
 | `format` | `black --check .` |
-| `test` | `pytest -q` |
+| `test` | `pytest -q`, with the PDF report's native libraries installed on the runner first |
 | `secrets` | `gitleaks` over the full history, plus a scan for token shapes and for the configured Canvas hostname |
-| `image` | Builds the container image, so a `Dockerfile` that nobody builds cannot rot |
+| `image` | Builds the runtime and dev images, re-renders the committed sample report in the dev image and compares the bytes, and checks the runtime image answers its health endpoint |
 
 The `secrets` job's hostname check reads a repository secret, `FORBIDDEN_HOST_RE` — a regular
 expression matching hostnames that must never appear in the tree. The real Canvas hostname lives
@@ -1174,12 +1284,14 @@ and says which check it skipped rather than passing quietly.
 ## Repository layout
 
 ```
+assets/fonts/    the fonts the PDF report is set in, each beside its licence
 docs/            SPEC.md, ROADMAP.md, RUBRIC-PACKS.md, tokens.css
 examples/        synthetic sample course and sample report — never anything real
 rubrics/source/  the blank rubric workbooks
 rubrics/maps/    the authored mapping files: capability tags, determinacy tiers, section flags
 rubrics/packs/   the two generated rubric packs, committed
-scripts/         dev.sh (container-backed test/lint/format), build-packs.sh, scan-secrets.sh
+scripts/         dev.sh (container-backed test/lint/format), build-packs.sh, scan-secrets.sh,
+                 make-sample-report.sh (regenerates examples/sample-report/)
 src/sightline/   the application
   canvas/        the Canvas connector: client, connection test, reference resolution, sanitizer
   acquire/       acquisition and normalization: the API reader, the fetch/unzip layer, the cache
@@ -1189,6 +1301,8 @@ src/sightline/   the application
   rubric/        the pack format, its JSON Schema, the importer, the mapping file, the projection
   batch/         the batch runner: stages, resume, and the export gate
   voice/         the phrase bank, the register lint, the renderer and the closing narrative
+  report/        the review-file loader, the PDF report's model, template and print stylesheet, and
+                 the export command
   capabilities.yaml  the capability-tag vocabulary: the one thing detectors and packs share
   model.py       the normalized document model every detector reads
 tests/           the suite

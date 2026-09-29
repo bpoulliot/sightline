@@ -53,6 +53,14 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: Install project
         run: uv sync --frozen --extra dev --python 3.12
+      # The native text stack WeasyPrint needs to render the PDF report (the Dockerfile's PDF_LIBS).
+      # This job runs on the runner's own image, not the dev image, so its pango and harfbuzz are
+      # a different release from the image's: tests/test_sample_report.py skips its byte
+      # comparison here, and the image job below runs it in the dev image, where it must pass.
+      - name: Install the PDF libraries
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 libfontconfig1
       - name: pytest
         run: uv run pytest -q
       # Run again, alone, for the same reason lint and format are separate jobs: a guard folded
@@ -111,6 +119,10 @@ jobs:
       - name: Build the dev image
         # scripts/dev.sh runs tests, lint and format out of this stage, so it has to build too.
         run: docker build --target dev -t "sightline:ci-dev-${GITHUB_SHA}" .
+      - name: The committed sample report re-renders byte for byte in the dev image
+        # The environment the sample was made in. SIGHTLINE_SAMPLE_REPORT_REQUIRED is set in that
+        # stage, so the comparison fails there rather than skips.
+        run: docker run --rm "sightline:ci-dev-${GITHUB_SHA}" pytest -q -rs tests/test_sample_report.py
       - name: The image starts and answers its own health endpoint
         run: |
           set -eu

@@ -5,9 +5,9 @@ module outside :mod:`sightline.paths` and :mod:`sightline.batch.gate` names ``re
 and a completed batch leaves that directory empty.
 
 The second is the one worth being loud about. Roadmap items 13 and 14 write the XLSX workbook and
-the PDF report, and neither exists yet — so the thing that catches them reaching past the gate has
-to exist *before* they are written, not after somebody notices a report in a directory nobody
-opened.
+the PDF report, and this guard was built before either existed — so the thing that catches a
+writer reaching past the gate was in place before the first writer, not after somebody noticed a
+report in a directory nobody opened. Both now write through ``ExportGate.save``.
 """
 
 from __future__ import annotations

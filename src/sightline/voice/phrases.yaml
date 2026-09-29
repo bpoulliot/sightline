@@ -43,6 +43,7 @@ nouns:
   row: [row, rows]
   unreadable: [item could not be read, items could not be read]
   item: [item, items]
+  question: [question, questions]
 
 # What each kind of Canvas artifact is called in a count ("3 pages, 1 syllabus").
 kinds:
@@ -101,6 +102,15 @@ formats:
   # marker is a computed distance from a threshold; this says which margins were applied and why
   # the lowest one is wider. It is never a percentage, a star or a word about how sure anything is.
   near_boundary_legend: {register: A, text: "A proposal marked near a band threshold has estimated hours within {between} of a threshold between two bands, or within {lowest} of the Sufficiently Present / Minor Revision boundary; that margin is wider because {at_lowest} of the {disagreements} disagreements between human reviewers fell at that boundary."}
+  # The PDF course report (roadmap item 14). One document for the instructional designer, written so
+  # it can be forwarded to the instructor unchanged: every word here is read by both.
+  report_title: {register: A, text: "{course}: a review pass against {instrument}"}
+  report_instrument: {register: A, text: "Reviewed against {instrument}, version {version}"}
+  report_opened: {register: A, text: "Review opened {date}"}
+  report_about: {register: A, text: "This is a first review pass over the course materials in Canvas against {instrument}, prepared for the instructional designer and written so it can be shared with the instructor as it stands. It reviews materials, not the instructor or their teaching. A proposed rating names an amount of revision effort in the instrument's own bands; it is not a measure of how well anything is taught. Criteria that call for pedagogical judgement are posed as questions for the reviewer and carry no proposed rating, and no figure is computed for the course as a whole."}
+  report_full_heading: {register: A, text: "{title}, in full"}
+  report_compact_intro: {register: A, text: "One line for each remaining criterion: its proposed reading, what was located, and where in Canvas. Every criterion, with every located item and its Canvas link, is in the workbook {workbook} that accompanies this document."}
+  report_running: {register: A, text: "{course} · {instrument}"}
 
 # Fixed words with no placeholders: sheet names, column headers, and the values of the workbook's
 # categorical columns (roadmap item 13). Linted at load like everything else — a column header is
@@ -139,6 +149,28 @@ labels:
   link_item: {register: A, text: "Item link"}
   link_search: {register: A, text: "Search link: the item has no stable id"}
   link_none: {register: A, text: "No Canvas location: this line is about the whole row"}
+  # The PDF course report's fixed words (roadmap item 14). The four block headings are the four
+  # visual channels of SPEC §02's presentation constraint, one per register, and each is read in its
+  # own register: a Tier A count and a Tier C question never share one.
+  report_about_heading: {register: A, text: "What this document is"}
+  report_summary_heading: {register: A, text: "Proposed readings by category"}
+  report_summary_intro: {register: A, text: "Each cell counts the criteria in one category that read one way. The counts are not added up across categories or readings."}
+  report_summary_question: {register: C, text: "Posed as a question"}
+  report_plan_heading: {register: A, text: "Action plan"}
+  report_plan_intro: {register: A, text: "Criteria with something located, in the instrument's priority order and then by proposed band; a criterion the instrument gives no priority flag comes after the rest. Each code leads to the criterion's entry below."}
+  report_plan_none: {register: A, text: "Nothing was located for any criterion, so there is no action plan to order."}
+  report_col_located: {register: A, text: "Located"}
+  report_col_where: {register: A, text: "In Canvas"}
+  report_compact_heading: {register: A, text: "Every other criterion, one line each"}
+  report_narrative_heading: {register: A, text: "Closing notes"}
+  report_block_A: {register: A, text: "Counted by a parser"}
+  report_block_B: {register: B, text: "Located in the course and quoted"}
+  report_block_C: {register: C, text: "A question for the reviewer: your call"}
+  report_block_D: {register: D, text: "Limits of this pass"}
+  report_reading_question: {register: C, text: "No rating proposed: the reviewer's call"}
+  report_no_check_ran: {register: D, text: "no check ran"}
+  report_not_gathered: {register: B, text: "located evidence not gathered in this run"}
+  report_nothing_to_link: {register: A, text: "No located item"}
 
 A:
   # A Tier A row whose checks all ran, each examined something, and none recorded an observation.

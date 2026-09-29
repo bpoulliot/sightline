@@ -1,4 +1,4 @@
-"""Locating the design tokens.
+"""Locating the design tokens, and the fonts the printed report is set in.
 
 ``docs/tokens.css`` is the approved palette and the **single source of colour** for every
 template. It is not copied into the package: a copy is a second source, and a second source drifts.
@@ -52,3 +52,31 @@ def resolve_tokens_css(explicit: Path | str | None = None) -> Path:
         f"design tokens not found. Looked in: {locations}. "
         "Set SIGHTLINE_TOKENS_CSS to the path of docs/tokens.css."
     )
+
+
+# ---------------------------------------------------------------------------------------------
+# Fonts
+# ---------------------------------------------------------------------------------------------
+
+#: Where the vendored fonts live, relative to the repository root and to the container's WORKDIR.
+#: Each font file sits beside its licence file; see ``assets/fonts/README.md``.
+FONTS_RELATIVE = Path("assets") / "fonts"
+
+
+class FontsNotFoundError(RuntimeError):
+    """The vendored fonts could not be located."""
+
+
+def resolve_fonts_dir() -> Path:
+    """The directory of vendored fonts, or raise :class:`FontsNotFoundError`.
+
+    The same two places as the tokens: the working directory (the container, ``WORKDIR /app``)
+    and the source checkout. A PDF set in whatever fonts the host happens to have would be a
+    different document on every machine, so a missing directory is an error, not a fallback.
+    """
+    tried = [Path.cwd() / FONTS_RELATIVE, Path(__file__).resolve().parents[2] / FONTS_RELATIVE]
+    for candidate in tried:
+        if candidate.is_dir() and any(candidate.glob("*.ttf")):
+            return candidate.resolve()
+    locations = ", ".join(str(path) for path in tried)
+    raise FontsNotFoundError(f"the report fonts were not found. Looked in: {locations}.")
