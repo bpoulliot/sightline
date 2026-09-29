@@ -669,7 +669,9 @@ deployment footprint is a priority. All colour comes from `docs/tokens.css`.
   rubric with no bindings at all loads, runs and produces a usable review. There is no mapping
   screen before first use. Bindings, when wanted, are proposed by a model and confirmed once per
   rubric, never per course. Decided 2026-09-08. Roadmap item 04 built the format and the three
-  coverage states; item 22 (the proposals) is READY and not yet built; item 19 is superseded.
+  coverage states; item 22 built the proposals with a command-line review
+  (`python -m sightline.rubric propose` / `review` / `accept`); the confirmation screen waits on
+  the rubric-selection screen of item 36. Item 19 is superseded.
 - **The review screen groups by rubric category, in the instrument's own order.** Severity is a
   sort and a filter within a category, never a second grouping. Decided 2026-09-08; roadmap
   item 16.

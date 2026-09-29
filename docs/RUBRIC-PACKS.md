@@ -196,6 +196,66 @@ and it counts any replacement characters the export has already lost.
 
 ---
 
+## Proposed bindings, confirmed by you
+
+An imported pack has no bindings and is finished; binding is an accelerator. When you want one, a
+local model can **propose** tag bindings from the capability catalogue and each criterion's text,
+and you decide. Once per rubric pack, never per course, and no course is involved.
+
+```
+python -m sightline.rubric propose --pack my-rubric.yaml --model qwen3-coder:30b > proposals.yaml
+python -m sightline.rubric review --proposals proposals.yaml
+python -m sightline.rubric accept --proposals proposals.yaml --pack my-rubric.yaml --accept 3 \
+    --accept 7 > my-rubric-map.yaml
+python -m sightline.rubric import --workbook "my-rubric.xlsx" --map my-rubric-map.yaml > my-rubric.yaml
+```
+
+`propose` needs a model host (`OLLAMA_BASE_URL` or `--endpoint`) and makes one call per row. It
+prints a **proposal file** to standard output and the review to standard error, and it changes
+nothing: every proposal in the file starts unaccepted. The file records the model, the host
+version and the time, because the host is not deterministic at temperature 0 — a second run can
+return a different set, so the file is the record of one run rather than a property of the rubric.
+
+For every proposal the review shows:
+
+* **what** — the criterion text beside the tag, the tag's one-line summary, and what each detector
+  behind it reports;
+* **why** — the words of the criterion the proposal rests on, **verified verbatim** against the
+  criterion text by the same string match every quote in a review passes, or *no supporting span*.
+  A span that is not in the criterion text is discarded and never shown, and no model-written
+  explanation exists to show;
+* **how it changes the review** — computed from the row's tier and coverage. On a Tier A row a
+  binding to an implemented capability makes the row deterministic: answered by count, no longer
+  sent to the model, and able to read Sufficiently Present. On Tier B the observations are counted
+  and banded beside the quotes, and a clean run still reads No Response. **A Tier C row stays at
+  No Response whatever it binds to.** A tag no detector implements yet changes nothing computed.
+  Tier D rows are not asked: they read Not Applicable bound or not.
+
+There is **no confidence signal** of any kind — no score, rank or ordering by one. Proposals are
+listed in the instrument's order and alphabetically within a row.
+
+`accept` is the only way anything is accepted, and it takes an affirmative act: proposals named by
+number with `--accept`, or `--accept-all` over the file in front of you. **A proposal on a row
+already bound to other tags is a conflict**: `--accept-all` leaves it out and it needs
+`--accept-conflict` with its number. Accepting only ever adds a tag; an existing binding is never
+replaced or removed. A tag outside the vocabulary is dropped and reported when proposed, and
+refused at acceptance if one has been written into the file by hand. A proposal file made against
+a different state of the pack is refused.
+
+What `accept` prints is a **mapping file** — the format above — carrying everything the pack
+already said that a mapping can say, plus the accepted tags, and on standard error the coverage
+before and after and the rows that moved between buckets:
+
+```
+3 row(s) moved from evidence-only to deterministic; 15 remain evidence-only.
+```
+
+A pack imported with a declared join key does not record which column that was, so `accept`
+needs the mapping file it was built from (`--map`), and checks it against the pack first. The
+mapping printed has none of that file's comments; they are not data.
+
+---
+
 ## Bindings, and the three states
 
 A pack binds each row to zero or more **capability tags** — names for course-quality concepts, from

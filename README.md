@@ -383,7 +383,13 @@ python -m sightline.rubric packs
 python -m sightline.rubric coverage --pack rubrics/packs/uccs-oscqr-3-1-3.yaml
 python -m sightline.rubric import --workbook "rubrics/source/UCCS OSCQR 3.1.3.xlsx" > pack.yaml
 python -m sightline.rubric tags
+python -m sightline.rubric propose --pack pack.yaml --model qwen3-coder:30b > proposals.yaml
+python -m sightline.rubric accept --proposals proposals.yaml --pack pack.yaml --accept 3 > map.yaml
 ```
+
+`propose` asks a local model for capability-tag bindings and accepts nothing; `accept` takes
+proposals you name (or an explicit `--accept-all`) and prints a mapping file for `import --map`,
+with the coverage delta. See [*Proposed bindings*](docs/RUBRIC-PACKS.md#proposed-bindings-confirmed-by-you).
 
 ### The two packs Sightline ships
 
