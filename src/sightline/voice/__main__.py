@@ -2,9 +2,10 @@
 
     python -m sightline.voice --bundle examples/sample-course --pack uccs-oscqr-3-1-3
 
-**A demonstration, not an output format.** The workbook, the PDF and the review screen are roadmap
-items 13, 14 and 16; each will call :func:`sightline.voice.render_review` and lay the sentences out
-its own way. This prints them one per line so the register can be read and diffed.
+**A demonstration, not an output format.** The workbook (item 13, :mod:`sightline.workbook`)
+calls :func:`sightline.voice.render_review` and lays the sentences out its own way, as the PDF and
+the review screen (items 14 and 16) are to. This prints them one per line so the register can be
+read and diffed.
 
 It makes no model call. Located evidence is not gathered, and every row that would have been asked
 about says so — which is also how the demo shows the fourth slot of the closing narrative doing its

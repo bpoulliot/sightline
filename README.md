@@ -783,9 +783,10 @@ terminal.
 
 A completed run leaves a reviewable result per course under `<data root>/runs/<run>/courses/<id>/`
 and leaves `reports/` **empty**. The only path to a file under `reports/` is
-`sightline.batch.gate.ExportGate.destination`, which refuses for a course whose review nobody has
-opened, and `tests/test_export_gate.py` scans the package's syntax tree so that the XLSX writer and
-the PDF report (roadmap items 13 and 14) cannot quietly reach past it when they are written.
+`sightline.batch.gate.ExportGate` (`destination`, and `save` for the bytes a writer renders), which
+refuses for a course whose review nobody has opened, and `tests/test_export_gate.py` scans the
+package's syntax tree so that no writer can quietly reach past it. The XLSX writer (item 13) renders
+to bytes and writes through `ExportGate.save`; the PDF report (item 14) is to do the same.
 
 It is not access control — Sightline is one local process with no login. It stops a *program*
 exporting unattended, which is the failure the rule is about: a report delivered to a faculty
@@ -847,6 +848,38 @@ load rather than a test somebody might skip:
   over a total, which is a compliance percentage with the division left undone;
 - **the shapes that describe a row nothing computed may never be worded like a clean one.** Not yet
   implemented, no check assigned, and examined-and-clean are three different sentences.
+
+## The workbook
+
+`sightline.workbook` writes the exhaustive artifact: every row of the selected rubric, in the
+instrument's own category order, with its proposed rating, its evidence, its action plan and a
+Canvas link for every located item. The PDF (item 14) leads with the action plan and points here
+for everything else.
+
+- **Two sheets, driven by the pack.** `Criteria` has one row per criterion. `Action Plan` is
+  regenerated from the findings — never copied from the instrument — with one line per located
+  observation, quote or question and its item-level Canvas link, ordered by the instrument's
+  priority flag and then the band. A null priority (the reference pack's mobile rows, the whole RSI
+  pack) sorts after every flagged row and is never dropped.
+- **Clean, not a copy of the instrument.** `.xlsx`, one header row per sheet, no merged cells, no
+  hidden sheets, no formulas, and every cell is text. It survives a round-trip through CSV cell for
+  cell, which the suite proves on course text with line breaks, commas, quotes, non-ASCII and a
+  leading `=`. Two normalisations are made, visibly: a carriage return becomes a line feed (XML
+  cannot keep it), and a control character XML cannot carry becomes `�`.
+- **No aggregate anywhere.** No total, average, percentage or count-of-bands row, and no number a
+  spreadsheet could average: the effort figure is text, and says it is an estimate from the
+  uncalibrated placeholder cost table.
+- **Determinacy is a column, not a colour**, and so is coverage: the three coverage states read as
+  three different cells and none is ever blank. The near-boundary marker has its own column.
+- **Every word is the voice layer's.** Sentences come from `render_review`; column headers, sheet
+  names and categorical values are `labels` in the same phrase bank, linted when it loads; every
+  cell is linted again before a byte is written.
+- **Nothing identifies who ran it.** The document properties are written by Sightline — no creator,
+  no application, one timestamp the caller supplies. The Canvas base URL does appear, in every
+  link, because that is the workbook's job.
+
+`build_workbook(...)` returns the table model and `to_xlsx(model)` its bytes; `export_workbook(gate,
+course_id, data)` writes them to the course's export directory through the gate.
 
 The lint reads only Sightline's own words. A quote, a title, a measured value or an instrument
 label is recorded by position as it is inserted and masked by position, so a syllabus that says

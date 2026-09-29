@@ -227,6 +227,11 @@ class Voice:
         _, template = self.bank.fmt(name)
         return fill(template, values)
 
+    def label(self, name: str) -> tuple[str, Piece]:
+        """A fixed label from the bank — a header, a sheet name — and the register it is read in."""
+        register, text = self.bank.label(name)
+        return register, plain(text)
+
     def count(self, n: int, noun: str) -> Piece:
         return plain(f"{n} {self.bank.noun(noun, n)}")
 

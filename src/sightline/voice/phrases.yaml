@@ -77,6 +77,50 @@ formats:
   heading_work: {register: A, text: "What needs work"}
   heading_first: {register: A, text: "What to do first"}
   heading_limits: {register: D, text: "What Sightline could not determine"}
+  # The workbook's effort and near-boundary cells (roadmap item 13). An effort figure is always
+  # called an estimate, and says which cost table it came from.
+  effort_placeholder: {register: A, text: "{hours}, an estimate from the uncalibrated placeholder cost table"}
+  effort_calibrated: {register: A, text: "{hours}, an estimate from the calibrated cost table"}
+  near_boundary: {register: A, text: "{hours} is {distance} from the {below} / {above} threshold at {threshold} (margin {margin})"}
+  action_plan_more: {register: A, text: "{lines} further lines for {code} are on the Action Plan sheet."}
+
+# Fixed words with no placeholders: sheet names, column headers, and the values of the workbook's
+# categorical columns (roadmap item 13). Linted at load like everything else — a column header is
+# exactly where "Score", "Grade", "Points" or "Overall" would slip in because it "isn't prose".
+#
+# THE THREE COVERAGE LABELS MUST STAY THREE, and none may read like a clean result: a row no check
+# examined and a row with no check assigned are different facts from a row that was checked, and
+# only the Proposed rating column can say Sufficiently Present.
+labels:
+  sheet_criteria: {register: A, text: "Criteria"}
+  sheet_action_plan: {register: A, text: "Action Plan"}
+  col_category: {register: A, text: "Category"}
+  col_code: {register: A, text: "Code"}
+  col_criterion: {register: A, text: "Criterion"}
+  col_priority: {register: A, text: "Priority"}
+  col_determinacy: {register: A, text: "Determinacy"}
+  col_coverage: {register: A, text: "Coverage"}
+  col_rating: {register: A, text: "Proposed rating"}
+  col_effort: {register: A, text: "Estimated effort"}
+  col_near_boundary: {register: A, text: "Near a band threshold"}
+  col_evidence: {register: A, text: "Evidence"}
+  col_action_plan: {register: A, text: "Action plan"}
+  col_link: {register: A, text: "Canvas link"}
+  col_link_kind: {register: A, text: "Link"}
+  tier_A: {register: A, text: "A: computed by a parser, stated as a count"}
+  tier_B: {register: B, text: "B: evidence located in the course, quoted"}
+  tier_C: {register: C, text: "C: a judgement, posed as a question for the reviewer"}
+  tier_D: {register: D, text: "D: not determinable from course materials"}
+  coverage_deterministic: {register: A, text: "Bound to a check that is part of this review"}
+  coverage_not_yet_implemented: {register: D, text: "Not examined: the bound capability has no check yet"}
+  coverage_no_deterministic_coverage: {register: D, text: "No check assigned: evidence is located and quoted instead"}
+  effort_none: {register: A, text: "No effort figure: this reading is not a revision band"}
+  near_none: {register: A, text: "Not within the margin of a band threshold"}
+  near_not_banded: {register: A, text: "No effort figure to measure from"}
+  action_none: {register: A, text: "No located item or question for this row; the Evidence column states what was examined."}
+  link_item: {register: A, text: "Item link"}
+  link_search: {register: A, text: "Search link: the item has no stable id"}
+  link_none: {register: A, text: "No Canvas location: this line is about the whole row"}
 
 A:
   # A Tier A row whose checks all ran, each examined something, and none recorded an observation.
