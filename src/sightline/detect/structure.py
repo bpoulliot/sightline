@@ -109,9 +109,10 @@ def plain_text(html: str | None) -> str:
     its code in the prose here and is dropped there. Neither is a seam; both are why the scanner is
     the one to reach for when a detector needs the tree anyway.
 
-    What keeps this function is the parse it avoids. The twenty detectors here read prose and never
-    touch the tree, and routing them through the scanner would add a parse per body per detector —
-    roadmap item 30's measurement to take, not this function's to pre-empt.
+    What kept this function was the parse it avoided, and since roadmap item 30 there is no such
+    parse to avoid: a run parses each body once and shares it through ``Survey.parse``, so a
+    detector here reading ``survey.parse(artifact).text`` costs no extra parse. Whether they
+    should is item 31's change to make, not this docstring's.
 
     Script and style blocks go first, because their contents are not prose however much CSS looks
     like words when the tags come off.

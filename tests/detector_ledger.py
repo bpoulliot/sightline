@@ -91,11 +91,12 @@ def _watching(by_test: dict[str, set[str]], node: dict[str, str]) -> Iterator[No
     """
     original = Detector.run
 
-    def watched(
-        self: Detector, document: object, *, files: object = None, links: object = None
-    ) -> object:
+    # Keywords are forwarded whole rather than named: a wrapper that spells out ``run``'s signature
+    # breaks — as a hole in the observation — the next time ``run`` gains a parameter (item 30's
+    # ``parses`` did exactly that).
+    def watched(self: Detector, document: object, **keywords: object) -> object:
         by_test.setdefault(node["current"], set()).add(self.id)
-        return original(self, document, files=files, links=links)  # type: ignore[arg-type]
+        return original(self, document, **keywords)  # type: ignore[arg-type]
 
     Detector.run = watched  # type: ignore[method-assign]
     try:
