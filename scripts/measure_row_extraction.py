@@ -707,6 +707,102 @@ def command_narrow(args: argparse.Namespace) -> None:
 
 
 # ---------------------------------------------------------------------------------------------
+# prefix — does the host reuse a shared prompt prefix, and does passage-major order buy anything
+# at the passage size a real course sends (WORD_BUDGET words, not the sample's ~64)?
+# ---------------------------------------------------------------------------------------------
+
+
+def raw_chat(endpoint: str, model: str, messages: list[dict[str, str]]) -> dict[str, Any]:
+    """One call with the shipped client's options, read raw for ``prompt_eval_*``."""
+    body = json.dumps(
+        {
+            "model": model,
+            "messages": messages,
+            "stream": False,
+            "options": {"temperature": 0.0, "num_ctx": 8192},
+            "format": RESPONSE_SCHEMA,
+        }
+    ).encode()
+    request = urllib.request.Request(
+        f"{endpoint.rstrip('/')}/api/chat", data=body, headers={"Content-Type": "application/json"}
+    )
+    started = time.perf_counter()
+    with urllib.request.urlopen(request, timeout=300) as response:
+        payload = json.load(response)
+    return {
+        "latency_s": time.perf_counter() - started,
+        "prompt_tokens": payload.get("prompt_eval_count"),
+        "prompt_eval_s": (payload.get("prompt_eval_duration") or 0) / 1e9,
+        "completion_tokens": payload.get("eval_count"),
+    }
+
+
+def long_passages(passages: Sequence[Passage], count: int, words: int) -> list[Any]:
+    """``count`` synthetic passages of ``words`` words, cut from the SYNTHETIC sample's own text in
+    rotated orders so no two share a prefix. Stand-ins for a real course's full-budget passages."""
+    from types import SimpleNamespace
+
+    pool = [p.text for p in passages]
+    made = []
+    for index in range(count):
+        rotated = pool[index:] + pool[:index]
+        text = " ".join(" ".join(rotated * 4).split()[:words])
+        artifact = SimpleNamespace(kind=SimpleNamespace(value="page"), module_path=())
+        made.append(SimpleNamespace(label=f"Long page {index + 1}", artifact=artifact, text=text))
+    return made
+
+
+def command_prefix(args: argparse.Namespace) -> None:
+    endpoint = endpoint_of(args)
+    _, requests, passages = setup(args.pack, args.rows)
+    extractors = [RowExtractor(request) for request in requests]
+    pages = long_passages(passages, args.passages, args.words)
+    row_major = [(e, p) for e in extractors for p in pages]
+    passage_major = [(e, p) for p in pages for e in extractors]
+    # Self-test: the two orders send the same prompts, differently ordered. Anything else and the
+    # comparison is between two workloads, not two orders.
+    key = [json.dumps(prompt_for(e, p, ask=e.ask)) for e, p in row_major]
+    other = [json.dumps(prompt_for(e, p, ask=e.ask)) for e, p in passage_major]
+    if sorted(key) != sorted(other) or key == other:
+        raise SystemExit("prefix self-test FAILED: the orders are not a permutation of each other.")
+
+    def send(pairs):
+        return [raw_chat(endpoint, args.model, prompt_for(e, p, ask=e.ask)) for e, p in pairs]
+
+    # Controls, both directions: the same prompt twice must evaluate less the second time if the
+    # host reuses a prefix at all (positive); two prompts sharing nothing but the system message
+    # must not (negative). Without a positive control, "no saving" cannot tell "the host never
+    # reuses" from "the probe cannot see it".
+    first, again = send([row_major[0], row_major[0]])
+    fresh = send([(extractors[0], pages[1]), (extractors[0], pages[2])])[1]
+    print(
+        f"control: same prompt twice -> prompt eval {first['prompt_eval_s']:.3f} s then "
+        f"{again['prompt_eval_s']:.3f} s ({first['prompt_tokens']} then {again['prompt_tokens']} "
+        f"token(s) reported); a different passage -> {fresh['prompt_eval_s']:.3f} s "
+        f"({fresh['prompt_tokens']} token(s))"
+    )
+    reuses = again["prompt_eval_s"] < 0.5 * first["prompt_eval_s"]
+    fresh_pays = fresh["prompt_eval_s"] > 0.5 * first["prompt_eval_s"]
+    if not fresh_pays:
+        raise SystemExit("negative control FAILED: an unshared prompt evaluated as if cached.")
+    print(f"host reuses an identical prefix: {'yes' if reuses else 'NO'}")
+    results = {}
+    for label, pairs in (("row-major", row_major), ("passage-major", passage_major)):
+        calls = send(pairs)
+        results[label] = calls
+        print(
+            f"{label:<14} {len(calls)} call(s): wall {sum(c['latency_s'] for c in calls):6.1f} s, "
+            f"prompt eval {sum(c['prompt_eval_s'] for c in calls):6.1f} s over "
+            f"{sum(c['prompt_tokens'] or 0 for c in calls)} reported prompt token(s), "
+            f"{sum(c['completion_tokens'] or 0 for c in calls)} completion token(s)"
+        )
+    if args.out:
+        Path(args.out).write_text(
+            json.dumps({"model": args.model, "words": args.words, **results}, indent=1)
+        )
+
+
+# ---------------------------------------------------------------------------------------------
 
 
 def main(argv: Sequence[str] | None = None) -> None:
@@ -732,10 +828,20 @@ def main(argv: Sequence[str] | None = None) -> None:
     narrow = sub.add_parser("narrow")
     narrow.add_argument("runs", nargs="+", help="Baseline runs; the first defines the arms.")
     narrow.add_argument("--embeddings")
+    prefix = sub.add_parser("prefix")
+    prefix.add_argument("--model", required=True)
+    prefix.add_argument("--pack", default="uccs-oscqr-rsi")
+    prefix.add_argument("--rows", nargs="*")
+    prefix.add_argument("--passages", type=int, default=5)
+    prefix.add_argument("--words", type=int, default=900)
+    prefix.add_argument("--endpoint")
+    prefix.add_argument("--out")
     sub.add_parser("selftest")
     args = parser.parse_args(argv)
     if args.command == "run":
         asyncio.run(command_run(args))
+    elif args.command == "prefix":
+        command_prefix(args)
     elif args.command == "embed":
         asyncio.run(command_embed(args))
     elif args.command == "compare":
