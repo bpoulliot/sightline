@@ -317,6 +317,10 @@ class Body:
     html: str
 
 
+#: What :meth:`Parses._of` hands out for an artifact that carries no markup.
+_NO_MARKUP = scan("")
+
+
 class Parses:
     """One parse per body per detector run, shared by every detector in that run.
 
@@ -340,6 +344,10 @@ class Parses:
     Keyed on the artifact id *and* the markup, so the same id carrying different markup can never
     be handed the wrong tree. A :class:`~sightline.detect.html_scan.Scan` is immutable, which is
     what makes one safe to hand to several detectors.
+
+    An artifact with no markup is not parsed at all: it is handed one shared empty scan, so the
+    number of parses a run makes is the number of bodies that carry HTML, and a detector may read
+    ``survey.parse(artifact).text`` for an assignment with no description without special-casing it.
     """
 
     __slots__ = ("_scans",)
@@ -351,6 +359,8 @@ class Parses:
         return len(self._scans)
 
     def _of(self, artifact_id: str, html: str) -> Scan:
+        if not html:
+            return _NO_MARKUP
         key = (artifact_id, html)
         page = self._scans.get(key)
         if page is None:

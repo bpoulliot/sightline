@@ -70,7 +70,7 @@ from ..model import Artifact, CourseFile, Embed, Module, ModuleItem
 from .accessibility import BODY_COLLECTIONS, HtmlDetector
 from .base import Body, Detector, Finding, Severity, Survey, Tier
 from .html_scan import Element, Scan, excerpt, verbatim
-from .structure import module_items, plain_text
+from .structure import module_items
 from .styles import Stylesheet, declarations
 
 # ---------------------------------------------------------------------------------------------
@@ -761,12 +761,12 @@ class RequiredAppAvailability(Detector):
         )
 
     def _ask_about_prose(self, survey: Survey, body: Body) -> int:
-        """Sentences asking a learner to get an app. Read from the prose, not from a second parse.
+        """Sentences asking a learner to get an app, read from the run's one parse of the body.
 
-        :func:`~sightline.detect.structure.plain_text` strips tags with a regular expression and
-        puts a space where each one was — no DOM, and no word fused across a block seam.
+        ``Scan.text`` puts a separator at every rendered break and none inside a word, so a sentence
+        is neither fused across a block seam nor split at an inline tag.
         """
-        text = plain_text(body.html)
+        text = survey.parse(body).text
         asked = 0
         for match in _APP_REQUIREMENT.finditer(text):
             asked += 1

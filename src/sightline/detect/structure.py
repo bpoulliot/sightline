@@ -36,7 +36,6 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable, Iterator, Sequence
 from dataclasses import dataclass
-from html import unescape
 from urllib.parse import urlsplit
 
 from ..model import (
@@ -50,7 +49,7 @@ from ..model import (
 )
 from .base import Detector, Finding, Severity, Survey, Tier
 from .documents import inspect_pdf
-from .html_scan import HEADING_TAGS, INLINE_TAGS, Scan, excerpt, scan, verbatim
+from .html_scan import HEADING_TAGS, Scan, excerpt, scan, verbatim
 from .links import LinkState
 
 # ---------------------------------------------------------------------------------------------
@@ -72,62 +71,6 @@ class Link:
     url: str
     label: str
     line: int
-
-
-#: A ``<script>`` or ``<style>`` block, whose contents are not prose whatever they look like.
-_SCRIPTISH = re.compile(r"<(script|style)\b.*?</\1\s*>", re.IGNORECASE | re.DOTALL)
-#: Any tag, with its name captured where it has one. Replaced by :func:`_seam` rather than removed.
-_ANY_TAG = re.compile(r"</?([a-zA-Z][^\s/>]*)?[^>]*>")
-
-
-def _seam(match: re.Match[str]) -> str:
-    """What one tag leaves behind: a space where the page breaks, nothing where it does not."""
-    if match.group(0).startswith("<!"):
-        # A comment or a doctype renders as nothing at all, so it separates nothing either.
-        return ""
-    name = match.group(1)
-    return "" if name and name.lower() in INLINE_TAGS else " "
-
-
-def plain_text(html: str | None) -> str:
-    r"""The prose of a body, read the way the page renders it, without building a tree.
-
-    The seam rule is :data:`~sightline.detect.html_scan.INLINE_TAGS` and it is imported rather than
-    restated: a space goes where the rendered page breaks one run of text from the next, and
-    nothing goes where a tag falls inside a word. So ``<h2>Course schedule</h2><p>Week 1</p>``
-    reads ``Course schedule Week 1`` — every detector in this module matches vocabulary with word
-    boundaries, and a ``\bschedule\b`` that fails at a block seam is a course reported as having no
-    schedule when it has one — while the span soup a word processor pastes into Canvas,
-    ``<span>Sch</span><span>edule</span>``, reads ``Schedule`` and matches the same regex. Both
-    directions are the same defect (SPEC §11); item 29 fixed them together.
-
-    **What this does that** :func:`~sightline.detect.html_scan.scan` **does not is no longer
-    anything — it only does it without a parse.** The two now agree on every seam, on entities, and
-    on dropping script and style contents, checked case by case against the scanner. Two things the
-    scanner still reads better, both because this is a regex and not a parser: a ``>`` inside a
-    quoted attribute value ends a tag here and does not there, and an *unclosed* ``<script>`` leaves
-    its code in the prose here and is dropped there. Neither is a seam; both are why the scanner is
-    the one to reach for when a detector needs the tree anyway.
-
-    What kept this function was the parse it avoided, and since roadmap item 30 there is no such
-    parse to avoid: a run parses each body once and shares it through ``Survey.parse``, so a
-    detector here reading ``survey.parse(artifact).text`` costs no extra parse. Whether they
-    should is item 31's change to make, not this docstring's.
-
-    Script and style blocks go first, because their contents are not prose however much CSS looks
-    like words when the tags come off.
-    """
-    if not html:
-        return ""
-    stripped = _ANY_TAG.sub(_seam, _SCRIPTISH.sub(" ", html))
-    return " ".join(unescape(stripped).split())
-
-
-def body_text(artifact: Artifact | None) -> str:
-    """The prose of an artifact's body, whitespace-normalized. Empty for a body-less artifact."""
-    if artifact is None:
-        return ""
-    return plain_text(artifact.body_html)
 
 
 def links_in(artifact: Artifact | None, page: Scan | None = None) -> tuple[Link, ...]:
@@ -228,7 +171,7 @@ class SyllabusPresence(Detector):
             )
             return
 
-        text = body_text(syllabus)
+        text = survey.parse(syllabus).text
         location = survey.location(syllabus)
         if not text:
             yield survey.finding(
@@ -438,7 +381,7 @@ class CourseSchedule(Detector):
             page for page in survey.pages() if matches(_SCHEDULE, page.title, page.slug)
         ]
         syllabus = survey.syllabus()
-        if syllabus is not None and matches(_SCHEDULE, body_text(syllabus)):
+        if syllabus is not None and matches(_SCHEDULE, survey.parse(syllabus).text):
             candidates.append(syllabus)
         survey.counted(len(candidates))
 
@@ -455,7 +398,7 @@ class CourseSchedule(Detector):
             return
 
         for candidate in candidates:
-            text = body_text(candidate)
+            text = survey.parse(candidate).text
             dates = count_dates(text)
             if dates:
                 continue
@@ -505,7 +448,7 @@ class WelcomeAnnouncement(Detector):
             current.append(announcement)
         survey.counted(len(current))
 
-        if any(matches(_WELCOME, item.title, body_text(item)) for item in current):
+        if any(matches(_WELCOME, item.title, survey.parse(item).text) for item in current):
             return
 
         if not current:
@@ -529,7 +472,7 @@ class WelcomeAnnouncement(Detector):
                 f"{len(current)} announcement(s) posted for this offering and none reads as a "
                 f"welcome; the earliest is {earliest.title!r}"
             ),
-            evidence=excerpt(body_text(earliest)),
+            evidence=excerpt(survey.parse(earliest).text),
         )
 
 
@@ -787,7 +730,7 @@ class ActivityInstructions(Detector):
         survey.counted(seen)
 
     def _described(self, survey: Survey, artifact: Artifact, noun: str) -> Iterator[Finding]:
-        text = body_text(artifact)
+        text = survey.parse(artifact).text
         if text:
             return
         yield survey.finding(
@@ -977,7 +920,7 @@ class ExternalToolInventory(Detector):
         for body in survey.bodies():
             if body.artifact.kind.value == "module_item":
                 continue
-            text = plain_text(body.html).casefold()
+            text = survey.parse(body).text.casefold()
             found |= {name for name in wanted if name in text}
         return found
 
@@ -1156,7 +1099,7 @@ class TimedAssessmentDisclosure(Detector):
             if not quiz.time_limit:
                 continue
             timed += 1
-            text = body_text(quiz)
+            text = survey.parse(quiz).text
             if matches(_TIME_LIMIT, quiz.title, text):
                 continue
             yield survey.finding(
@@ -1251,7 +1194,7 @@ class DiscussionInventory(Detector):
             return
 
         for topic in topics:
-            if body_text(topic):
+            if survey.parse(topic).text:
                 continue
             yield survey.finding(
                 code="discussion_without_a_prompt",
@@ -1303,7 +1246,7 @@ class InstructorPresence(Detector):
         ]
         survey.counted(len(artifacts))
         for artifact in artifacts:
-            text = body_text(artifact)
+            text = survey.parse(artifact).text
             if matches(_INSTRUCTOR_TITLE, artifact.title) or matches(_INSTRUCTOR_BODY, text):
                 return
         yield survey.finding(
@@ -1364,7 +1307,7 @@ class AssessmentScaffolding(Detector):
             share = points / total
             if share < _HIGH_STAKES_SHARE:
                 continue
-            text = body_text(assignment)
+            text = survey.parse(assignment).text
             siblings = [
                 title for title in titles if title != assignment.title and matches(_STAGED, title)
             ]
@@ -1421,7 +1364,7 @@ class CourseFeedbackMechanism(Detector):
         for group in (survey.discussions(), survey.pages(), survey.announcements()):
             for artifact in group:
                 examined += 1
-                if matches(_FEEDBACK, artifact.title, body_text(artifact)):
+                if matches(_FEEDBACK, artifact.title, survey.parse(artifact).text):
                     survey.counted(examined)
                     return
         survey.counted(examined)
@@ -1459,9 +1402,7 @@ __all__ = [
     "SyllabusPrintability",
     "TimedAssessmentDisclosure",
     "WelcomeAnnouncement",
-    "body_text",
     "count_dates",
     "external",
     "links_in",
-    "plain_text",
 ]

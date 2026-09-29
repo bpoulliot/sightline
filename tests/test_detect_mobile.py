@@ -629,6 +629,17 @@ def test_d45_the_word_app_inside_another_word_raises_no_question() -> None:
     assert RequiredAppAvailability().run(document).undetermined == ()
 
 
+def test_d45_code_in_an_unclosed_script_raises_no_question() -> None:
+    """Item 31. The regex helper this detector read until then left an unclosed ``<script>`` in the
+    prose, so a comment in its code was quoted to a reviewer as a sentence the page asks a learner
+    to act on. The page renders no such sentence."""
+    document = course(
+        [page("week-1", "<p>Read chapter one.</p><script>// install the tracking app here")],
+        modules=[module("3001", "Module 1", module_item("31001", "Page", module_id="module:3001"))],
+    )
+    assert RequiredAppAvailability().run(document).undetermined == ()
+
+
 def test_d45_is_tier_c_and_says_so_on_the_result() -> None:
     document = course(
         [page("week-1", "<p>x</p>")],

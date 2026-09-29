@@ -65,7 +65,6 @@ from sightline.detect.structure import (
     count_dates,
     external,
     links_in,
-    plain_text,
 )
 
 COURSE_ARTIFACT = f"course:{COURSE_ID}"
@@ -129,8 +128,10 @@ def test_a_course_relative_link_is_not_external() -> None:
     assert external("mailto:nobody@example.edu") is False
 
 
-#: Bodies where the seam rule decides the answer. Both helpers are asserted against the same list,
-#: because the rule is meant to be one rule with two implementations rather than two rules.
+#: Bodies where the seam rule decides the answer. Every detector in this module reads a body's
+#: prose as ``Scan.text`` from the run's shared parse, so this list is asserted against the scanner
+#: — the one helper left. Until item 31 a regex helper, ``plain_text``, read the string beside it
+#: and both were asserted against this list, because the rule is one rule however it is read.
 SEAM_CASES = (
     ("<h2>Course schedule</h2><p>Week 1</p>", "Course schedule Week 1"),
     ("<em>un</em>likely", "unlikely"),
@@ -144,24 +145,31 @@ SEAM_CASES = (
     ("", ""),
 )
 
+#: Malformed shapes of real course HTML that the retired regex helper read as prose (item 31). A
+#: ``>`` inside a quoted attribute value ended the tag there, and an unclosed ``<script>`` left its
+#: code in the text. The scanner is a parser and reads neither as prose.
+MALFORMED_CASES = (
+    ("<p class='a>b'>x</p>", "x"),
+    ('<p><img alt="Step 1 > Step 2"></p><p>x</p>', "x"),
+    ("<p>a</p><script>var x = 1;", "a"),
+    ("<p>a</p><STYLE>p { color: red }", "a"),
+)
+
 
 def test_prose_is_read_the_way_the_page_renders_it() -> None:
-    """The trap this helper exists for, in both directions. A course whose schedule heading sits
+    """The trap the seam rule exists for, in both directions. A course whose schedule heading sits
     directly against its first row read as ``Course scheduleWeek 1`` and reported as having no
     schedule at all; a space at *every* tag instead would read ``<em>un</em>likely`` as two words
     and match ``\\bun\\b``. Every vocabulary match in this module is written with word boundaries,
     so both halves are wrong output with no error."""
     for html, expected in SEAM_CASES:
-        assert plain_text(html) == expected, html
-    assert plain_text(None) == ""
+        assert scan(html).text == expected, html
 
 
-def test_the_seam_rule_is_one_rule_and_the_scanner_agrees_with_it() -> None:
-    """``plain_text`` reads the string and ``scan`` reads the tree, and they are separate code
-    until item 31 decides whether the structure detectors move to the run's shared parse (item 30
-    made that parse free to reuse). They are not allowed to be
-    separate *rules*: a detector's answer must not depend on which helper it happened to call."""
-    for html, expected in SEAM_CASES:
+def test_markup_and_script_never_reach_the_prose() -> None:
+    """Item 31: attribute text and script code are not words a detector may match. Both shapes
+    reached D01-D20 as prose while those detectors read a regex helper, with no error."""
+    for html, expected in MALFORMED_CASES:
         assert scan(html).text == expected, html
 
 
@@ -679,6 +687,15 @@ def test_d09_an_empty_description_is_a_barrier_and_names_the_kind_of_activity() 
     assert finding.context["activity"] == "quiz"
 
 
+def test_d09_an_unclosed_script_is_not_a_description() -> None:
+    """Item 31. The regex helper stripped a script block only once it found the closing tag, so a
+    description holding nothing but an unclosed ``<script>`` read as ``var x = 1;`` and was taken
+    for instructions. The page renders no text there, and that is a missing description."""
+    document = course(quizzes=[quiz("8001", body="<script>var x = 1;")])
+    result = ActivityInstructions().run(document)
+    assert codes(result) == ["activity_without_a_description"]
+
+
 def test_d09_a_graded_assignment_with_nothing_to_submit_is_reported() -> None:
     document = course(assignments=[assignment("9002", submission_types=("none",))])
     result = ActivityInstructions().run(document)
@@ -989,6 +1006,17 @@ def test_d15_an_undisclosed_limit_quotes_the_description_and_says_what_was_read(
     assert finding.context["time_limit_minutes"] == 45
     assert finding.evidence == "Ten questions."
     assert "Only this assessment's own description was read." in finding.observed
+
+
+def test_d15_words_inside_an_attribute_are_not_a_disclosure() -> None:
+    """Item 31. The regex helper ended a tag at the first ``>``, even one inside a quoted value, so
+    the tail of this ``alt`` — ``60 minutes left">`` — reached D15 as prose and matched
+    ``\\bminutes\\b``. The description a learner reads says nothing about a time limit."""
+    body = '<p><img src="clock.png" alt="Clock > 60 minutes left"></p><p>Ten questions.</p>'
+    document = course(quizzes=[quiz("8001", time_limit=60, body=body)])
+    result = TimedAssessmentDisclosure().run(document)
+    assert codes(result) == ["time_limit_not_mentioned_in_the_description"]
+    assert result.findings[0].evidence == "Ten questions."
 
 
 def test_d15_a_quiz_with_no_time_limit_is_not_its_business() -> None:

@@ -45,7 +45,7 @@ on 2026-09-22). Next free item number: **35**.
 | 28 | A binding says *relevant*; rating reads it as *sufficient* | 1 | READY | **DONE** — PR #23 |
 | 29 | `Scan.text` fuses two words at every block seam | 1 | READY | **DONE** — PR #13 |
 | 30 | Every HTML detector re-parses every body | 2 | READY | **DONE** — PR #24 |
-| 31 | `plain_text()` reads a tag with a regex, and two shapes of course HTML defeat it | 1 | READY | queued 99c1 — take with 30 |
+| 31 | `plain_text()` reads a tag with a regex, and two shapes of course HTML defeat it | 1 | READY | **DONE** — PR #25 |
 | 32 | The suite reads the developer's `.env`; the fixture that promises it does not, does not | 1 | READY | **DONE** — PR #16 |
 | 33 | A routed row costs one call per passage, and nothing bounds the total | 2 | **NEEDS MEASUREMENT** | queued 99d |
 | 34 | Acquisition drops every outcome when it records an export note | 1 | READY | queued 99m |
@@ -767,6 +767,22 @@ closed by it.** Item 30 is a performance change and did not move a single detect
 detector can now read `survey.parse(artifact).text` without adding a parse. After item 30, the
 regex is 12% of what is left of the detector stage on the 281-body synthetic course (142 ms of
 1.2 s).
+**DONE 2026-09-28 (PR #25): the regex helper is retired, not narrowed.** Both defects were
+re-measured on `main` at `cded1c0` before anything changed: `<p class='a>b'>x</p>` read `b'>x` and
+`<p>a</p><script>var x = 1;` read `a var x = 1;`, the scanner reading `x` and `a`. With item 30's
+parse shared, every structure detector (D01, D04, D05, D09, D12, D15–D20) and D45's
+`_ask_about_prose` now read `survey.parse(artifact).text`; `plain_text`, `body_text`, `_ANY_TAG`
+and `_SCRIPTISH` are deleted, so the seam rule has one implementation and `SEAM_CASES` is asserted
+against it. **No finding moved:** `run_detectors` over `examples/sample-course` gave 64 findings, 9
+undetermined, 0 crashed, and its `to_dict()` is byte-identical before and after — the sample holds
+neither shape. A test per shape fails on `cded1c0` and passes after, each through a detector
+(D15 matched `minutes` in the tail of an `alt`; D09 took an unclosed script for a description; D45
+quoted a script comment as a sentence). One knock-on: `body_text(None-body)` returned `""` without
+parsing, and `survey.parse` would have run `scan("")` for an artifact with no markup, breaking item
+30's one-parse-per-body test; `Parses` now hands every markup-less artifact one shared empty scan.
+`scripts/measure_parse_cost.py` no longer times `plain_text`; on the 281 × 8.6 KB shape the shared
+run is 281 parses, 1113 ms (was 281 parses + 1206 regex calls, 1171 ms; median of 3 each, same
+host — a difference inside run-to-run noise, so read it as "no parse added", not as a speed-up).
 
 **28 · FILED 2026-09-17 by item 05's session.** **A pack's `bindings` list carries two different
 claims and the rating code can only read one of them.** Authoring the two shipped packs against
