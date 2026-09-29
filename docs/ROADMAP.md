@@ -27,7 +27,7 @@ on 2026-09-22). Next free item number: **36**.
 | 11 | Three-run disagreement router | 1 | READY | **DONE** — PR #17 |
 | 12a | Effort model — ship it | 1 | READY | **DONE** — PR #20 |
 | 12b | Effort model — fit the costs | 1 | **BLOCKED** — item 06/07/08 detectors have all landed; unblocked in code, still needs the calibration corpus | — |
-| 13 | XLSX writer | 2 | READY | **DONE** — PR #PRNUM |
+| 13 | XLSX writer | 2 | READY | **DONE** — PR #28 |
 | 14 | PDF course report | 2 | READY | staged 14 |
 | 15 | Narrative generator and voice contract | 2 | READY | **DONE** — PR #27 |
 | 16 | Review UI | 2 | READY | staged 15 |
@@ -108,7 +108,7 @@ which is what forced items 07 and 08 to comply without their prompts needing to 
 
 ```
 12-sightline-item15-voice-contract.md    # DONE — PR #27. sightline.voice; the lint is proven to fire
-13-sightline-item13-xlsx-writer.md       # DONE — PR #PRNUM. sightline.workbook; CSV-clean, all text
+13-sightline-item13-xlsx-writer.md       # DONE — PR #28. sightline.workbook; CSV-clean, all text
 14-sightline-item14-pdf-report.md
 15-sightline-item16-review-ui.md
 16-sightline-item24-agreement-and-uncertainty.md   # LAST — it annotates the other three
@@ -409,7 +409,7 @@ default `/24` collides.
 
 ## Notes carried forward
 
-**13 · DONE 2026-09-29 (PR #PRNUM). The workbook: `sightline.workbook`, every row of the pack, and
+**13 · DONE 2026-09-29 (PR #28). The workbook: `sightline.workbook`, every row of the pack, and
 every cell text.**
 
 *What shipped.* `build_workbook(projection, pack, base_url=, created=, report=, extractions=)`
