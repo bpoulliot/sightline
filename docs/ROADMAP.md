@@ -176,10 +176,13 @@ shape) and `register.yaml` (the lint's word lists), both enforced at load; one r
 surface calls; the four-slot narrative from computed aggregates. Items 13, 14 and 16 call
 `sightline.voice.render_review` and must not write a sentence of their own. Two things they
 inherit: each row's `notes` and each detector's `observed` string are still English written outside
-this layer (by the projection and the detectors); the renderer states the notes' facts through the
-bank and never prints `notes`, and it inserts `observed` as a *measured value* — a verbatim span the
-lint masks, like a quote — so a surface should give it that treatment rather than style it as
-Sightline's prose. Rotation is keyed on the criterion code and the finding's identity; the
+this layer (by the projection and the detectors). The renderer never prints `notes`: it states
+the facts behind a rating through the bank, with two known omissions — a pack's own per-row `note`
+(four rows of the reference pack, each restating what the row's sentence already says) and the
+"priced at the table's default" note for a detector with no cost entry (none today; possible under
+a `SIGHTLINE_EFFORT_COSTS` override). It inserts `observed` as a *measured value* — a verbatim
+span the lint masks, like a quote — so a surface should give it that treatment rather than style it
+as Sightline's prose. Rotation is keyed on the criterion code and the finding's identity; the
 Tier C question an extractor drafts (`ExtractorResult.question`) is likewise not rendered — the
 bank's `C.question` shapes state the same distribution.
 
