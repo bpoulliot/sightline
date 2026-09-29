@@ -6,7 +6,7 @@ Labels: **READY** · **NEEDS DISCUSSION** · **NEEDS MEASUREMENT** · **BLOCKED*
 Nothing unready enters the queue. One item per conversation, one PR per item.
 
 Queue lives at `~/docker/overnight/projects/sightline/` (moved from `~/docker/overnight-sightline/`
-on 2026-09-22). Next free item number: **35**.
+on 2026-09-22). Next free item number: **36**.
 
 ---
 
@@ -27,7 +27,7 @@ on 2026-09-22). Next free item number: **35**.
 | 11 | Three-run disagreement router | 1 | READY | **DONE** — PR #17 |
 | 12a | Effort model — ship it | 1 | READY | **DONE** — PR #20 |
 | 12b | Effort model — fit the costs | 1 | **BLOCKED** — item 06/07/08 detectors have all landed; unblocked in code, still needs the calibration corpus | — |
-| 13 | XLSX writer | 2 | READY | staged 13 |
+| 13 | XLSX writer | 2 | READY | **DONE** — PR #28 |
 | 14 | PDF course report | 2 | READY | staged 14 |
 | 15 | Narrative generator and voice contract | 2 | READY | **DONE** — PR #27 |
 | 16 | Review UI | 2 | READY | staged 15 |
@@ -49,6 +49,7 @@ on 2026-09-22). Next free item number: **35**.
 | 32 | The suite reads the developer's `.env`; the fixture that promises it does not, does not | 1 | READY | **DONE** — PR #16 |
 | 33 | A routed row costs one call per passage, and nothing bounds the total | 2 | MEASURED | **DONE** — PR #26. Outcome (d): nothing changes |
 | 34 | Acquisition drops every outcome when it records an export note | 1 | READY | queued 99m |
+| 35 | The workbook's action plan holds located items; SPEC §08 promises remediation steps | 2 | **NEEDS DISCUSSION** | — |
 
 ---
 
@@ -107,7 +108,7 @@ which is what forced items 07 and 08 to comply without their prompts needing to 
 
 ```
 12-sightline-item15-voice-contract.md    # DONE — PR #27. sightline.voice; the lint is proven to fire
-13-sightline-item13-xlsx-writer.md       # the exhaustive artifact the PDF defers to
+13-sightline-item13-xlsx-writer.md       # DONE — PR #28. sightline.workbook; CSV-clean, all text
 14-sightline-item14-pdf-report.md
 15-sightline-item16-review-ui.md
 16-sightline-item24-agreement-and-uncertainty.md   # LAST — it annotates the other three
@@ -407,6 +408,72 @@ default `/24` collides.
   settled; a later move toward stock OSCQR 3.1 / 4.0 is a pack change, not a code change.
 
 ## Notes carried forward
+
+**13 · DONE 2026-09-29 (PR #28). The workbook: `sightline.workbook`, every row of the pack, and
+every cell text.**
+
+*What shipped.* `build_workbook(projection, pack, base_url=, created=, report=, extractions=)`
+returns a table model; `to_xlsx(model)` returns bytes; `export_workbook(gate, course_id, data)`
+writes them through the new `ExportGate.save`. Never a path handed to a library: openpyxl's
+`Workbook.save(path)` is not a call `tests/test_paths.py` can see. Two sheets. `Criteria`: one row
+per rendered criterion in the pack's own order — Category, Code, Criterion, Priority,
+Determinacy, Coverage, Proposed rating, Estimated effort, Near a band threshold, Evidence, Action
+plan. `Action Plan`: regenerated, one line per located observation, quote or question with its
+Canvas link, in `Projection.action_plan_order()`; a row with nothing located gets one line (its own
+first sentence), so no criterion is dropped, including the null-priority rows.
+
+*Decisions this session took, each small and each stated so it can be reversed.*
+- **Every cell is text.** Text is what round-trips through CSV exactly, and a numeric column is the
+  one somebody `=AVERAGE()`s. The effort figure reads "0.1 h, an estimate from the uncalibrated
+  placeholder cost table". Cells are pinned to the string type, so course text starting with `=`
+  is never a formula.
+- **Two visible normalisations.** CR → LF (XML parsing turns `\r\n` into `\n` on read, so a CR
+  cannot survive an `.xlsx`), and XML-illegal control characters → U+FFFD. Both happen in the model,
+  where the round-trip test sees them; nothing is lost silently inside the zip.
+- **Headers, sheet names and categorical values are bank `labels`** (29 entries in `phrases.yaml`,
+  contract `bank.LABELS`, linted at load), plus four new `formats` (the effort and near-boundary
+  cells, the overflow pointer). No second phrase bank; the register lint is unchanged.
+- **Evidence vs Action plan.** Evidence = every rendered sentence except the per-finding lines;
+  Action plan = the finding, quote and question lines. A Criteria cell that would pass Excel's
+  32,767-character limit keeps whole lines and says how many more are on the Action Plan sheet,
+  which carries all of them.
+- **Document properties are rewritten after openpyxl saves** (it stamps `modified` with the clock
+  and names itself as the application): no creator, no application, `created` = `modified` = a
+  timestamp the caller passes (tz-aware, stored UTC). Zip entry times are pinned to 1980-01-01.
+  The bar stays cell-by-cell, as the item asked; bytes happen to be stable too but are not tested.
+
+*Checked.* The CSV round-trip runs on the sample course with one Tier A detector's findings
+rewritten into hostile text (line breaks, commas, quotes, non-ASCII, emoji, a leading `=`, CRLF,
+a vertical tab), and a self-test fails if the fixture ever stops carrying them. Both guards were
+fired by mutation: disabling the CR normalisation failed the round-trip, and un-pinning the string
+type failed the formula test.
+
+*Not done here.* No sample workbook in `examples/sample-report/` (the 2026-09-25 decision puts it
+behind a `scripts/` generator through the gate; item 14's re-spec owns it). No caller wires
+`export_workbook` into a screen or CLI yet — item 16's review screen is the human action that
+opens the gate. The action-plan column holds located items rather than remediation advice; that
+gap against SPEC §08 is item 35.
+
+**35 · FILED 2026-09-29 by item 13's session. NEEDS DISCUSSION. SPEC §08 says the workbook's
+action-plan column is "filled with remediation steps"; nothing in the product can write one without
+breaking §01.**
+
+*Evidence.* No field anywhere carries remediation wording: `Finding` has `observed` and `evidence`
+(values, by design no sentence), `Undetermined.remedy` is about unreadable files, and the phrase
+bank has no remediation shapes. The instrument's own `Action Plan` column (`Instructional
+Designer!X`) is a free-text field the reviewer writes. §01 allows a machine-authored line to be a
+count, a verbatim quote with a location, or a statement that nothing was found — "add alt text to
+the image on page X" is none of those.
+
+*What item 13 shipped instead.* The Action plan column and sheet carry the located items — each
+observation, quote or question, with where it is and a link. That is what to act on, in the voice
+layer's words, and nothing more.
+
+*The decision.* Either (a) SPEC §08 is corrected to say the column holds the located items and the
+reviewer writes the plan, or (b) the bank gains a remediation shape per finding code (about 90
+codes), each a fixed instruction reviewed like the rest of the voice, and §01 is amended to allow
+it. (b) is a content-authoring job and a change to the governing rule; not something a build
+session decides.
 
 **33 · MEASURED 2026-09-28 (PR #26). Outcome (d): nothing changes. Every way of making fewer calls
 lost evidence the current behaviour finds, and on this host the calls were not the cost anyway.**

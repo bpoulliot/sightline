@@ -29,7 +29,7 @@ from __future__ import annotations
 import hashlib
 import string
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import cache
 from importlib import resources
 from pathlib import Path
@@ -130,8 +130,50 @@ FORMATS: Mapping[str, frozenset[str]] = {
         "heading_work": (),
         "heading_first": (),
         "heading_limits": (),
+        "effort_placeholder": ("hours",),
+        "effort_calibrated": ("hours",),
+        "near_boundary": ("hours", "distance", "below", "above", "threshold", "margin"),
+        "action_plan_more": ("lines", "code"),
     }.items()
 }
+
+#: Fixed words with no placeholders: a tabular surface's sheet names, column headers and the
+#: values of its categorical columns (roadmap item 13). A header is exactly where "Score" or
+#: "Overall" would slip in because it "isn't prose", so each one is a bank entry, in a register,
+#: linted at load.
+LABELS: frozenset[str] = frozenset(
+    {
+        "sheet_criteria",
+        "sheet_action_plan",
+        "col_category",
+        "col_code",
+        "col_criterion",
+        "col_priority",
+        "col_determinacy",
+        "col_coverage",
+        "col_rating",
+        "col_effort",
+        "col_near_boundary",
+        "col_evidence",
+        "col_action_plan",
+        "col_link",
+        "col_link_kind",
+        "tier_A",
+        "tier_B",
+        "tier_C",
+        "tier_D",
+        "coverage_deterministic",
+        "coverage_not_yet_implemented",
+        "coverage_no_deterministic_coverage",
+        "effort_none",
+        "near_none",
+        "near_not_banded",
+        "action_none",
+        "link_item",
+        "link_search",
+        "link_none",
+    }
+)
 
 #: The nouns the renderer counts with.
 NOUNS: frozenset[str] = frozenset(
@@ -195,6 +237,8 @@ class PhraseBank:
     formats: Mapping[str, tuple[str, str]]
     nouns: Mapping[str, tuple[str, str]]
     kinds: Mapping[str, tuple[str, str]]
+    #: Label name -> ``(register, text)``. See :data:`LABELS`.
+    labels: Mapping[str, tuple[str, str]] = field(default_factory=dict)
 
     def variant(self, shape: str, key: str) -> str:
         variants = self.shapes[shape]
@@ -203,6 +247,10 @@ class PhraseBank:
     def fmt(self, name: str) -> tuple[str, str]:
         """``(register, template)`` for a fixed fragment."""
         return self.formats[name]
+
+    def label(self, name: str) -> tuple[str, str]:
+        """``(register, text)`` for a fixed label."""
+        return self.labels[name]
 
     def noun(self, name: str, count: int) -> str:
         singular, plural = self.nouns[name]
@@ -231,6 +279,7 @@ def parse_bank(
     register: Register | None = None,
     shapes: Mapping[str, frozenset[str]] = SHAPES,
     formats: Mapping[str, frozenset[str]] = FORMATS,
+    labels: frozenset[str] = LABELS,
 ) -> PhraseBank:
     """Build a bank from parsed YAML, or raise :class:`PhraseBankError` listing every problem."""
     rules = register or default_register()
@@ -345,9 +394,44 @@ def parse_bank(
         if pair is not None:
             kinds[name] = pair
 
+    named: dict[str, tuple[str, str]] = {}
+    raw_labels = payload.get("labels")
+    if not isinstance(raw_labels, Mapping):
+        problems.append("section 'labels' is missing or is not a mapping")
+        raw_labels = {}
+    for name in sorted(labels - set(raw_labels)):
+        problems.append(f"labels.{name} is missing: a surface uses it")
+    for name in sorted(set(raw_labels) - labels):
+        problems.append(f"labels.{name} is not a label any surface uses")
+    for name, entry in sorted(raw_labels.items()):
+        where = f"{origin} labels.{name}"
+        if (
+            not isinstance(entry, Mapping)
+            or entry.get("register") not in REGISTERS
+            or not isinstance(entry.get("text"), str)
+            or not entry["text"].strip()
+        ):
+            problems.append(f"{where} must be {{register: A|B|C|D, text: <non-empty>}}")
+            continue
+        try:
+            used = placeholders(entry["text"])
+        except ValueError as exc:
+            problems.append(f"{where}: {exc}")
+            continue
+        if used:
+            problems.append(f"{where}: a label takes no placeholders; use a format")
+            continue
+        problems.extend(
+            violation.line()
+            for violation in rules.lint(
+                entry["text"], entry["register"], where=where, sentence=False
+            )
+        )
+        named[name] = (entry["register"], entry["text"])
+
     if problems:
         raise PhraseBankError(origin, problems)
-    return PhraseBank(shapes=found, formats=fixed, nouns=nouns, kinds=kinds)
+    return PhraseBank(shapes=found, formats=fixed, nouns=nouns, kinds=kinds, labels=named)
 
 
 def lint_bank(
@@ -401,6 +485,7 @@ def default_bank() -> PhraseBank:
 
 __all__ = [
     "FORMATS",
+    "LABELS",
     "MIN_VARIANTS",
     "NOUNS",
     "SHAPES",

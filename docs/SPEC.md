@@ -575,6 +575,14 @@ build, or absent from the run), the others finding nothing leaves it at No Respo
   filled with quotes and counts, action-plan column filled with remediation steps, and a Canvas link
   per finding. Macro-free, UTF-8, single header row per sheet, no merged cells. Must survive a
   round-trip through CSV without loss, which the current instrument does not.
+
+  **As built (item 13).** `sightline.workbook`: a `Criteria` sheet (one row per criterion, in the
+  pack's order) and a regenerated `Action Plan` sheet (one line per located item, with its Canvas
+  link, in §07's order). Every cell is text — nothing to average, and nothing that can become a
+  formula — and the suite proves the CSV round-trip cell for cell on hostile course text. Tier and
+  coverage are columns, never colours. **The action-plan column carries the located items, not
+  remediation steps:** no source for remediation wording exists, and §01 does not allow a machine
+  to compose one. Roadmap item 35 holds that question.
 - **PDF course report** — summary, prioritized action plan, accessibility and interaction sections
   in full, and the closing narrative.
 

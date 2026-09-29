@@ -9,9 +9,9 @@ can miss. So it is a gate with a key rather than a convention: the only way to a
 **Why the guard is structural as well as behavioural.** ``tests/test_export_gate.py`` scans the
 package's syntax tree and fails the build if any module other than :mod:`sightline.paths` and this
 one names ``reports`` as a path — the same shape as the data-root guard item 01 built, and for the
-same reason. The XLSX writer and the PDF report are roadmap items 13 and 14; neither is written
-yet, and the thing that catches them reaching for ``paths.resolve("reports", …)`` directly has to
-exist before they are, not after.
+same reason. The XLSX writer (roadmap item 13) writes through :meth:`ExportGate.save`, and the PDF
+report (item 14) is to do the same; the guard is what catches a writer reaching for
+``paths.resolve("reports", …)`` directly.
 
 **What "a human opened the review" means here.** A timestamp set by an action a person took: the
 review screen (roadmap item 16) when it lands, and ``python -m sightline.batch open-review`` until
@@ -107,6 +107,16 @@ class ExportGate:
         """
         self.require_open(course_id)
         return self.paths.resolve(REPORTS, course_id, filename)
+
+    def save(self, course_id: str, filename: str, data: bytes) -> Path:
+        """Write an exported artifact for this course, atomically, and return where it went.
+
+        The writers render to bytes and hand them here (roadmap item 13): a library call such as
+        ``Workbook.save(path)`` is not a write the structural guard in ``tests/test_paths.py`` can
+        see, so no writer is given a path to pass one.
+        """
+        self.require_open(course_id)
+        return self.paths.save_bytes(REPORTS, course_id, filename, data=data)
 
     # -- internals ----------------------------------------------------------------------------
 
