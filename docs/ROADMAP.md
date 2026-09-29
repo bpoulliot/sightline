@@ -28,7 +28,7 @@ on 2026-09-22). Next free item number: **37**.
 | 12a | Effort model — ship it | 1 | READY | **DONE** — PR #20 |
 | 12b | Effort model — fit the costs | 1 | **BLOCKED** — item 06/07/08 detectors have all landed; unblocked in code, still needs the calibration corpus | — |
 | 13 | XLSX writer | 2 | READY | **DONE** — PR #28 |
-| 14 | PDF course report | 2 | READY | **DONE** — PR #PRNUM |
+| 14 | PDF course report | 2 | READY | **DONE** — PR #31 |
 | 15 | Narrative generator and voice contract | 2 | READY | **DONE** — PR #27 |
 | 16 | Review UI | 2 | **NEEDS DISCUSSION** — Q1 who an override records, Q2 whether exports carry the reviewer's rating | re-specified 2026-09-29, PR #30 — see *Notes carried forward* |
 | 17 | Batch runner | 2 | READY | **DONE** — PR #18 |
@@ -51,6 +51,7 @@ on 2026-09-22). Next free item number: **37**.
 | 34 | Acquisition drops every outcome when it records an export note | 1 | READY | queued 99m |
 | 35 | The workbook's action plan holds located items; SPEC §08 promises remediation steps | 2 | **NEEDS DISCUSSION** | — |
 | 36 | Run-progress and New run screens | 2 | **BLOCKED** — on item 16 (its review screen is what the run screen links to) | filed 2026-09-29, PR #30 |
+| 37 | Host `__pycache__` ships in locally built images, carrying the developer's home path | 1 | READY | filed 2026-09-29 by item 14, PR #31; queued 99n |
 
 ---
 
@@ -110,7 +111,7 @@ which is what forced items 07 and 08 to comply without their prompts needing to 
 ```
 12-sightline-item15-voice-contract.md    # DONE — PR #27. sightline.voice; the lint is proven to fire
 13-sightline-item13-xlsx-writer.md       # DONE — PR #28. sightline.workbook; CSV-clean, all text
-14-sightline-item14-pdf-report.md       # SUPERSEDED 2026-09-29 — re-specified, PR #30; ran as 99i-, DONE — PR #PRNUM
+14-sightline-item14-pdf-report.md       # SUPERSEDED 2026-09-29 — re-specified, PR #30; ran as 99i-, DONE — PR #31
 15-sightline-item16-review-ui.md        # SUPERSEDED 2026-09-29 — re-specified, PR #30; NEEDS DISCUSSION
 16-sightline-item24-agreement-and-uncertainty.md   # PART 1 DONE — PR #29; the rest re-runs after 14 + 16
 ```
@@ -419,7 +420,7 @@ default `/24` collides.
 
 ## Notes carried forward
 
-**14 · DONE 2026-09-29 (PR #PRNUM). The PDF course report, written through the export gate, and
+**14 · DONE 2026-09-29 (PR #31). The PDF course report, written through the export gate, and
 the review file read back.** Built to the re-specified entry below, which stays as the contract.
 
 *What shipped.* `sightline.report`: `loader` (`read_review` / `parse_review` / `load_review` →
@@ -787,6 +788,24 @@ The near-boundary marker and `agreement.brief()` belong to item 24's re-run, not
 - Screenshot QA is done at 1400 px and 390 px on every screen built, with the CDP target closed
   afterwards.
 - The full suite is green, ruff and black exit codes are read separately, and all CI jobs are green.
+
+**37 · FILED 2026-09-29 by item 14's session (PR #31). READY. `.dockerignore` keeps host
+bytecode out of the build context only at the top level, so a locally built image carries the
+developer's `__pycache__` — and the home directory each `.pyc` was compiled under.**
+
+*Evidence.* `.dockerignore` lists `__pycache__/` and `*.py[cod]`. Docker matches those against the
+context root, so `src/sightline/**/__pycache__/` and `tests/__pycache__/` are copied by `COPY src`
+and `COPY tests`. Measured on images built from a working tree that had run the suite: 106 of the
+106 files in the dev image's `/app/tests/__pycache__/` contain the string `/home/<user>/dev/sightline`,
+and 93 files under the runtime image's `/app/src` do; a pytest failure inside the dev image prints
+the host path as the test's file name. A CI checkout has no bytecode, so CI's images are clean and
+nothing has been published; it is a local-build leak of a username and a path, not of a secret.
+
+*Fix.* `**/__pycache__` and `**/*.py[cod]` in `.dockerignore` (Docker's `**` matches any depth),
+and a test that reads `.dockerignore` and asserts both patterns are there. Check it by building the
+dev image from a tree with bytecode in it and counting the files under `/app` that contain the host
+path (0 expected). Count by content, not by `.pyc` name: whether the image's own `uv sync` compiles
+anything under `/app/src` was not checked.
 
 **36 · FILED 2026-09-29 (PR #30) under operator decision D2 (2026-09-25; quoted in item 16's entry).
 BLOCKED on item 16. The run-progress screen and the New run screen.** SPEC §09 lists both, and
