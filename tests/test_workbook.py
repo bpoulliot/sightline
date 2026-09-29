@@ -176,7 +176,7 @@ def test_the_hostile_fixture_really_is_hostile(hostile) -> None:
         assert needle in text, needle
     # And the carriage return and the vertical tab were normalised where the test can see it.
     assert "\r" not in text and "\x0b" not in text
-    assert "Line one,\nline two with \"quotes\", commas\nand ünïcödé� end  " in text
+    assert 'Line one,\nline two with "quotes", commas\nand ünïcödé� end  ' in text
 
 
 def test_the_workbook_round_trips_through_csv_cell_for_cell(hostile, tmp_path: Path) -> None:
@@ -227,7 +227,7 @@ def test_clean_text_moves_verbatim_spans_with_the_text() -> None:
     piece = Piece("a\r\n", ()) + verbatim("b\x0bc") + Piece("\rd")
     cleaned = clean_text(piece)
     assert cleaned.text == f"a\nb{REPLACEMENT}c\nd"
-    (start, end), = cleaned.spans
+    ((start, end),) = cleaned.spans
     assert cleaned.text[start:end] == f"b{REPLACEMENT}c"
 
 
@@ -315,7 +315,8 @@ def test_the_three_coverage_states_render_distinguishably_and_none_is_blank(
     # Read back through CSV: what a person sees after the round-trip, not what the model holds.
     (_, criteria), _ = _via_csv(_read(to_xlsx(model)), tmp_path)
     header, *rows = criteria
-    by_code = {row[header.index(_label("col_code"))]: dict(zip(header, row, strict=True)) for row in rows}
+    code = header.index(_label("col_code"))
+    by_code = {row[code]: dict(zip(header, row, strict=True)) for row in rows}
     shown = {
         state: (
             by_code[code][_label("col_coverage")],
@@ -367,7 +368,7 @@ def test_tier_a_and_tier_c_are_separated_by_a_column_that_survives_csv(
                 assert not cell.font.bold
 
 
-# -- the action plan ---------------------------------------------------------------------------------
+# -- the action plan -------------------------------------------------------------------------------
 
 
 def _plan_codes(model: WorkbookModel) -> list[str]:
@@ -462,10 +463,11 @@ def test_a_row_too_long_for_one_cell_says_where_the_rest_is(reference, document)
     assert "further lines for" in cell and "Action Plan sheet" in cell
     lines = [p for p in plan if p[_label("col_code")] == row.code]
     assert len(lines) >= 400
-    assert all(f"#{i:04d}" in "\n".join(p[_label("col_action_plan")] for p in lines) for i in (0, 399))
+    listed = "\n".join(p[_label("col_action_plan")] for p in lines)
+    assert "#0000" in listed and "#0399" in listed
 
 
-# -- the near-boundary marker ------------------------------------------------------------------------
+# -- the near-boundary marker ----------------------------------------------------------------------
 
 
 def test_the_near_boundary_marker_has_its_own_column(reference, model: WorkbookModel) -> None:
@@ -503,7 +505,7 @@ def test_every_effort_figure_is_labelled_an_estimate(reference, model: WorkbookM
     assert all(row.rating is Rating.NO_RESPONSE for row in projection.rows if row.tier is Tier.C)
 
 
-# -- no aggregate, and every word through the lint ---------------------------------------------------
+# -- no aggregate, and every word through the lint -------------------------------------------------
 
 
 FORBIDDEN_HEADERS = re.compile(
@@ -575,7 +577,7 @@ def test_the_bank_refuses_a_missing_label() -> None:
     assert default_register() is not None
 
 
-# -- document properties and determinism -------------------------------------------------------------
+# -- document properties and determinism -----------------------------------------------------------
 
 
 def test_document_properties_are_ours_and_name_nobody(model: WorkbookModel) -> None:
@@ -626,7 +628,7 @@ def test_a_different_pack_is_refused(reference, document) -> None:
         )
 
 
-# -- export goes through the gate ---------------------------------------------------------------------
+# -- export goes through the gate ------------------------------------------------------------------
 
 
 @pytest.fixture

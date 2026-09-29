@@ -137,9 +137,10 @@ FORMATS: Mapping[str, frozenset[str]] = {
     }.items()
 }
 
-#: Fixed words with no placeholders: a tabular surface's sheet names, column headers and the values
-#: of its categorical columns (roadmap item 13). A header is exactly where "Score" or "Overall" would
-#: slip in because it "isn't prose", so each one is a bank entry, in a register, linted at load.
+#: Fixed words with no placeholders: a tabular surface's sheet names, column headers and the
+#: values of its categorical columns (roadmap item 13). A header is exactly where "Score" or
+#: "Overall" would slip in because it "isn't prose", so each one is a bank entry, in a register,
+#: linted at load.
 LABELS: frozenset[str] = frozenset(
     {
         "sheet_criteria",
