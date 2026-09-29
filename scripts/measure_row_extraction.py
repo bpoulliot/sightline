@@ -379,7 +379,12 @@ def score(truth: dict[str, Any], candidate: dict[str, Any]) -> dict[str, Any]:
         for code, row in rows.items()
         if row["truth"] and not candidate["rows"].get(code, {"evidence": []})["evidence"]
     )
-    return {"rows": rows, "totals": totals, "rows_losing": rows_losing, "rows_emptied": rows_emptied}
+    return {
+        "rows": rows,
+        "totals": totals,
+        "rows_losing": rows_losing,
+        "rows_emptied": rows_emptied,
+    }
 
 
 def self_test_compare() -> None:
@@ -413,7 +418,9 @@ def self_test_compare() -> None:
     ]
     failed = [f"{label}: got {got}, expected {want}" for got, want, label in checks if got != want]
     if failed:
-        raise SystemExit("comparator self-test FAILED, refusing to report:\n  " + "\n  ".join(failed))
+        raise SystemExit(
+            "comparator self-test FAILED, refusing to report:\n  " + "\n  ".join(failed)
+        )
 
 
 def command_compare(args: argparse.Namespace) -> None:
@@ -458,15 +465,13 @@ def command_compare(args: argparse.Namespace) -> None:
 
 _WORD = re.compile(r"[a-z][a-z'-]+")
 #: Function words and the rubric's own boilerplate, which every row and every passage shares.
-_STOP = set(
-    """
+_STOP = set("""
     a about above after all also an and any are as at be been being both but by can course
     courses each for from has have how i if in include includes into is it its learner learners
     may more most not of on or other our provide provided should so some such than that the their
     them there these they this those through to use used via was we were what when where which
     who will with within would you your e.g i.e etc
-    """.split()
-)
+    """.split())
 
 
 def stem(word: str) -> str:
@@ -532,7 +537,9 @@ def self_test_narrow(truth: dict[str, Any]) -> None:
     if score(truth, narrowed(truth, none))["totals"]["missed"] != total:
         problems.append("keeping no passage did not lose every quote")
     if problems:
-        raise SystemExit("narrowing self-test FAILED, refusing to report:\n  " + "\n  ".join(problems))
+        raise SystemExit(
+            "narrowing self-test FAILED, refusing to report:\n  " + "\n  ".join(problems)
+        )
 
 
 async def command_embed(args: argparse.Namespace) -> None:
@@ -556,12 +563,29 @@ async def command_embed(args: argparse.Namespace) -> None:
         "digest": digest_of(endpoint, args.model),
         "wall_s": round(wall, 2),
         "rows": {r.criterion: vectors[i] for i, r in enumerate(requests)},
-        "passages": {
-            passage_key(p): vectors[len(requests) + i] for i, p in enumerate(passages)
-        },
+        "passages": {passage_key(p): vectors[len(requests) + i] for i, p in enumerate(passages)},
     }
     Path(args.out).write_text(json.dumps(payload))
     print(f"{len(texts)} embeddings of dimension {len(vectors[0])} in {wall:.2f} s -> {args.out}")
+
+
+def call_seconds(run: dict[str, Any]) -> dict[tuple[str, str], float]:
+    """Each baseline call's latency, keyed (row, passage). Calls run row by row, passage by passage
+    in corpus order, and passage labels repeat (two pages titled "Overview"), so the key is taken
+    from the order and checked against the label rather than read from it."""
+    _, _, passages = setup(run["pack"], None)
+    labels = {passage_key(p): p.label for p in passages}
+    seconds = {}
+    calls = iter(run["calls"])
+    for code in run["rows_asked"]:
+        for key in run["passages"]:
+            call = next(calls)
+            if call["rows"] != [code] or call["passage"] != labels[key]:
+                raise SystemExit(
+                    "Baseline calls are not in row-then-passage order; cannot key them."
+                )
+            seconds[(code, key)] = call["latency_ms"] / 1000
+    return seconds
 
 
 def command_narrow(args: argparse.Namespace) -> None:
@@ -584,14 +608,25 @@ def command_narrow(args: argparse.Namespace) -> None:
     print(f"baseline {full} call(s) over {len(passages)} passage(s) x {len(base['rows'])} row(s)")
     for index, run in enumerate(runs, start=1):
         total = sum(len(row["evidence"]) for row in run["rows"].values())
-        print(f"\nagainst baseline run {index} ({total} quotes, {Path(args.runs[index - 1]).name}):")
-        print(f"{'arm':<32} {'calls':>5} {'share':>6} {'missed':>6} {'rows lost':>9} {'emptied':>7}")
-        for label, kept in arms:
+        print(
+            f"\nagainst baseline run {index} ({total} quotes, {Path(args.runs[index - 1]).name}):"
+        )
+        seconds = call_seconds(run)
+        wall = sum(seconds.values())
+        print(
+            f"{'arm':<32} {'calls':>5} {'share':>6} {'wall s':>6} {'share':>6} {'missed':>6} "
+            f"{'rows lost':>9} {'emptied':>7}"
+        )
+        for label, kept in [("baseline (every passage)", None), *arms]:
+            if kept is None:
+                kept = {code: set(run["passages"]) for code in run["rows"]}
             calls = sum(len(passages_) for passages_ in kept.values())
+            spent = sum(seconds[(code, key)] for code, keys in kept.items() for key in keys)
             result = score(run, narrowed(run, kept))
             print(
-                f"{label:<32} {calls:>5} {calls / full:>6.0%} {result['totals']['missed']:>6} "
-                f"{result['rows_losing']:>9} {result['rows_emptied']:>7}"
+                f"{label:<32} {calls:>5} {calls / full:>6.0%} {spent:>6.0f} {spent / wall:>6.0%} "
+                f"{result['totals']['missed']:>6} {result['rows_losing']:>9} "
+                f"{result['rows_emptied']:>7}"
             )
 
 
