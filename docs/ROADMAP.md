@@ -41,7 +41,7 @@ on 2026-09-22). Next free item number: **35**.
 | 24 | Agreement and near-boundary transparency | 2 | READY | staged 16 |
 | 25 | Returned-review ingestion | 3 | **BLOCKED** — needs reviews delivered and returned | — |
 | 26 | Wire document bytes from the export to the detectors | 1 | READY | **DONE** — PR #21 |
-| 27 | One detector's crash must not take the whole review with it | 1 | READY | queued 99a |
+| 27 | One detector's crash must not take the whole review with it | 1 | READY | **DONE** — PR #22 |
 | 28 | A binding says *relevant*; rating reads it as *sufficient* | 1 | READY | queued 99b — **now live**, 27 rows |
 | 29 | `Scan.text` fuses two words at every block seam | 1 | READY | **DONE** — PR #13 |
 | 30 | Every HTML detector re-parses every body | 2 | READY | queued 99c — **measure first** |
@@ -841,6 +841,21 @@ treats as not-a-pass and which the CLI already exits 1 over — so the fix keeps
 while the rest of the review survives. Filed sorting **after** every pending item: it is a crash
 rather than silent wrongness, and nothing queued is blocked on it, though item 17's batch runner
 would lose a whole course to one odd page.
+
+**27 · DONE 2026-09-28 (PR #22). One detector's crash no longer takes the whole review with it.**
+
+- **Measured before and after.** A probe detector that raises `ValueError` ran beside all 37 shipped
+  detectors over a one-page synthetic course. On main, `run_detectors` raised and produced 0 of 38
+  results. After the fix it produces 38 of 38, and the other 37 results are identical to a run
+  without the probe.
+- **The runner contains it; `Detector.run` still raises.** A crash becomes `NOT_EXAMINED`, never
+  clean, with `DetectorResult.crashed` naming the exception type. `BaseException` (Ctrl-C) is not
+  contained. Detector tests and the integrity guard call `run` directly and still see the traceback.
+- **The report carries the type and the code location, never the message.** The message can quote
+  course content, so it goes to the log together with the traceback, both scrubbed at the call
+  site. The detect CLI now logs to stderr, so `--json` stays parseable, and it still exits 1.
+- **The summary names a crash apart from an empty collection**: `N crashed and could not run (…)`
+  comes before `M could not run (…)`.
 
 **26 · DONE 2026-09-28 (PR #21). Document bytes reach the detectors from the export an acquired
 course names.**
