@@ -296,7 +296,7 @@ SPAN_STATES = (SPAN_VERIFIED, SPAN_ABSENT, SPAN_DISCARDED)
 class Proposal:
     """One proposed binding: a tag, for one row, and everything the review owes the person.
 
-    WHAT is ``criterion`` beside ``tag`` and ``summary``/``reports``; WHY is ``span`` (or its
+    WHAT is ``criterion`` beside ``tag`` and ``summary``/``looks_for``; WHY is ``span`` (or its
     stated absence); HOW is ``changes``. There is no other field, and there is deliberately none
     that could carry a strength.
     """
@@ -309,7 +309,7 @@ class Proposal:
     #: The capability's own one-line summary, from the vocabulary.
     summary: str
     #: What each detector behind the tag says it reports. Empty when no detector implements it yet.
-    reports: tuple[str, ...]
+    looks_for: tuple[str, ...]
     #: The criterion's own words at the verified match; ``None`` unless ``span_state`` is verified.
     span: str | None
     span_state: str
@@ -340,7 +340,7 @@ class Proposal:
             "criterion": self.criterion,
             "tag": self.tag,
             "summary": self.summary,
-            "reports": list(self.reports),
+            "looks_for": list(self.looks_for),
             "span": self.span,
             "span_state": self.span_state,
             "bound": list(self.bound),
@@ -501,7 +501,7 @@ def loads(text: str, *, origin: str = "<proposals>") -> ProposalSet:
                 criterion=str(item["criterion"]),
                 tag=str(item["tag"]),
                 summary=str(item["summary"]),
-                reports=tuple(item["reports"]),
+                looks_for=tuple(item["looks_for"]),
                 span=item["span"],
                 span_state=str(item["span_state"]),
                 bound=tuple(item["bound"]),
@@ -719,7 +719,7 @@ async def propose(
                 criterion=criterion.text,
                 tag=tag,
                 summary=capability.summary if capability else "",
-                reports=tuple(described.get(tag, ())),
+                looks_for=tuple(described.get(tag, ())),
                 span=span,
                 span_state=state,
                 bound=criterion.bindings,
@@ -816,9 +816,9 @@ def review(proposals: ProposalSet) -> str:
             else:
                 lines.append(f"    [{proposal.id}] proposes {proposal.tag}")
             lines.append(f"        what:    {proposal.summary}")
-            for report in proposal.reports:
-                lines.append(f"                 reports: {report}")
-            if not proposal.reports:
+            for note in proposal.looks_for:
+                lines.append(f"                 reports: {note}")
+            if not proposal.looks_for:
                 lines.append("                 no detector implements this tag yet")
             lines.append(f"        why:     {proposal.why()}")
             lines.append(f"        changes: {proposal.changes}")
