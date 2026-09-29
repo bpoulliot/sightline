@@ -305,6 +305,7 @@ class ReviewPipeline:
             detail={
                 "findings": len(report.findings),
                 "not_examined": [result.detector for result in report.not_examined],
+                "crashed": [result.detector for result in report.crashed],
                 "undetermined": len(report.undetermined),
             },
         )

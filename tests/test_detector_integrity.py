@@ -171,12 +171,14 @@ def test_the_observation_has_no_holes_in_it() -> None:
 def test_a_registry_sweep_is_credited_to_no_detector() -> None:
     """The rule a drill forced in. A test that runs everything in the registry tests the registry.
 
-    Exactly one such test exists today. Counting it would mean every detector added after it
-    arrives already covered by a test nobody wrote for it, which is how this guard would come to
-    pass on the thing it is for.
+    Exactly two such tests exist today — the empty-document sweep, and item 27's check that every
+    shipped detector survives one crashing beside it. Counting either would mean every detector
+    added after it arrives already covered by a test nobody wrote for it, which is how this guard
+    would come to pass on the thing it is for.
     """
     assert ledger().sweeps == (
         "test_detect_base.py::test_every_shipped_detector_raises_on_an_empty_document_set",
+        "test_detect_base.py::test_every_shipped_detector_survives_one_that_crashes_beside_it",
     )
     for tests in ledger().tests_by_detector.values():
         assert not set(tests) & set(ledger().sweeps)

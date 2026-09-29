@@ -6,16 +6,39 @@ a test or by the integrity guard. This module is the one place that catches it, 
 it into is a *reported* non-result — a detector named, in the ``NOT_EXAMINED`` state, carrying the
 reason. It never turns into a detector quietly missing from the list, and it never turns into a
 pass, because :attr:`DetectorResult.clean` is false for that state by construction.
+
+**A detector that crashes is reported the same way, and by the same layer.** Anything else a
+detector raises — a ``ValueError`` out of a parser handed markup nobody anticipated — used to
+propagate out of :func:`run_detectors` and end the review, so every detector went missing from the
+list at once. The runner now reports it as a detector that could not run: ``NOT_EXAMINED``, never
+clean, with :attr:`DetectorResult.crashed` naming the exception type so the summary tells it apart
+from a detector whose course simply held nothing (item 21's word for this outcome, reused). The
+other detectors still run and still report, and the CLI still exits non-zero.
+
+Only this layer contains it. :meth:`Detector.run` called directly — as every detector test and the
+integrity guard call it — still raises, because a test that got a quiet ``NOT_EXAMINED`` back
+instead of a traceback is a test that stopped testing.
+
+**What reaches the report is not what reaches the log.** An exception's message is free text and
+is often built from what was being parsed, which is course content and can carry the institution's
+hostname (SPEC §11). The reason written into the report — and from there onto rubric rows and into
+files on disk — therefore carries the exception *type* and the *code location* that raised it,
+never the message. The message and the traceback go to the log, scrubbed here rather than relying
+on the logging configuration, because the detect CLI runs without one.
 """
 
 from __future__ import annotations
 
+import traceback
 from collections.abc import Sequence
 from dataclasses import dataclass
+from pathlib import PurePath
+from types import TracebackType
 from typing import Any
 
 from ..logging import get_logger
 from ..model import CourseDocument
+from ..redaction import scrub
 from .base import (
     Detector,
     DetectorResult,
@@ -48,8 +71,15 @@ class DetectionReport:
 
     @property
     def not_examined(self) -> tuple[DetectorResult, ...]:
-        """Detectors that could not run. Never empty because something was hidden."""
+        """Detectors that could not run, crashed ones included. Never empty because something was
+        hidden."""
         return tuple(result for result in self.results if result.state is ResultState.NOT_EXAMINED)
+
+    @property
+    def crashed(self) -> tuple[DetectorResult, ...]:
+        """The detectors that could not run because they raised. A subset of
+        :attr:`not_examined`."""
+        return tuple(result for result in self.not_examined if result.crashed is not None)
 
     def by_detector(self, detector_id: str) -> DetectorResult | None:
         for result in self.results:
@@ -66,9 +96,15 @@ class DetectionReport:
         ]
         if self.undetermined:
             parts.append(f"{len(self.undetermined)} item(s) could not be read")
-        if self.not_examined:
-            names = ", ".join(result.detector for result in self.not_examined)
-            parts.append(f"{len(self.not_examined)} could not run ({names})")
+        # A crash is named on its own, ahead of the rest: filed among detectors whose course held
+        # nothing to read, a broken detector reads as one more ordinary gap.
+        if self.crashed:
+            names = ", ".join(result.detector for result in self.crashed)
+            parts.append(f"{len(self.crashed)} crashed and could not run ({names})")
+        quiet = [result for result in self.not_examined if result.crashed is None]
+        if quiet:
+            names = ", ".join(result.detector for result in quiet)
+            parts.append(f"{len(quiet)} could not run ({names})")
         return "; ".join(parts) + "."
 
     def to_dict(self) -> dict[str, Any]:
@@ -119,7 +155,71 @@ def run_detectors(
                     ),
                 )
             )
+        except Exception as exc:  # noqa: BLE001 - reported below as a detector that could not run
+            results.append(_crashed(detector, exc))
     return DetectionReport(results=tuple(sorted(results, key=lambda item: item.detector)))
+
+
+def _crashed(detector: Detector, exc: Exception) -> DetectorResult:
+    """A detector that raised, as a named non-result. The message stays in the log."""
+    kind = type(exc).__name__
+    where = _raised_at(exc.__traceback__)
+    log.error(
+        "detector_crashed",
+        detector=detector.id,
+        error_type=kind,
+        raised_at=where,
+        error=scrub(str(exc)),
+        traceback=scrub("".join(traceback.format_exception(exc))),
+    )
+    return DetectorResult(
+        detector=detector.id,
+        title=detector.title,
+        tier=detector.tier,
+        capability_tag=detector.capability_tag,
+        state=ResultState.NOT_EXAMINED,
+        examined=0,
+        subjects=0,
+        crashed=kind,
+        not_examined_because=(
+            f"This detector crashed: it raised {kind} at {where}. It reads "
+            f"{', '.join(detector.collections)}. Its criteria were not checked, and no part of "
+            "this review covers them. The exception's message is in the run log and not here, "
+            "because it can quote course content."
+        ),
+    )
+
+
+def _raised_at(tb: TracebackType | None) -> str:
+    """Where the exception was raised, as code locations only — never a source line or a value.
+
+    The innermost frame, and the innermost frame in Sightline's own code when that is a different
+    one: a crash inside a parsing library is debugged from the detector line that called it.
+    Paths are cut to their package-relative tail, so the host's directory layout stays out of the
+    report.
+    """
+    frames = traceback.extract_tb(tb)
+    if not frames:
+        return "an unknown location"
+    innermost = frames[-1]
+    ours = next(
+        (frame for frame in reversed(frames) if _frame(frame).startswith("sightline/")),
+        None,
+    )
+    where = _frame(innermost)
+    if ours is not None and ours is not innermost:
+        where += f", called from {_frame(ours)}"
+    return where
+
+
+def _frame(frame: traceback.FrameSummary) -> str:
+    parts = PurePath(frame.filename).parts
+    for anchor in ("site-packages", "tests", "sightline"):
+        if anchor in parts:
+            start = len(parts) - 1 - parts[::-1].index(anchor)
+            tail = parts[start + 1 :] if anchor == "site-packages" else parts[start:]
+            return f"{'/'.join(tail)}:{frame.lineno} ({frame.name})"
+    return f"{'/'.join(parts[-2:]) or '?'}:{frame.lineno} ({frame.name})"
 
 
 def tier_counts(report: DetectionReport) -> dict[str, int]:

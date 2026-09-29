@@ -630,7 +630,9 @@ The dangerous failure is a detector that finds nothing because it broke, reporte
 nothing wrong. Every detector reports **what it examined** alongside what it found, and a detector
 that examined zero artifacts is an error, not a pass. Enforced in the framework (item 06) and proven
 by a guard that is deliberately fired (item 21). Same class of bug as a test suite that collects
-nothing and exits green.
+nothing and exits green. A detector that *crashes* is reported the same way — by name, as a detector
+that could not run, never clean — and the rest of the review still runs; the exception's message
+goes to the log and not into the report, because it can quote course content (item 27).
 
 ### Quote fabrication
 

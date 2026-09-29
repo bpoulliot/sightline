@@ -252,6 +252,12 @@ class DetectorResult:
     unreadable: tuple[Examination, ...] = ()
     #: Why nothing was examined, when nothing was. ``None`` whenever the state is ``EXAMINED``.
     not_examined_because: str | None = None
+    #: The exception type, when the detector raised something other than
+    #: :class:`NothingExamined` and the runner reported it rather than let it end the review. Set
+    #: only by :func:`~sightline.detect.runner.run_detectors`, always with ``NOT_EXAMINED``: a
+    #: crashed detector is a detector that could not run, told apart so a summary never files it
+    #: with one whose course merely held nothing to read.
+    crashed: str | None = None
 
     @property
     def clean(self) -> bool:
@@ -297,6 +303,8 @@ class DetectorResult:
         }
         if self.not_examined_because is not None:
             payload["not_examined_because"] = self.not_examined_because
+        if self.crashed is not None:
+            payload["crashed"] = self.crashed
         return payload
 
 

@@ -12,6 +12,8 @@ behaviour.
 
 from __future__ import annotations
 
+import io
+import json
 import re
 from collections.abc import Iterable
 from pathlib import Path
@@ -39,6 +41,7 @@ from sightline.detect.base import (
     registry_snapshot,
 )
 from sightline.detect.sources import ExportFileSource, MappingFileSource, NoFileSource
+from sightline.logging import configure_logging
 from sightline.model import ArtifactKind, CourseDocument, CourseInfo
 from sightline.paths import DataPaths
 
@@ -77,6 +80,38 @@ with registry_snapshot():
         capability_description = "A test detector; any tag in the vocabulary serves here."
 
         def examine(self, survey: Survey) -> Iterable[Finding]:
+            return ()
+
+    class Crashing(Detector):
+        """A detector that opens a page and raises on it — the parser handed markup nobody
+        anticipated. Its message quotes the course and a hostname, as a real one would."""
+
+        id = "T05"
+        title = "A test detector that raises"
+        collections = ("pages",)
+        capability_tag = "page_titles"
+        capability_description = "A test detector; any tag in the vocabulary serves here."
+
+        def examine(self, survey: Survey) -> Iterable[Finding]:
+            for body in survey.bodies():
+                raise ValueError(
+                    f"unexpected markup in {body.artifact.title!r} near "
+                    f"{BASE_URL}/courses/4410/pages/start"
+                )
+            return ()
+
+    class CrashingInALibrary(Detector):
+        """A detector whose crash happens inside code it called, not in its own lines."""
+
+        id = "T06"
+        title = "A test detector that a library raises under"
+        collections = ("pages",)
+        capability_tag = "page_titles"
+        capability_description = "A test detector; any tag in the vocabulary serves here."
+
+        def examine(self, survey: Survey) -> Iterable[Finding]:
+            for body in survey.bodies():
+                json.loads(body.html)
             return ()
 
 
@@ -142,6 +177,137 @@ def test_the_runner_reports_a_detector_that_could_not_run_rather_than_dropping_i
     assert len(report.not_examined) == 2
     assert all(result.clean is False for result in report.results)
     assert "could not run (T01, T02)" in report.statement()
+
+
+# -- a detector that crashes ---------------------------------------------------------------------
+
+
+def test_a_detector_run_directly_still_raises_whatever_it_raised() -> None:
+    """The runner is the layer that turns a crash into a reported non-result, and only the runner.
+    A detector test that got a quiet ``NOT_EXAMINED`` back instead of a traceback would be a test
+    that stopped testing."""
+    document = course([page("start", "<p>Start</p>")])
+    with pytest.raises(ValueError, match="unexpected markup"):
+        Crashing().run(document)
+
+
+def test_a_crashing_detector_is_reported_by_name_and_the_others_still_report() -> None:
+    document = course([page("start", "<p>Start</p>"), page("two", "<p>Two</p>")])
+    alone = run_detectors(document, only=[Counting()])
+    report = run_detectors(document, only=[Counting(), Crashing()])
+
+    assert [result.detector for result in report.results] == ["T01", "T05"]
+    # The survivor's result is exactly what it would have been with no crash beside it.
+    assert report.by_detector("T01") == alone.by_detector("T01")
+    assert report.by_detector("T01").examined == 2  # type: ignore[union-attr]
+
+    crashed = report.by_detector("T05")
+    assert crashed is not None
+    assert crashed.state is ResultState.NOT_EXAMINED
+    assert crashed.clean is False
+    assert crashed.examined == 0
+    assert crashed.crashed == "ValueError"
+    assert crashed in report.not_examined
+    assert report.crashed == (crashed,)
+    assert crashed.not_examined_because is not None
+    assert crashed.not_examined_because.startswith("This detector crashed: it raised ValueError")
+    assert "test_detect_base.py:" in crashed.not_examined_because
+    assert "(examine)" in crashed.not_examined_because
+
+
+def test_every_shipped_detector_survives_one_that_crashes_beside_it() -> None:
+    """Item 27's measurement, kept. Before the fix, one raising detector took every shipped one
+    down with it and there was no report at all."""
+    document = course([page("start-here", "<h2>Start</h2><p>Welcome. <img src='a.png'></p>")])
+    shipped = list(detectors())
+    alone = run_detectors(document, only=shipped)
+    report = run_detectors(document, only=[*shipped, Crashing()])
+
+    assert len(report.results) == len(shipped) + 1
+    assert [result for result in report.results if result.detector != "T05"] == list(alone.results)
+    assert [result.detector for result in report.crashed] == ["T05"]
+
+
+def test_nothing_a_reviewer_reads_carries_the_exception_message() -> None:
+    """The message can quote the course and name the institution's host (SPEC §11). The reason
+    goes onto rubric rows and into files on disk, so it carries the type and the code location
+    and never the text."""
+    document = course([page("notes", "<p>Notes</p>", title="Week 1 Private Notes")])
+    report = run_detectors(document, only=[Crashing()])
+    reviewer_surfaces = report.statement() + json.dumps(report.to_dict())
+    # The probe must have fired, or the absences below prove nothing.
+    assert report.crashed and report.crashed[0].detector == "T05"
+    assert "unexpected markup" not in reviewer_surfaces
+    assert "canvas.example.edu" not in reviewer_surfaces
+    assert "Week 1 Private Notes" not in reviewer_surfaces
+    # And no host directory layout either: paths are package-relative.
+    assert "/home/" not in reviewer_surfaces
+    assert "/app/" not in reviewer_surfaces
+
+
+def test_the_log_carries_the_message_and_traceback_scrubbed() -> None:
+    stream = io.StringIO()
+    configure_logging(level="DEBUG", fmt="json", stream=stream)
+    try:
+        run_detectors(course([page("start", "<p>Start</p>")]), only=[Crashing()])
+    finally:
+        configure_logging(level="INFO", fmt="json")
+    events = [json.loads(line) for line in stream.getvalue().splitlines() if line.strip()]
+    crashes = [event for event in events if event["event"] == "detector_crashed"]
+    assert len(crashes) == 1
+    event = crashes[0]
+    assert event["level"] == "error"
+    assert event["detector"] == "T05"
+    assert event["error_type"] == "ValueError"
+    assert "unexpected markup in 'Start'" in event["error"]
+    assert "Traceback" in event["traceback"]
+    assert "canvas.example.edu" not in json.dumps(event)
+
+
+def test_a_crash_inside_a_library_names_the_detector_line_that_called_it() -> None:
+    document = course([page("start", "<p>not json</p>")])
+    result = run_detectors(document, only=[CrashingInALibrary()]).by_detector("T06")
+    assert result is not None and result.not_examined_because is not None
+    assert result.crashed == "JSONDecodeError"
+    assert re.search(r"json/decoder\.py:\d+ \(\w+\)", result.not_examined_because)
+    assert "called from sightline/detect/base.py:" in result.not_examined_because
+
+
+def test_the_summary_names_a_crash_apart_from_a_detector_with_nothing_to_read() -> None:
+    document = course([page("start", "<p>Start</p>")])
+    report = run_detectors(document, only=[Counting(), Crashing()])
+    starved = run_detectors(
+        course([], examinations=[examined("pages", 0)]), only=[Silent()]
+    ).results
+    mixed = type(report)(results=(*report.results, *starved))
+    statement = mixed.statement()
+    assert "1 of 3 detector(s) examined the course" in statement
+    assert "1 crashed and could not run (T05)" in statement
+    assert "1 could not run (T02)" in statement
+    # The crash is named before the ordinary gaps, not filed among them.
+    assert statement.index("crashed") < statement.index("could not run (T02)")
+
+
+def test_an_interrupt_is_not_contained() -> None:
+    """Only ``Exception`` is reported as a crash. Ctrl-C, or a process being told to exit, still
+    ends the run: containing those would make the review impossible to stop."""
+
+    with registry_snapshot():
+
+        class Interrupted(Detector):
+            id = "T07"
+            title = "A test detector interrupted mid-run"
+            collections = ("pages",)
+            capability_tag = "page_titles"
+            capability_description = "A test detector; any tag in the vocabulary serves here."
+
+            def examine(self, survey: Survey) -> Iterable[Finding]:
+                for _body in survey.bodies():
+                    raise KeyboardInterrupt
+                return ()
+
+    with pytest.raises(KeyboardInterrupt):
+        run_detectors(course([page("start", "<p>Start</p>")]), only=[Counting(), Interrupted()])
 
 
 # -- the interface is final ----------------------------------------------------------------------
