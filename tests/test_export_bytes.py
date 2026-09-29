@@ -20,6 +20,7 @@ import io
 import json
 import shutil
 import zipfile
+from types import SimpleNamespace
 from typing import Any
 
 import httpx
@@ -30,12 +31,17 @@ from sightline.acquire import CourseAcquisition
 from sightline.acquire.cache import DocumentCache
 from sightline.batch import CourseWork, ReviewPipeline, Stage
 from sightline.batch.pipeline import CanvasSource
+from sightline.batch.service import live_pipeline_factory
 from sightline.canvas.client import CanvasClient
+from sightline.config import Settings
+from sightline.credentials import CredentialStore
 from sightline.detect.runner import DetectionReport, run_detectors
 from sightline.detect.sources import ExportFileSource, NoFileSource, export_file_source
 from sightline.model import EXPORT_FILES_KEY, CourseDocument
 from sightline.paths import DataPaths
+from sightline.preferences import PreferenceStore
 from sightline.rubric.shipped import shipped_pack
+from sightline.store import RunStore
 
 COURSE = "4415"
 EXPORT_PATH = "/files/9101/download"
@@ -206,9 +212,8 @@ async def test_d30_reports_a_located_finding_on_a_course_acquired_from_an_export
     located = {item.location.artifact_id for item in untagged}
     assert file_id(document, "week2-reading.pdf") in located
     assert file_id(document, "syllabus.pdf") in located
-    reading = next(
-        item for item in untagged if item.location.artifact_id == file_id(document, "week2-reading.pdf")
-    )
+    reading_id = file_id(document, "week2-reading.pdf")
+    reading = next(item for item in untagged if item.location.artifact_id == reading_id)
     assert reading.location.canvas_path == f"/courses/{COURSE}/files/5101"
     assert any(
         item.code == "document_without_heading_styles"
@@ -217,9 +222,7 @@ async def test_d30_reports_a_located_finding_on_a_course_acquired_from_an_export
     )
     # The one file the export does not carry is still reported as not read — the source did not
     # invent bytes for it, and nothing else is left undetermined.
-    assert [item.location.artifact_id for item in undetermined] == [
-        file_id(document, NOT_CARRIED)
-    ]
+    assert [item.location.artifact_id for item in undetermined] == [file_id(document, NOT_CARRIED)]
     assert "not acquired" in undetermined[0].reason
 
 
@@ -288,6 +291,29 @@ async def test_the_batch_pipeline_hands_each_course_its_own_bytes(paths: DataPat
 
     unwired = ReviewPipeline(source=CanvasSource(acquisition), pack=shipped_pack("uccs-oscqr-rsi"))
     assert unwired._files_for(work.document) is None
+
+
+async def test_the_live_factory_hands_the_pipeline_the_data_root(
+    paths: DataPaths, settings: Settings
+) -> None:
+    """``sightline.batch.service`` is where ``files=None`` used to be written, so it is asserted
+    directly: the application's own pipeline reads each course's bytes from its data root."""
+    store = RunStore.open(paths)
+    try:
+        credentials = CredentialStore(store, paths)
+        credentials.save_canvas(base_url=EXAMPLE_BASE_URL, token=FAKE_TOKEN)
+        factory = live_pipeline_factory(
+            settings=settings,
+            paths=paths,
+            credentials=credentials,
+            preferences=PreferenceStore(store),
+        )
+        async with factory(SimpleNamespace(rubric_pack="uccs-oscqr-rsi")) as pipeline:
+            assert isinstance(pipeline, ReviewPipeline)
+            assert pipeline.data_paths == paths
+            assert pipeline.files is None
+    finally:
+        store.dispose()
 
 
 async def test_the_pipeline_reads_nothing_for_a_course_that_recorded_no_export(

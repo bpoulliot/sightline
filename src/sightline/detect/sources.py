@@ -28,7 +28,6 @@ oversized attachment stalls a batch.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from pathlib import Path
 from typing import Protocol, runtime_checkable
 
 from ..logging import get_logger
@@ -81,9 +80,7 @@ class ExportFileSource:
     which is how ``python -m sightline.detect --export DIR`` reads a directory named by hand.
     """
 
-    def __init__(
-        self, paths: DataPaths, *root: str, max_bytes: int = MAX_READ_BYTES
-    ) -> None:
+    def __init__(self, paths: DataPaths, *root: str, max_bytes: int = MAX_READ_BYTES) -> None:
         self._paths = paths
         self._root = root
         self._max_bytes = max_bytes
