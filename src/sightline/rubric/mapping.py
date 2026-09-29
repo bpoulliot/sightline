@@ -226,6 +226,57 @@ def load(path: str | Path) -> PackMapping:
     return loads(text, origin=target.name)
 
 
+def dumps(mapping: PackMapping) -> str:
+    """A mapping as YAML text that :func:`loads` reads back to the same mapping.
+
+    Written for roadmap item 22, whose accepted binding proposals come out as a mapping file so
+    that they become a pack through ``import --map`` — the path that is already tested — rather
+    than through a second writer of packs. Only what the format carries is written: an authored
+    file's comments are not data, and a mapping produced here has none of them.
+
+    Every row code is written as a string key and every field in a fixed order, so two dumps of one
+    mapping are byte-identical and a diff between two of them shows only what changed.
+    """
+    payload: dict[str, Any] = {}
+    for key, value in (
+        ("pack", mapping.pack_id),
+        ("name", mapping.name),
+        ("version", mapping.version),
+        ("description", mapping.description),
+        ("source_title", mapping.source_title),
+        ("imported_at", mapping.imported_at),
+        ("sheet", mapping.sheet),
+        ("join_key_column", mapping.join_key_column),
+    ):
+        if value is not None:
+            payload[key] = value
+    if mapping.sections:
+        payload["sections"] = {
+            str(code): _section_payload(section) for code, section in mapping.sections.items()
+        }
+    payload["criteria"] = {str(code): _row_payload(row) for code, row in mapping.criteria.items()}
+    return yaml.safe_dump(payload, sort_keys=False, allow_unicode=True, width=100)
+
+
+def _section_payload(section: SectionMapping) -> dict[str, Any]:
+    out: dict[str, Any] = {}
+    for key in ("title", "optional", "enabled", "note"):
+        value = getattr(section, key)
+        if value is not None:
+            out[key] = value
+    return out
+
+
+def _row_payload(row: RowMapping) -> dict[str, Any]:
+    out: dict[str, Any] = {}
+    if row.tier is not None:
+        out["tier"] = row.tier.value
+    out["bindings"] = list(row.bindings)
+    if row.note is not None:
+        out["note"] = row.note
+    return out
+
+
 # ---------------------------------------------------------------------------------------------
 # Field readers. Each one names the offending key, because a mapping file is edited by hand.
 # ---------------------------------------------------------------------------------------------
@@ -388,6 +439,7 @@ __all__ = [
     "PackMapping",
     "RowMapping",
     "SectionMapping",
+    "dumps",
     "load",
     "loads",
 ]

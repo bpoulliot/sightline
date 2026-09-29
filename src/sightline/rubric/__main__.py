@@ -4,8 +4,11 @@
     python -m sightline.rubric coverage --pack rubrics/packs/uccs-oscqr-3-1-3.yaml
     python -m sightline.rubric import --workbook "rubrics/source/UCCS OSCQR 3.1.3.xlsx"
     python -m sightline.rubric tags
+    python -m sightline.rubric propose --pack my-pack.yaml --model qwen3-coder:30b > proposals.yaml
+    python -m sightline.rubric review --proposals proposals.yaml
+    python -m sightline.rubric accept --proposals proposals.yaml --pack my-pack.yaml --accept 3
 
-Four subcommands, each printing a checkable artifact rather than a conclusion.
+Seven subcommands, each printing a checkable artifact rather than a conclusion.
 
 ``packs`` lists the rubric packs this build ships and what each of them can answer today. The two
 are peers: neither is a default and neither is expressed in terms of the other.
@@ -38,22 +41,44 @@ where the file lands back where it belongs, with the person running the command.
 ``tags`` prints the capability vocabulary with, for each concept, the detectors that implement it
 today. A concept with no detector yet is listed as such: that is the ``NOT_YET_IMPLEMENTED`` state
 made visible, and it is ordinary.
+
+``propose``, ``review`` and ``accept`` are roadmap item 22's command-line review of model-proposed
+bindings (:mod:`sightline.rubric.proposals` says why each rule below is there). ``propose`` asks a
+model about every row of a pack and prints the **proposal file** to stdout, with the review on
+stderr; it changes nothing, and every proposal in the file starts unaccepted. ``review`` prints the
+review of a proposal file again. ``accept`` is the affirmative act — proposals named by number, or
+``--accept-all`` over the file in front of you, with a conflict needing ``--accept-conflict`` by
+number — and it prints a **mapping file** to stdout and the coverage delta to stderr:
+
+    python -m sightline.rubric accept --proposals proposals.yaml --pack my-pack.yaml \
+        --accept-all > my-mapping.yaml
+    python -m sightline.rubric import --workbook my-rubric.xlsx --map my-mapping.yaml > my-pack.yaml
+
+Neither prints anywhere but stdout, for the reason ``import`` has no ``--out``.
 """
 
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import sys
 from pathlib import Path
 
 from ..capabilities import vocabulary
+from ..config import get_settings
+from ..llm.client import OllamaClient
+from ..llm.errors import ModelHostError
+from ..logging import configure_logging
 from .coverage import pack_coverage
 from .importer import RubricImportError, import_csv, import_workbook
 from .mapping import MappingError
+from .mapping import dumps as dump_mapping
 from .mapping import load as load_mapping
-from .pack import RubricPackError, load
+from .pack import RubricPack, RubricPackError, load
 from .project import TagIndex, tag_descriptions
+from .proposals import ProposalError, ProposalSet, accept, propose, review
+from .proposals import loads as load_proposals
 from .shipped import PacksNotFoundError, packs_dir, shipped_packs
 
 
@@ -94,6 +119,56 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("packs", help="The rubric packs this build ships, and what each can answer.")
     sub.add_parser("tags", help="The capability vocabulary, and what implements each concept.")
+
+    ask = sub.add_parser(
+        "propose", help="Ask a model for tag bindings. Prints a proposal file; accepts nothing."
+    )
+    ask.add_argument("--pack", type=Path, required=True, help="A rubric pack YAML file.")
+    ask.add_argument("--model", required=True, help="The model to ask, e.g. qwen3-coder:30b.")
+    ask.add_argument(
+        "--endpoint", help="Model host root. Defaults to OLLAMA_BASE_URL from the environment."
+    )
+
+    show = sub.add_parser("review", help="Print the review of a proposal file.")
+    show.add_argument("--proposals", type=Path, required=True, help="A proposal file.")
+
+    take = sub.add_parser(
+        "accept", help="Accept named proposals. Prints a mapping file for `import --map`."
+    )
+    take.add_argument("--proposals", type=Path, required=True, help="A proposal file.")
+    take.add_argument(
+        "--pack", type=Path, required=True, help="The pack the proposals were made against."
+    )
+    take.add_argument(
+        "--map",
+        dest="mapping",
+        type=Path,
+        help="The mapping file the pack was built from. Needed when it declares a join key.",
+    )
+    which = take.add_mutually_exclusive_group()
+    which.add_argument(
+        "--accept",
+        dest="names",
+        action="append",
+        type=int,
+        default=[],
+        metavar="N",
+        help="Accept proposal N. Repeatable.",
+    )
+    which.add_argument(
+        "--accept-all",
+        action="store_true",
+        help="Accept every proposal in the file that is not a conflict.",
+    )
+    take.add_argument(
+        "--accept-conflict",
+        dest="conflicts",
+        action="append",
+        type=int,
+        default=[],
+        metavar="N",
+        help="Accept conflict proposal N, on a row already bound to other tags. Repeatable.",
+    )
     return parser
 
 
@@ -200,11 +275,104 @@ def _tags(_args: argparse.Namespace) -> int:
     return 0
 
 
+def _propose(args: argparse.Namespace) -> int:
+    try:
+        pack = load(args.pack)
+    except RubricPackError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    settings = get_settings()
+    # The proposal file goes to stdout; the log and the review go to stderr, so redirecting
+    # stdout captures exactly the file.
+    configure_logging(level=settings.log_level, fmt=settings.log_format, stream=sys.stderr)
+    endpoint = args.endpoint or settings.ollama_base_url
+    if not endpoint:
+        print(
+            "No model host. Pass --endpoint, or set OLLAMA_BASE_URL in the environment.",
+            file=sys.stderr,
+        )
+        return 2
+    try:
+        proposals = asyncio.run(_ask(pack, endpoint=endpoint, model=args.model))
+    except ModelHostError as exc:
+        print(f"{exc.summary} {exc.detail or ''}\n{exc.remedy}", file=sys.stderr)
+        return 1
+    print(review(proposals), file=sys.stderr)
+    sys.stdout.write(proposals.to_yaml())
+    # A row that could not be asked is a gap, not a row with nothing to propose.
+    return 1 if proposals.failures else 0
+
+
+async def _ask(pack: RubricPack, *, endpoint: str, model: str) -> ProposalSet:
+    settings = get_settings()
+    async with OllamaClient(
+        endpoint,
+        concurrency=settings.ollama_concurrency,
+        context_tokens=settings.ollama_context_tokens,
+    ) as client:
+        return await propose(pack, client, model)
+
+
+def _read_proposals(path: Path) -> ProposalSet:
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise ProposalError(f"{path.name} cannot be read: {exc}") from exc
+    return load_proposals(text, origin=path.name)
+
+
+def _review(args: argparse.Namespace) -> int:
+    try:
+        proposals = _read_proposals(args.proposals)
+    except ProposalError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    print(review(proposals))
+    return 0
+
+
+def _accept(args: argparse.Namespace) -> int:
+    try:
+        proposals = _read_proposals(args.proposals)
+        pack = load(args.pack)
+        base = load_mapping(args.mapping) if args.mapping is not None else None
+        done = accept(
+            proposals,
+            pack,
+            names=args.names,
+            accept_all=args.accept_all,
+            conflicts=args.conflicts,
+            base=base,
+        )
+    except (ProposalError, RubricPackError, MappingError) as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+    for proposal in done.accepted:
+        print(f"accepted [{proposal.id}] {proposal.code} <- {proposal.tag}", file=sys.stderr)
+    print(f"{len(done.accepted)} proposal(s) accepted.", file=sys.stderr)
+    print(f"before: {done.delta.before.statement()}", file=sys.stderr)
+    print(f"after:  {done.delta.after.statement()}", file=sys.stderr)
+    print(done.delta.statement(), file=sys.stderr)
+    sys.stdout.write(
+        "# A mapping file for `python -m sightline.rubric import --map`, from "
+        f"{args.proposals.name}\n# ({proposals.model}, {proposals.created}): "
+        f"{len(done.accepted)} proposal(s) accepted by name or by an explicit accept-all.\n"
+    )
+    sys.stdout.write(dump_mapping(done.mapping))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    return {"coverage": _coverage, "import": _import, "packs": _packs, "tags": _tags}[args.command](
-        args
-    )
+    return {
+        "coverage": _coverage,
+        "import": _import,
+        "packs": _packs,
+        "tags": _tags,
+        "propose": _propose,
+        "review": _review,
+        "accept": _accept,
+    }[args.command](args)
 
 
 if __name__ == "__main__":  # pragma: no cover - module entry point

@@ -15,11 +15,12 @@ here would put a second and stricter rule in front of that one.
 from __future__ import annotations
 
 import datetime as dt
+from pathlib import Path
 
 import pytest
 
 from sightline.detect.base import Tier
-from sightline.rubric.mapping import MappingError, loads
+from sightline.rubric.mapping import MappingError, dumps, load, loads
 
 MINIMAL = 'pack: probe\nname: Probe\nversion: "1"\ncriteria: {}\n'
 
@@ -218,3 +219,14 @@ def test_invalid_yaml_says_so() -> None:
 
 def test_a_minimal_mapping_round_trips_through_the_public_loader() -> None:
     assert loads(MINIMAL, origin="<probe>").pack_id == "probe"
+
+
+@pytest.mark.parametrize("name", ["uccs-oscqr-3-1-3", "uccs-oscqr-rsi"])
+def test_dumps_writes_what_loads_reads_back(name: str) -> None:
+    """Item 22 prints accepted bindings as a mapping file, so the writer has to be the loader's
+    exact inverse over everything the format carries — both shipped mappings, field for field."""
+    path = Path(__file__).resolve().parents[1] / "rubrics" / "maps" / f"{name}.yaml"
+    original = load(path)
+    text = dumps(original)
+    assert loads(text, origin=original.origin) == original
+    assert dumps(loads(text, origin=original.origin)) == text, "a second dump is byte-identical"

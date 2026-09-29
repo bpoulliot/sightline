@@ -104,7 +104,7 @@ def parse_response(content: str) -> tuple[RawFinding, ...]:
     failure. The caller tells the two apart by whether this raised, never by whether the result
     is empty.
     """
-    payload = _load(content)
+    payload = load_json(content)
     if not isinstance(payload, Mapping):
         raise SchemaViolation(
             f"expected an object with a 'findings' key, got {_kind(payload)}",
@@ -167,7 +167,13 @@ def _finding(entry: Any, index: int) -> RawFinding:
     return RawFinding(quote=quote, location=location.strip())
 
 
-def _load(content: str) -> Any:
+def load_json(content: str) -> Any:
+    """The JSON in a response, after the one fence unwrap the module docstring allows.
+
+    Public because the binding proposer (:mod:`sightline.rubric.proposals`) takes a response from
+    the same host under the same two transport conventions, and a second copy of this is a second
+    place for "rescue the first ``{`` in a paragraph" to creep in.
+    """
     text = (content or "").strip()
     if not text:
         raise SchemaViolation("the response was empty")
@@ -206,5 +212,6 @@ __all__ = [
     "RESPONSE_SCHEMA",
     "RawFinding",
     "SchemaViolation",
+    "load_json",
     "parse_response",
 ]
