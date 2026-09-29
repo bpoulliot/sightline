@@ -887,9 +887,9 @@ fired by mutation: disabling the CR normalisation failed the round-trip, and un-
 type failed the formula test.
 
 *Not done here.* No sample workbook in `examples/sample-report/` (the 2026-09-25 decision puts it
-behind a `scripts/` generator through the gate; item 14's re-spec owns it). No caller wires
-`export_workbook` into a screen or CLI yet — item 16's review screen is the human action that
-opens the gate. The action-plan column holds located items rather than remediation advice; that
+behind a `scripts/` generator through the gate; item 14's re-spec owns it — item 14 shipped it).
+No caller wired `export_workbook` into a screen or CLI; item 14's `python -m sightline.report
+export` now does, after the human action that opens the gate. The action-plan column holds located items rather than remediation advice; that
 gap against SPEC §08 is item 35.
 
 **35 · FILED 2026-09-29 by item 13's session. NEEDS DISCUSSION. SPEC §08 says the workbook's

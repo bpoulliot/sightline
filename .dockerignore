@@ -39,7 +39,6 @@ build/
 
 # Not needed at runtime — keeps the image small and the layer set boring.
 docs/
-examples/sample-report/
 
 # ...but the design tokens ARE needed at runtime. docs/tokens.css is the single source of colour
 # and is served verbatim rather than copied into the package, so the image must carry this one

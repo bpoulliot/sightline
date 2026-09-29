@@ -9,9 +9,9 @@ can miss. So it is a gate with a key rather than a convention: the only way to a
 **Why the guard is structural as well as behavioural.** ``tests/test_export_gate.py`` scans the
 package's syntax tree and fails the build if any module other than :mod:`sightline.paths` and this
 one names ``reports`` as a path — the same shape as the data-root guard item 01 built, and for the
-same reason. The XLSX writer (roadmap item 13) writes through :meth:`ExportGate.save`, and the PDF
-report (item 14) is to do the same; the guard is what catches a writer reaching for
-``paths.resolve("reports", …)`` directly.
+same reason. The XLSX writer (roadmap item 13) and the PDF report (item 14) both write through
+:meth:`ExportGate.save`, called by ``python -m sightline.report export``; the guard is what catches
+a writer reaching for ``paths.resolve("reports", …)`` directly.
 
 **What "a human opened the review" means here.** A timestamp set by an action a person took: the
 review screen (roadmap item 16) when it lands, and ``python -m sightline.batch open-review`` until

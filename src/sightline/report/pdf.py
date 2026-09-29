@@ -75,7 +75,7 @@ def to_html(model: ReportModel) -> str:
 
 
 def font_faces(fonts: Path, faces: Sequence[tuple[str, str, int, str]] = FONT_FACES) -> str:
-    """``@font-face`` rules for the vendored fonts, relative to ``fonts``. Raises if one is missing."""
+    """``@font-face`` rules for the vendored fonts under ``fonts``. Raises if one is absent."""
     rules = []
     for family, filename, weight, style in faces:
         if not (fonts / filename).is_file():
@@ -136,6 +136,60 @@ def source_date(epoch: int) -> Iterator[None]:
                 os.environ["SOURCE_DATE_EPOCH"] = before
 
 
+#: The Python packages whose versions decide the bytes, beside the native libraries below.
+_PACKAGES: tuple[str, ...] = (
+    "weasyprint",
+    "pydyf",
+    "fonttools",
+    "tinycss2",
+    "tinyhtml5",
+    "cssselect2",
+    "pyphen",
+)
+
+
+def render_environment() -> dict[str, str]:
+    """The versions a rendered PDF's bytes depend on, by name.
+
+    The committed sample report records this beside itself, so a byte comparison that fails can
+    say which library moved rather than leaving a reader to diff two PDFs. Native versions are read
+    from the loaded libraries themselves, not from a package manager, because the loaded library
+    is what rendered the page.
+    """
+    import ctypes
+    import ctypes.util
+    from importlib import metadata
+
+    from weasyprint.text.ffi import pango
+
+    found = {name: metadata.version(name) for name in _PACKAGES}
+    pango_version = pango.pango_version()
+    found["pango"] = f"{pango_version // 10000}.{pango_version // 100 % 100}.{pango_version % 100}"
+
+    def library(name: str) -> ctypes.CDLL | None:
+        path = ctypes.util.find_library(name)
+        return ctypes.CDLL(path) if path else None
+
+    harfbuzz = library("harfbuzz")
+    if harfbuzz is not None:
+        harfbuzz.hb_version_string.restype = ctypes.c_char_p
+        found["harfbuzz"] = harfbuzz.hb_version_string().decode()
+    found["harfbuzz-subset"] = "yes" if library("harfbuzz-subset") else "no"
+    fontconfig = library("fontconfig")
+    if fontconfig is not None:
+        version = fontconfig.FcGetVersion()
+        found["fontconfig"] = f"{version // 10000}.{version // 100 % 100}.{version % 100}"
+    freetype = library("freetype")
+    if freetype is not None:
+        handle = ctypes.c_void_p()
+        if freetype.FT_Init_FreeType(ctypes.byref(handle)) == 0:
+            parts = [ctypes.c_int(), ctypes.c_int(), ctypes.c_int()]
+            freetype.FT_Library_Version(handle, *(ctypes.byref(part) for part in parts))
+            found["freetype"] = ".".join(str(part.value) for part in parts)
+            freetype.FT_Done_FreeType(handle)
+    return dict(sorted(found.items()))
+
+
 def export_report(gate: ExportGate, course_id: str, data: bytes) -> Path:
     """Write the PDF for one course through the export gate (SPEC §09).
 
@@ -144,4 +198,12 @@ def export_report(gate: ExportGate, course_id: str, data: bytes) -> Path:
     return gate.save(course_id, REPORT_FILENAME, data)
 
 
-__all__ = ["FONT_FACES", "REPORT_FILENAME", "export_report", "font_faces", "to_html", "to_pdf"]
+__all__ = [
+    "FONT_FACES",
+    "REPORT_FILENAME",
+    "export_report",
+    "font_faces",
+    "render_environment",
+    "to_html",
+    "to_pdf",
+]

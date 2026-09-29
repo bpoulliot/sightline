@@ -12,9 +12,20 @@
 
 ARG PYTHON_VERSION=3.12
 ARG UV_VERSION=0.9.5
+# The native text stack WeasyPrint renders the PDF report with (roadmap item 14): pango lays text
+# out, harfbuzz shapes it and subsets the embedded fonts, fontconfig finds the vendored ones. Every
+# stage that renders a report installs exactly this list. The versions come from the base image's
+# Debian release, which floats with the python tag — so a rebuild can move the sample report's
+# bytes with no code change (README, "The sample report").
+ARG PDF_LIBS="libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 libfontconfig1"
 
 # ---------------------------------------------------------------------------------------------
 FROM python:${PYTHON_VERSION}-slim AS deps
+
+ARG PDF_LIBS
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ${PDF_LIBS} \
+ && rm -rf /var/lib/apt/lists/*
 
 # uv comes from PyPI rather than a second registry: one source, no registry authentication, and
 # the same behaviour on a developer machine as in CI. It stays in this stage; the runtime image
@@ -60,8 +71,14 @@ COPY examples ./examples
 # instead of checking it. The workbooks are a blank template with no personal data (SPEC §11), and
 # the runtime stage carries them too.
 COPY rubrics ./rubrics
+# The fonts the PDF report is set in, each beside its licence (assets/fonts/README.md).
+COPY assets ./assets
 
+# The committed sample report is read back by tests/test_sample_report.py, which re-renders it and
+# compares the bytes. This stage is the environment the sample was made in, so the comparison is
+# required to run here: set, the test fails where it would otherwise skip.
 ENV PATH="/app/.venv/bin:$PATH" \
+    SIGHTLINE_SAMPLE_REPORT_REQUIRED=1 \
     SIGHTLINE_DATA_DIR=/tmp/sightline-test-data \
     PYTHONDONTWRITEBYTECODE=1
 CMD ["pytest", "-q"]
@@ -78,6 +95,12 @@ LABEL org.opencontainers.image.title="Sightline" \
 RUN groupadd --system --gid 10001 sightline \
  && useradd --system --uid 10001 --gid 10001 --create-home --home-dir /home/sightline sightline
 
+# The PDF report renders here too: the export command runs in this image.
+ARG PDF_LIBS
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ${PDF_LIBS} \
+ && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 COPY --from=deps --chown=root:root /app/.venv /app/.venv
@@ -87,6 +110,8 @@ COPY --chown=root:root rubrics ./rubrics
 COPY --chown=root:root examples ./examples
 # The single source of colour. Served verbatim; never copied into the package.
 COPY --chown=root:root docs/tokens.css ./docs/tokens.css
+# The fonts the PDF report is set in, each beside its licence.
+COPY --chown=root:root assets ./assets
 
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \

@@ -216,6 +216,13 @@ QUALIFIED_WRITE_CALLS = {
     "pathlib.Path.replace",
 }
 
+#: Library calls that write a file when they are handed a target, and return bytes when they are
+#: not. ``HTML.write_pdf(target)`` writes wherever it is pointed, and neither its name nor its
+#: argument looks like a filesystem call, so it would slip past every other rule here. The PDF
+#: report (roadmap item 14) calls it with no target and hands the bytes to the export gate; a
+#: call with a positional argument or a ``target=`` keyword is a write, and is refused.
+TARGETED_WRITE_CALLS = {"write_pdf"}
+
 #: The only module allowed to build a writable path.
 GATEKEEPER = "paths.py"
 
@@ -257,6 +264,48 @@ def _is_write_open(node: ast.Call) -> bool:
     return bool(WRITE_MODES & set(mode))
 
 
+def _is_targeted_write(node: ast.Call) -> bool:
+    if _called_name(node) not in TARGETED_WRITE_CALLS:
+        return False
+    return bool(node.args) or any(keyword.arg == "target" for keyword in node.keywords)
+
+
+def write_calls(source: str, filename: str = "<source>") -> list[tuple[int, str]]:
+    """``(line, name)`` for every call in ``source`` that writes to the filesystem."""
+    found: list[tuple[int, str]] = []
+    for node in ast.walk(ast.parse(source, filename=filename)):
+        if not isinstance(node, ast.Call):
+            continue
+        name = _called_name(node)
+        if (
+            name in WRITE_CALLS
+            or _dotted_name(node) in QUALIFIED_WRITE_CALLS
+            or _is_write_open(node)
+            or _is_targeted_write(node)
+        ):
+            found.append((node.lineno, name or "open"))
+    return found
+
+
+def test_the_guard_refuses_write_pdf_with_a_target_and_allows_it_without() -> None:
+    """Fired in both directions. A guard that cannot fire, or fires on the one legitimate form,
+    is not a guard."""
+    refused = [
+        'HTML(string="").write_pdf("report.pdf")',
+        'HTML(string="").write_pdf(target="report.pdf")',
+        "document.write_pdf(path, stylesheets=[])",
+        "document.write_pdf(handle)",
+    ]
+    for source in refused:
+        assert write_calls(source) == [(1, "write_pdf")], source
+    allowed = [
+        'data = HTML(string="").write_pdf()',
+        "data = document.write_pdf(stylesheets=[], font_config=config, pdf_tags=True)",
+    ]
+    for source in allowed:
+        assert write_calls(source) == [], source
+
+
 def test_only_the_paths_module_creates_writable_locations(repo_root: Path) -> None:
     package = repo_root / "src" / "sightline"
     offenders: list[str] = []
@@ -265,17 +314,8 @@ def test_only_the_paths_module_creates_writable_locations(repo_root: Path) -> No
         if source.name == GATEKEEPER:
             continue
         scanned += 1
-        tree = ast.parse(source.read_text(encoding="utf-8"), filename=str(source))
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.Call):
-                continue
-            name = _called_name(node)
-            if (
-                name in WRITE_CALLS
-                or _dotted_name(node) in QUALIFIED_WRITE_CALLS
-                or _is_write_open(node)
-            ):
-                offenders.append(f"{source.relative_to(repo_root)}:{node.lineno} {name or 'open'}")
+        for line, name in write_calls(source.read_text(encoding="utf-8"), str(source)):
+            offenders.append(f"{source.relative_to(repo_root)}:{line} {name}")
 
     # A guard that examined nothing is not a guard. Report what was examined, as every detector
     # in this project is required to.

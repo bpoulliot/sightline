@@ -117,9 +117,7 @@ class DetectionReport:
     @classmethod
     def from_dict(cls, payload: Mapping[str, Any]) -> DetectionReport:
         """The inverse of :meth:`to_dict`. The statement is recomputed from the results."""
-        return cls(
-            results=tuple(DetectorResult.from_dict(entry) for entry in payload["results"])
-        )
+        return cls(results=tuple(DetectorResult.from_dict(entry) for entry in payload["results"]))
 
 
 def run_detectors(

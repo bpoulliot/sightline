@@ -440,7 +440,7 @@ class _Builder:
     # -- shared cells ---------------------------------------------------------------------------
 
     def reading(self, row: RowResult) -> Text:
-        """A Tier C row proposes nothing, so it never shows the instrument's default as a reading."""
+        """A Tier C row proposes nothing, so it never shows the default as its reading."""
         if row.tier is Tier.C:
             return self.label("report_reading_question")
         return Text("A", verbatim(row.label))
