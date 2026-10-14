@@ -41,7 +41,7 @@ separately. Record results and remaining work in the roadmap in the same PR.
 Open the PR on Gitea. End its description with `Assisted by Codex`; do not invent a
 co-author identity or add an assistant Co-Authored-By trailer. Poll required CI checks
 within the same session. Missing or pending checks are not successful checks.
-Immediately before squash merge, re-read the PR's full head SHA, main base and all
+Immediately before the merge (merge style `merge`, not squash), re-read the PR's full head SHA, main base and all
 required statuses at that exact SHA. Confirm main moved after merging. Do not bypass
 branch protection, force-push, merge HOLD work or merge unrelated PRs.
 
