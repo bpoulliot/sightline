@@ -22,7 +22,7 @@
   `CI / format (pull_request)`, `CI / test (pull_request)`,
   `CI / secrets (pull_request)` and `CI / image (pull_request)`.
   Poll within the session, reread full head SHA/main base/checks immediately before
-  squash merge, and independently confirm main moved. Missing/pending/red is not green.
+  the merge (merge style `merge`), and independently confirm main moved. Missing/pending/red is not green.
 - Use Conventional Commits, focused changes and roadmap updates in the same PR.
   PR descriptions end with `Assisted by Codex`; no invented assistant co-author.
 - Never force-push, use hard reset, bypass protection, deploy, publish a release,
