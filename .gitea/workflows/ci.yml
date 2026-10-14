@@ -18,7 +18,7 @@ env:
 
 jobs:
   lint:
-    runs-on: ubuntu-latest
+    runs-on: sentry
     steps:
       - uses: actions/checkout@v4
       - name: Install uv
@@ -31,7 +31,7 @@ jobs:
         run: uv run ruff check .
 
   format:
-    runs-on: ubuntu-latest
+    runs-on: sentry
     steps:
       - uses: actions/checkout@v4
       - name: Install uv
@@ -44,7 +44,7 @@ jobs:
         run: uv run black --check .
 
   test:
-    runs-on: ubuntu-latest
+    runs-on: sentry
     steps:
       - uses: actions/checkout@v4
       - name: Install uv
@@ -73,7 +73,7 @@ jobs:
   # Not decoration on a public repository. A secret committed once is a secret burned, and git
   # history keeps it after a later deletion — hence the full-depth fetch.
   secrets:
-    runs-on: ubuntu-latest
+    runs-on: sentry
     steps:
       - uses: actions/checkout@v4
         with:
@@ -99,7 +99,7 @@ jobs:
   # A Dockerfile that is never built in CI rots within a month. This job builds it and then starts
   # it, because an image that builds but cannot serve its own health endpoint has not been tested.
   image:
-    runs-on: ubuntu-latest
+    runs-on: cserv
     container:
       image: node:20
       # The runner creates job containers against an isolated docker-in-docker daemon; this mounts
