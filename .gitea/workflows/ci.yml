@@ -10,7 +10,12 @@ on:
 # means the exit code that survives is the last one, and a black failure has hidden behind that
 # before now.
 #
-# The ubuntu-latest label maps to node:20 (Debian bookworm, Python 3.11), which is older than this
+# Runner labels (~/docker TODO I226): a job that needs nothing from the host runs on `lan`
+# (chromaserv or sentry, the two runners on the LAN); `image` needs chromaserv's docker-in-docker
+# socket and runs on `cserv`, the label only chromaserv carries. Never `portable`: an off-site
+# runner carries it.
+#
+# Both labels map to node:20 (Debian bookworm, Python 3.11), which is older than this
 # package requires, so every Python job bootstraps CPython 3.12 through uv rather than apt.
 
 env:
@@ -18,7 +23,7 @@ env:
 
 jobs:
   lint:
-    runs-on: ubuntu-latest
+    runs-on: lan
     steps:
       - uses: actions/checkout@v4
       - name: Install uv
@@ -31,7 +36,7 @@ jobs:
         run: uv run ruff check .
 
   format:
-    runs-on: ubuntu-latest
+    runs-on: lan
     steps:
       - uses: actions/checkout@v4
       - name: Install uv
@@ -44,7 +49,7 @@ jobs:
         run: uv run black --check .
 
   test:
-    runs-on: ubuntu-latest
+    runs-on: lan
     steps:
       - uses: actions/checkout@v4
       - name: Install uv
@@ -73,7 +78,7 @@ jobs:
   # Not decoration on a public repository. A secret committed once is a secret burned, and git
   # history keeps it after a later deletion — hence the full-depth fetch.
   secrets:
-    runs-on: ubuntu-latest
+    runs-on: lan
     steps:
       - uses: actions/checkout@v4
         with:
@@ -99,11 +104,12 @@ jobs:
   # A Dockerfile that is never built in CI rots within a month. This job builds it and then starts
   # it, because an image that builds but cannot serve its own health endpoint has not been tested.
   image:
-    runs-on: ubuntu-latest
+    runs-on: cserv
     container:
       image: node:20
       # The runner creates job containers against an isolated docker-in-docker daemon; this mounts
-      # that daemon's socket so the job can build. It is not the host daemon.
+      # that daemon's socket so the job can build. It is not the host daemon. Only chromaserv's
+      # runner allows the mount (its `valid_volumes`), hence `cserv`.
       options: -v /var/run/docker.sock:/var/run/docker.sock
     steps:
       - uses: actions/checkout@v4
