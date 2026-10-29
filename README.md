@@ -43,7 +43,8 @@ does not wipe a half-finished batch.
 |---|---|
 | `/` | Status: configuration presence, the data root, recent runs, the determinacy-tier legend. |
 | `/settings` | Canvas base URL and token, **Test connection**, the model host and model picker, the **Reviewer** name a recorded rating carries, and the token-scope table below. |
-| `/courses` | Resolve a course from a pasted URL, a bare id, or an uploaded CSV. |
+| `/courses` | **New run**: resolve courses from pasted URLs, bare ids or an uploaded CSV, then pick a rubric and start a run on the ones Canvas resolved. See [Starting and following a run](#starting-and-following-a-run). |
+| `/runs`, `/runs/<run id>` | The recent runs, and one run per course and per stage, with every failure and what to change, each reviewed course's review, and the state of its export. |
 | `/review/<course id>` | One course's review: its categories in the instrument's order, a page per category, a rating recorded per row, and the export. See [The review screen](#the-review-screen). |
 
 There is also a command-line entry point, and its first form needs no Canvas token at all:
@@ -57,6 +58,7 @@ Everything on the web screens works with JavaScript switched off — each action
 re-renders the page with its result. `/settings` also exposes the connection test as JSON at
 `POST /api/canvas/test`, the model-host check at `POST /api/models/check` and install progress at
 `GET /api/models/installs`. Each is the same code path as its button, not a second implementation.
+A run's progress is `GET /api/runs/<run id>`, the data its page is rendered from.
 
 ### Test connection
 
@@ -88,6 +90,30 @@ For a CSV, the column headed `course_url`, `course_id`, `id` or a near spelling 
 one, the column that parsed the most rows is used and the screen says which and why. Rows that
 could not be read are listed with a reason — a CSV importer that skips what it did not understand
 is silent under-detection (SPEC §11) in miniature.
+
+### Starting and following a run
+
+The courses Canvas resolved come back under the lookup table with a **Start** form: each course
+ticked where its content can be read, and the rubric, defaulting to `uccs-oscqr-3-1-3`. Start
+records a batch (at most sixteen courses; the batch runner's own cap and message) and runs it in the
+application process. With **Ask Canvas to build a fresh export of the course** on (Settings),
+starting asks Canvas to build an export of each course, which appears in that course's export
+list; the form says so beside the button. Bundles are reviewed from the command line.
+
+A run is not started, and the form says why and where to fix it, when there is no Canvas credential,
+no model host, or no model chosen — the extract stage would stop the run — or **while another run is
+running**. One run at a time: courses share one model host. A run started by `python -m
+sightline.batch run` is another process and is seen through the run store, so it refuses a start the
+same way.
+
+A run's page shows every course, stage by stage: what each stage examined and the statement it
+made, never a percentage or a bar. A failed stage shows what it said and what to change; a failure
+of the run itself (the batch could not be assembled) is shown above the courses. A course with a
+result links to its review, and beside every course nobody has opened, the export is shown closed
+with the export gate's own reason. An interrupted run says so and names `python -m sightline.batch
+resume <run id>`; there is no resume button, because the application continues what it was running
+the next time it starts. The page is the run store as it was when it loaded; while a run is going a
+small optional script asks the progress endpoint every few seconds and reloads when it changes.
 
 ## Acquisition and the document model
 
@@ -1064,7 +1090,8 @@ status RUN` prints — never a Canvas host or course id. It reads the course bac
 
 It renders no attention flag (a batch never builds a `Comparison`, so a review file holds none), no
 near-boundary marker or agreement statement (item 24's re-run), no progress bar, percentage or
-course score, and no run count beside a quote. The run-progress and New run screens are item 36.
+course score, and no run count beside a quote. A course's review is reached from its run's page
+(`/runs/<run id>`).
 
 ## How often two reviewers choose the same rating
 
@@ -1362,6 +1389,8 @@ src/sightline/   the application
   report/        the review-file loader, the PDF report's model, template and print stylesheet, and
                  the export (command and function)
   review/        the review screen: its page model, its routes, and the reviewer lookup
+  new_run.py     what the New run screen offers (the rubric choices) and refuses (why a run cannot start)
+  run_screens.py the run list and the run-progress page
   capabilities.yaml  the capability-tag vocabulary: the one thing detectors and packs share
   model.py       the normalized document model every detector reads
 tests/           the suite
