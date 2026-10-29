@@ -30,7 +30,7 @@ on 2026-09-22). Next free item number: **41**.
 | 13 | XLSX writer | 2 | READY | **DONE** — PR #28 |
 | 14 | PDF course report | 2 | READY | **DONE** — PR #31 |
 | 15 | Narrative generator and voice contract | 2 | READY | **DONE** — PR #27 |
-| 16 | Review UI | 2 | READY — Q1 (a) and Q2 (b) decided 2026-10-29 | re-specified 2026-09-29, PR #30; queued `99q-` |
+| 16 | Review UI | 2 | READY — Q1 (a) and Q2 (b) decided 2026-10-29 | **DONE** — PR #42. The review screen; the Reviewer setting (Q1); exports carry a recorded rating as the reviewer's (Q2) |
 | 17 | Batch runner | 2 | READY | **DONE** — PR #18 |
 | 18 | Escalation adapter | 3 | **PARKED** 2026-10-29 — ChatGPT Edu API not available | — |
 | 19 | Uploaded-rubric mapping screen | 3 | **SUPERSEDED by 22** | — |
@@ -38,7 +38,7 @@ on 2026-09-22). Next free item number: **41**.
 | 21 | Detector integrity guard | 0 | READY | **DONE** — PR #8 |
 | 22 | Model-proposed bindings, human-confirmed | 3 | part 2 **BLOCKED** — on item 36 | **PART 1 DONE** — PR #32 (proposal engine + command-line review). The confirmation **screen** is the remainder: **BLOCKED** on item 36's rubric picker (operator decision 2026-09-25) |
 | 23 | Canvas-requested content export | 1 | READY | **DONE** — PR #6 |
-| 24 | Agreement and near-boundary transparency | 2 | READY | **PART 1 DONE** — PR #29 (data, guard, docs); PDF + review-screen rendering waits on 14 and 16 (queued re-run) |
+| 24 | Agreement and near-boundary transparency | 2 | READY | **PART 1 DONE** — PR #29 (data, guard, docs); PDF + review-screen rendering is the queued re-run, and both of its surfaces (14, 16) are DONE |
 | 25 | Returned-review ingestion | 3 | **BLOCKED** — needs reviews delivered and returned | — |
 | 26 | Wire document bytes from the export to the detectors | 1 | READY | **DONE** — PR #21 |
 | 27 | One detector's crash must not take the whole review with it | 1 | READY | **DONE** — PR #22 |
@@ -50,7 +50,7 @@ on 2026-09-22). Next free item number: **41**.
 | 33 | A routed row costs one call per passage, and nothing bounds the total | 2 | MEASURED | **DONE** — PR #26. Outcome (d): nothing changes |
 | 34 | Acquisition drops every outcome when it records an export note | 1 | READY | **DONE** — PR #33 |
 | 35 | The workbook's action plan holds located items; SPEC §08 promises remediation steps | 2 | DECIDED (a) 2026-10-29 | **DONE** — SPEC §08 corrected in this PR |
-| 36 | Run-progress and New run screens | 2 | **BLOCKED** — on item 16 (its review screen is what the run screen links to); queued after it, gated | filed 2026-09-29, PR #30 |
+| 36 | Run-progress and New run screens | 2 | READY — item 16, the review screen it links to, is DONE (PR #42) | filed 2026-09-29, PR #30; queued `99r-` |
 | 37 | Host `__pycache__` ships in locally built images, carrying the developer's home path | 1 | READY | **DONE** — PR #34. 177 → 0 files in the dev image, 94 → 0 in runtime |
 | 38 | A bound Tier D row is counted in two coverage buckets, and `coverage` exits 1 calling it a bug | 1 | READY | **DONE** — PR #35. Tier first; 42 → 41 of 68, exit 1 → 0 |
 | 39 | Every other bare pattern in `.dockerignore` is root-only too | 3 | READY | **DONE** — PR #41. Planted nested files 19 → 0 in the dev image, 15 → 0 in runtime |
@@ -115,7 +115,7 @@ which is what forced items 07 and 08 to comply without their prompts needing to 
 12-sightline-item15-voice-contract.md    # DONE — PR #27. sightline.voice; the lint is proven to fire
 13-sightline-item13-xlsx-writer.md       # DONE — PR #28. sightline.workbook; CSV-clean, all text
 14-sightline-item14-pdf-report.md       # SUPERSEDED 2026-09-29 — re-specified, PR #30; ran as 99i-, DONE — PR #31
-15-sightline-item16-review-ui.md        # SUPERSEDED 2026-09-29 — re-specified, PR #30; NEEDS DISCUSSION
+15-sightline-item16-review-ui.md        # SUPERSEDED 2026-09-29 — re-specified, PR #30; ran as 99q-, DONE — PR #42
 16-sightline-item24-agreement-and-uncertainty.md   # PART 1 DONE — PR #29; the rest re-runs after 14 + 16
 ```
 
@@ -813,7 +813,19 @@ where it came from; where the two differ, this entry is newer and wins.
 - The full suite is green, ruff and black exit codes are read separately, and all CI jobs are
   green.
 
-**16 · RE-SPECIFIED 2026-09-29 (PR #30). READY since 2026-10-29: Q1 and Q2 below are decided.**
+**16 · DONE 2026-10-29 — PR #42.** Re-specified 2026-09-29 (PR #30); READY from 2026-10-29, when Q1
+and Q2 below were decided.
+
+*As built (PR #42).* `sightline.review` at `/review/<run-store course id>`: an index in the pack's
+category order with counts by proposed reading and questions with no rating recorded, a page per
+category sorted and filtered by query parameters, one rating form per row, and the export control
+(`sightline.report.export.export_course`, which the command now calls too). The Reviewer setting is
+on Settings; `sightline.review.identity.current_reviewer` is the one lookup. `build_workbook` and
+`build_report` take `overrides`; every Q2 addition is conditional on a recorded rating, so the
+committed sample does not move. Two calls the decisions left open, made in the build and open to
+the operator: the exports carry the reviewer's *rating* and not their *name* (the record keeps the
+name); Tier A, B and D forms open with the proposal selected, so recording it unchanged records a
+confirmation, while a Tier C form never has a rating selected. Nothing below is changed by the build.
 
 *Operator decisions, 2026-10-29 (bitmap, interactive). Do not re-open:*
 - **Q1: (a).** A *Reviewer* setting on the Settings screen, kept with the other preferences.
@@ -1058,7 +1070,8 @@ it), and before the fix pytest named every test file by the host path. The test 
 old `.dockerignore` and passes against the new one.
 
 **36 · FILED 2026-09-29 (PR #30) under operator decision D2 (2026-09-25; quoted in item 16's entry).
-BLOCKED on item 16. The run-progress screen and the New run screen.** SPEC §09 lists both, and
+READY since item 16 landed (PR #42); it was BLOCKED on it. The run-progress screen and the New run
+screen.** SPEC §09 lists both, and
 until D2 no item built either.
 
 *Why blocked:* the run screen's reason to exist is taking a designer from a finished course to its
