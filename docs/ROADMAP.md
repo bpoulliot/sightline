@@ -53,7 +53,7 @@ on 2026-09-22). Next free item number: **41**.
 | 36 | Run-progress and New run screens | 2 | **BLOCKED** — on item 16 (its review screen is what the run screen links to); queued after it, gated | filed 2026-09-29, PR #30 |
 | 37 | Host `__pycache__` ships in locally built images, carrying the developer's home path | 1 | READY | **DONE** — PR #34. 177 → 0 files in the dev image, 94 → 0 in runtime |
 | 38 | A bound Tier D row is counted in two coverage buckets, and `coverage` exits 1 calling it a bug | 1 | READY | **DONE** — PR #35. Tier first; 42 → 41 of 68, exit 1 → 0 |
-| 39 | Every other bare pattern in `.dockerignore` is root-only too | 3 | READY | filed 2026-09-29 by item 37, PR #34; queued 2026-10-29 |
+| 39 | Every other bare pattern in `.dockerignore` is root-only too | 3 | READY | **DONE** — PR #41. Planted nested files 19 → 0 in the dev image, 15 → 0 in runtime |
 | 40 | Sign-in (SSO) and multiple users | 3 | **NEEDS DISCUSSION** — filed 2026-10-29 | — |
 
 ---
@@ -1006,6 +1006,27 @@ A walk of the working tree on 2026-09-29 found **0** such nested files, so nothi
 `.gitignore`'s intent, and extend `tests/test_dockerignore.py` to assert the set. `data/` is a
 judgement: it is the data root only at the top level, and `**/data/` would also drop any package
 directory named `data` — check `src/` for one before widening it.
+
+*DONE — PR #41.* Every secret-, data-, cache- and editor-shaped pattern in `.dockerignore` carries
+`**/`, and `!.env.example` became `!**/.env.example`. `.git`, `.gitignore`, the root-only `docs/`
+with its two exceptions, the Dockerfile and `.gitignore` are unchanged. **`data/` was widened to
+`**/data/`.** `.gitignore`'s `data/` already ignores a directory named `data` at any depth
+(`git check-ignore` matches `src/sightline/data/x.json`), so no tracked path can live under one,
+and there is no `data` directory under `src/`, `tests/`, `examples/`, `rubrics/` or `assets/`.
+`tests/test_dockerignore.py` now carries a Docker pattern matcher. It is self-tested both ways
+(bare is root-only, `**/` is any depth, the last match decides). The test plants one nested file of
+each of 19 shapes and asserts each is excluded, keeps `.env.example` at any depth, and checks that
+every tracked file the Dockerfile copies stays in the context. Against main's `.dockerignore`,
+19 of these tests fail.
+
+*Measured* (item 37's method). Two `git archive` extracts of the branch, each with the same 19
+nested files planted holding a marker string: one built with main's `.dockerignore`, one with the
+branch's. Both stages of each were built, and planted files under `/app` were counted by content
+(controls: an impossible marker reads 0, `OSCQR` reads non-zero). Dev image **19 → 0**, runtime
+**15 → 0** (runtime copies no `tests/`). Files outside `/app/.venv`: dev 275 → 256, runtime
+165 → 150. The main-minus-branch file list is exactly the planted set, and the branch image holds
+no file the main image lacks, so the change drops nothing the app ships. The suite in the branch's
+dev image (sample-report comparison required): 1848 passed / 25 skipped.
 
 **37 · FILED 2026-09-29 by item 14's session (PR #31). READY. `.dockerignore` keeps host
 bytecode out of the build context only at the top level, so a locally built image carries the
