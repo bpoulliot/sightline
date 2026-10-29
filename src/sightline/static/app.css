@@ -462,7 +462,21 @@ td.num { font-family: var(--f-mono); }
 }
 .reviewer-missing { color: var(--amber); }
 
+.review-head h1 { font-size: 1.6rem; line-height: 1.25; }
+.review-head a,
+.jump a,
+.review-counts a,
+.decision a,
+.files a,
+.banner a { color: var(--accent-ink); }
+
 .jump { margin: 0 0 1rem; max-width: var(--measure); }
+/* Every column stays in view at desktop width: the headers wrap rather than pushing the last
+ * column, the questions with no rating recorded, out of sight behind a scrollbar. */
+.review-counts { min-width: 0; }
+.review-counts th,
+.review-counts td { padding: .5rem .5rem; }
+.review-counts thead th { white-space: normal; vertical-align: bottom; }
 .review-counts td.zero { color: var(--ink-soft); }
 .unresolved-count { font-weight: 600; color: var(--ink); }
 .files { margin: 0; padding-left: 1.1rem; }
@@ -637,6 +651,18 @@ td.num { font-family: var(--f-mono); }
   .view-form .field { margin: 0 0 .7rem; }
   .view-form .field select { width: 100%; }
   .block { padding: .5rem .65rem .55rem; }
+  .review-head h1 { font-size: 1.4rem; }
+
+  /* A category's counts as label-and-value lines, so a card is a short list rather than a
+   * column of captions. */
+  .review-counts tbody td {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+    padding: .05rem 0;
+  }
+  .review-counts tbody td::before { margin-top: 0; }
 
   /* Tables become stacked records. A four-column table at 390px either scrolls out of sight or
    * loses a column; neither is acceptable when the columns carry evidence. Each cell keeps its
