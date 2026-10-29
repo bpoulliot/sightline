@@ -4,41 +4,50 @@
 
 .git
 .gitignore
-data/
-*.imscc
-.env
-.env.*
-!.env.example
-secrets/
-*.pem
-*.key
-*.token
-config.local.*
-instance/
-private/
 
-*.sqlite
-*.sqlite3
-*.db
+# Every secret- and data-shaped pattern carries `**/`. Docker matches a bare pattern against the
+# context root only, where .gitignore means the same line at any depth, so `.env` alone would keep
+# a root .env out of the image and copy one planted under examples/ or src/ straight in (roadmap
+# item 39). `**/` matches at the root too.
+#
+# `data/` is widened with the rest. .gitignore already ignores a directory named `data` at any
+# depth, so no tracked path can live under one and widening drops nothing a checkout carries.
+**/data/
+**/*.imscc
+**/.env
+**/.env.*
+!**/.env.example
+**/secrets/
+**/*.pem
+**/*.key
+**/*.token
+**/config.local.*
+**/instance/
+**/private/
+
+**/*.sqlite
+**/*.sqlite3
+**/*.db
+
 # Any depth, not just the context root: Docker matches a bare pattern against the root only, so
 # without `**/` the host's bytecode under src/ and tests/ -- and the absolute path each .pyc was
 # compiled under -- rode into the image with COPY (roadmap item 37).
 **/__pycache__
 **/*.py[cod]
-.venv/
-venv/
-.pytest_cache/
-.ruff_cache/
-.coverage
-htmlcov/
-dist/
-build/
-*.egg-info/
+**/.venv/
+**/venv/
+**/.pytest_cache/
+**/.ruff_cache/
+**/.coverage
+**/htmlcov/
+**/dist/
+**/build/
+**/*.egg-info/
 
-.DS_Store
-.idea/
-.vscode/
-*.swp
+**/.DS_Store
+**/.idea/
+**/.vscode/
+**/*.swp
 
 # Not needed at runtime — keeps the image small and the layer set boring.
 docs/
