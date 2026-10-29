@@ -335,6 +335,7 @@ def _status(args: argparse.Namespace, settings: Settings) -> int:
                     else "no review opened yet — nothing may be exported for this course"
                 )
                 print(f"    {opened}")
+                print(f"    review at /review/{course.course_id}")
         return 0
     finally:
         store.dispose()

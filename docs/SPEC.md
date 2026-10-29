@@ -483,8 +483,10 @@ runs returned different spans is marked *needs attention*.
   subset rather than the course.
 - **Where the flag is surfaced.** The extraction screen names it, and the serialized comparison
   carries a `needs_attention` object — present only when the runs differed, absent rather than
-  false when they agreed, so a renderer cannot read the key as a boolean to sort on. The review
-  screen of §09 is roadmap item 16 and is not built yet; that payload is what it renders.
+  false when they agreed, so a renderer cannot read the key as a boolean to sort on. A batch runs
+  one pass and never builds a `Comparison`, so a review file holds no such payload and the review
+  screen (item 16) renders none; if a later item puts one in the review file, it renders
+  `ATTENTION_NOTE` with it.
 
 ### What a routed row costs, measured 2026-09-28 (item 33)
 
@@ -661,7 +663,7 @@ deployment footprint is a priority. All colour comes from `docs/tokens.css`.
   to a path under `reports/`, it refuses for a course whose review nobody opened, and a structural
   test fails the build if any other module names that directory.
 - **Progress is per course and per stage, and a stage that examined nothing is a failure.** Until
-  the review UI lands (item 16) the surfaces are `GET /api/runs/{id}` and
+  the run-progress screen lands (item 36) the surfaces are `GET /api/runs/{id}` and
   `python -m sightline.batch status`. The run-progress *screen*, and the New run screen, are
   roadmap item 36 — split from item 16 by operator decision on 2026-09-25, which made item 16 the
   review screen only.
@@ -684,6 +686,21 @@ deployment footprint is a priority. All colour comes from `docs/tokens.css`.
 - **Exports carry the reviewer's rating where one was recorded**, labelled as the reviewer's,
   beside the unchanged machine proposal and its effort figures. A row with no override carries the
   proposal, labelled as proposed. Decided 2026-10-29; roadmap item 16.
+
+**As built (item 16).** `sightline.review`, at `/review/<run-store course id>`: an index of the
+categories in the pack's order, with counts by proposed reading and the number of questions with no
+rating recorded, and one page per category, sorted and filtered by query parameters. The first
+request for any page opens the review (`ExportGate.open_review`). Every row carries its tier chip,
+its coverage in the bank's words, its proposal, its sentences in one block per register, its latest
+override record, and one form recording one rating for that row; a Tier C row's form arrives with
+nothing selected and refuses a submission without a choice. Recorded ratings go through
+`record_override`, with the reviewer from `sightline.review.identity.current_reviewer`, the one
+lookup. The export control calls `sightline.report.export.export_course`, as the command does.
+Exports print a recorded rating in a *Reviewer's rating* field, fact or column that exists only
+when one was recorded, so a course nobody overrode exports exactly as before. Two choices the
+decisions above leave open, made here: the exports carry the reviewer's rating and not their name
+(the record keeps the name); and Tier A, B and D rows open with the proposal selected, so recording
+it unchanged records a confirmation.
 
 ### Open for discussion
 
