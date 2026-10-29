@@ -482,7 +482,7 @@ def test_no_run_count_is_printed(pdf_text) -> None:
     assert not re.search(r"\b\d+ (?:of \d+ )?runs?\b", pdf_text)
 
 
-# -- item 24: how often human reviewers agree, and the near-boundary marker -------------------------
+# -- item 24: how often human reviewers agree, and the near-boundary marker ------------------------
 
 
 class _About(HTMLParser):

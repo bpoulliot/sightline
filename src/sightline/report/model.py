@@ -453,9 +453,7 @@ def build_report(
         ),
         reviewed=bool(reviewed),
         agreement=agreement.brief(voice=voice),
-        legend=(
-            agreement.near_boundary_legend(projection.effort, voice=voice) if marked else None
-        ),
+        legend=(agreement.near_boundary_legend(projection.effort, voice=voice) if marked else None),
     )
     _check(model, rules)
     return model

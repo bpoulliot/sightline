@@ -776,7 +776,7 @@ def test_no_attention_flag_or_run_count_is_rendered(pages) -> None:
         assert "attention" not in text.lower()
 
 
-# -- item 24: how often human reviewers agree, and the near-boundary marker -------------------------
+# -- item 24: how often human reviewers agree, and the near-boundary marker ------------------------
 
 
 def _field_names(node: Node) -> list[str]:
