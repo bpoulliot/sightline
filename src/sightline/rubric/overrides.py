@@ -7,8 +7,9 @@ rolled-up hours, near-boundary marker, the findings that were summed, whether th
 was calibrated) and the rating a person chose, with who, when, and the rubric pack and version the
 band was cut from.
 
-**This module owns the write path and nothing on a screen.** Roadmap item 16 builds the review
-screen and calls :func:`record_override`; nothing here renders anything. The store keeps the table
+**This module owns the write path and nothing on a screen.** The review screen
+(:mod:`sightline.review`, roadmap item 16) calls :func:`record_override`, and reads back through
+:func:`latest_overrides`; the exports take :func:`reviewer_ratings`. Nothing here renders anything. The store keeps the table
 append-only (:meth:`sightline.store.RunStore.record_override`): an override never overwrites the
 proposal, and a second override of the same row is a second record.
 
@@ -29,6 +30,7 @@ from .project import Projection
 from .states import Rating
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
+    from ..models import RatingOverride
     from ..store import RunStore
 
 
@@ -113,4 +115,29 @@ def record_override(
     )
 
 
-__all__ = ["MachineProposal", "record_override"]
+def latest_overrides(store: RunStore, course_id: str) -> dict[str, RatingOverride]:
+    """The latest record for each criterion of one course, keyed on the row code.
+
+    The table is append-only, so a reviewer who changed their mind left two records; the later one
+    is what they decided, and it is what the review screen shows and the exports carry. "Later" is
+    the record id, which the store assigns in insertion order, never the clock.
+    """
+    latest: dict[str, RatingOverride] = {}
+    for record in store.list_overrides(course_id=course_id):
+        latest[record.criterion] = record
+    return latest
+
+
+def reviewer_ratings(store: RunStore, course_id: str) -> dict[str, Rating]:
+    """The reviewer's latest rating per criterion: the override input the exports take.
+
+    Empty when nobody overrode anything, which is the ordinary case, and an export given an empty
+    mapping is exactly the export it was before item 16.
+    """
+    return {
+        code: Rating(record.human_rating)
+        for code, record in latest_overrides(store, course_id).items()
+    }
+
+
+__all__ = ["MachineProposal", "latest_overrides", "record_override", "reviewer_ratings"]

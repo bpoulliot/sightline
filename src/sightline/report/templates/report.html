@@ -31,6 +31,9 @@
 <section class="about" data-register="{{ model.about.register }}">
   <h2>{{ model.labels.report_about_heading.text }}</h2>
   <p>{{ model.about.text }}</p>
+  {%- if model.reviewed %}
+  <p data-register="{{ model.labels.report_reviewer_intro.register }}">{{ model.labels.report_reviewer_intro.text }}</p>
+  {%- endif %}
 </section>
 
 <section class="summary">
@@ -69,6 +72,9 @@
         <th scope="col">{{ model.labels.col_code.text }}</th>
         <th scope="col">{{ model.labels.col_criterion.text }}</th>
         <th scope="col">{{ model.labels.col_rating.text }}</th>
+        {%- if model.reviewed %}
+        <th scope="col">{{ model.labels.col_reviewer_rating.text }}</th>
+        {%- endif %}
         <th scope="col">{{ model.labels.report_col_located.text }}</th>
       </tr>
     </thead>
@@ -79,6 +85,9 @@
         <td class="code"><a href="#{{ entry.target }}">{{ entry.code }}</a></td>
         <td>{{ entry.criterion.text }}</td>
         <td>{{ say(entry.reading) }}</td>
+        {%- if model.reviewed %}
+        <td>{{ say(entry.reviewer) }}</td>
+        {%- endif %}
         <td>{{ say(entry.located) }}</td>
       </tr>
       {%- endfor %}
@@ -125,6 +134,9 @@
       <p class="facts">
         <span class="fact">{{ say(line.determinacy) }}</span>
         <span class="fact">{{ say(line.reading) }}</span>
+        {%- if line.reviewer %}
+        <span class="fact">{{ say(line.reviewer) }}</span>
+        {%- endif %}
         <span class="fact">{{ say(line.coverage) }}</span>
         <span class="fact">{{ say(line.located) }}</span>
       </p>

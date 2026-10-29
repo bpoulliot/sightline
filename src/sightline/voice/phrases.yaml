@@ -111,6 +111,23 @@ formats:
   report_full_heading: {register: A, text: "{title}, in full"}
   report_compact_intro: {register: A, text: "One line for each remaining criterion: its proposed reading, what was located, and where in Canvas. Every criterion, with every located item and its Canvas link, is in the workbook {workbook} that accompanies this document."}
   report_running: {register: A, text: "{course} · {instrument}"}
+  # Where a reviewer recorded a rating (roadmap item 16, operator decision Q2 of 2026-10-29), the
+  # exports carry it labelled as the reviewer's, beside the proposal, which is never re-banded. The
+  # proposal is then labelled as proposed in the same place, so neither can be read as the other.
+  report_proposed_reading: {register: A, text: "Proposed: {label}"}
+  report_reviewer_reading: {register: A, text: "Reviewer's rating: {label}"}
+  # The review screen (roadmap item 16). Every word on it is a bank entry, linted like the reports:
+  # the screen is where a designer reads the review, so it is held to the same register.
+  review_unresolved_count: {register: A, text: "{questions} with no rating recorded"}
+  review_jump: {register: A, text: "First question with no rating recorded: {code}, in {title}"}
+  review_recorded: {register: A, text: "{rating}, recorded by {reviewer} on {date}"}
+  review_note: {register: A, text: "Note: {note}"}
+  review_records_as: {register: A, text: "A rating recorded here is recorded as {reviewer}. The name is set under Reviewer on the Settings screen."}
+  review_saved: {register: A, text: "Recorded for {code}: {rating}."}
+  review_choose_question: {register: C, text: "Nothing was recorded for {code}, because no rating was chosen. Choose one, No Response included; the call is yours to decide."}
+  review_shown: {register: A, text: "{rows} shown"}
+  review_previous: {register: A, text: "Previous: {title}"}
+  review_next: {register: A, text: "Next: {title}"}
 
 # Fixed words with no placeholders: sheet names, column headers, and the values of the workbook's
 # categorical columns (roadmap item 13). Linted at load like everything else — a column header is
@@ -171,6 +188,39 @@ labels:
   report_no_check_ran: {register: D, text: "no check ran"}
   report_not_gathered: {register: B, text: "located evidence not gathered in this run"}
   report_nothing_to_link: {register: A, text: "No located item"}
+  # A rating a reviewer recorded, in the exports (roadmap item 16, Q2). Only printed when one was.
+  col_reviewer_rating: {register: A, text: "Reviewer's rating"}
+  reviewer_none: {register: A, text: "No rating recorded by the reviewer"}
+  report_reviewer_intro: {register: A, text: "Where the reviewer recorded a rating in Sightline, it is printed as the reviewer's rating beside the proposed rating. The proposed rating and its effort estimate are left exactly as the review pass made them."}
+  # The review screen (roadmap item 16).
+  review_lede: {register: A, text: "Each criterion with what the review pass located, its proposed rating, and a place to record yours. Nothing is run again here: the page reads the review file the run saved."}
+  review_index_heading: {register: A, text: "Categories"}
+  review_index_intro: {register: A, text: "The instrument's categories, in its own order. Each cell counts the criteria in one category with one proposed reading; the counts are not added up across categories or readings."}
+  review_col_unresolved: {register: A, text: "Questions with no rating recorded"}
+  review_jump_none: {register: A, text: "Every question posed in this review has a recorded rating."}
+  review_export_heading: {register: A, text: "Export"}
+  review_export_intro: {register: A, text: "Writes the PDF report and the workbook for this course, from the review file and the ratings recorded here. Where a rating was recorded, both carry it as the reviewer's rating beside the unchanged proposal."}
+  review_export_button: {register: A, text: "Write the report and the workbook"}
+  review_exported: {register: A, text: "Written. Each file carries the ratings recorded when it was written; write them again after recording another."}
+  review_export_files: {register: A, text: "Files written for this course"}
+  review_sort: {register: A, text: "Sort"}
+  review_sort_instrument: {register: A, text: "Instrument order"}
+  review_sort_severity: {register: A, text: "Priority, then proposed band"}
+  review_filter_reading: {register: A, text: "Proposed reading"}
+  review_filter_tier: {register: A, text: "Determinacy"}
+  review_filter_any: {register: A, text: "Any"}
+  review_filter_unresolved: {register: A, text: "Only questions with no rating recorded"}
+  review_apply: {register: A, text: "Apply"}
+  review_rows_none: {register: A, text: "No criterion in this category matches this view."}
+  review_back: {register: A, text: "All categories"}
+  review_unresolved: {register: C, text: "No rating recorded yet: the reviewer's call"}
+  review_form_rating: {register: A, text: "Your rating"}
+  review_form_note: {register: A, text: "Note"}
+  review_form_submit: {register: A, text: "Record this rating"}
+  review_form_hint_question: {register: C, text: "Nothing is selected. Choose a rating, No Response included, to record one; the call is yours to decide."}
+  review_form_hint_proposal: {register: A, text: "The proposed rating is selected. Recording it unchanged, with or without a note, records that you confirmed it."}
+  review_needs_reviewer: {register: A, text: "No reviewer name is set, so no rating can be recorded yet. Every recorded rating names who made it: set the name under Reviewer on the Settings screen."}
+  review_settings_link: {register: A, text: "Go to Settings"}
 
 A:
   # A Tier A row whose checks all ran, each examined something, and none recorded an observation.

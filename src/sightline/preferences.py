@@ -1,9 +1,11 @@
 """Preferences: the settings that are choices rather than credentials.
 
-Three of them. Whether Sightline asks Canvas to build a fresh export of the course it is reviewing
+Four of them. Whether Sightline asks Canvas to build a fresh export of the course it is reviewing
 is a deployment's decision, not a detail of how it is wired, so it is a preference a person sets
 on the settings screen rather than a constant somebody has to find in the source. The model host
-endpoint and the model chosen to do review work are the same kind of thing.
+endpoint and the model chosen to do review work are the same kind of thing. So is the reviewer's
+name every recorded rating carries (roadmap item 16): it is typed once, here, rather than on every
+override.
 
 **The model host endpoint is a preference and not a credential, and that is a decision.** The
 Canvas base URL is held encrypted and redacted out of every log because it identifies the
@@ -45,6 +47,11 @@ log = get_logger("sightline.preferences")
 REQUEST_CONTENT_EXPORT = "request_content_export"
 MODEL_HOST_ENDPOINT = "model_host_endpoint"
 REVIEW_MODEL = "review_model"
+REVIEWER = "reviewer"
+
+#: The longest reviewer name stored. The override record's column is this wide
+#: (:class:`sightline.models.RatingOverride`), so a longer one is refused here rather than cut there.
+REVIEWER_MAX = 128
 
 #: Stored spellings. Two words rather than ``1``/``0``, because the value is read by people
 #: opening the database as often as by this module.
@@ -148,6 +155,43 @@ class ReviewModelPreference:
         return bool(self.name)
 
 
+@dataclass(frozen=True)
+class ReviewerPreference:
+    """Who a rating recorded on the review screen is recorded as (roadmap item 16, Q1).
+
+    Free text — a name, initials, an email address; whatever the person wants the record to say.
+    Sightline has no login (:mod:`sightline.views`), so this is a statement, not an identity, and
+    it is never used to decide what anybody may do. Read it through
+    :func:`sightline.review.identity.current_reviewer`, the one lookup the override path calls,
+    so that sign-in (roadmap item 40) can replace the source without touching the form or the
+    record.
+    """
+
+    name: str | None
+    source: PreferenceSource
+
+    title = "Reviewer"
+
+    note = (
+        "The name every rating you record on the review screen is recorded with, beside the "
+        "machine proposal it replaces. It is stored with the other preferences, in the clear, and "
+        "it is not written into an exported report or workbook."
+    )
+
+    @property
+    def set(self) -> bool:
+        return bool(self.name)
+
+
+class ReviewerNameError(ValueError):
+    """A reviewer name that cannot be stored. Says why and what to do instead."""
+
+    def __init__(self, summary: str, *, remedy: str) -> None:
+        super().__init__(summary)
+        self.summary = summary
+        self.remedy = remedy
+
+
 class PreferenceStore:
     """Reads and writes preferences, with an environment fallback."""
 
@@ -248,16 +292,55 @@ class PreferenceStore:
         log.info("preference_cleared", name=REVIEW_MODEL, had_stored_value=removed)
         return removed
 
+    # -- who records a rating ------------------------------------------------------------------
+
+    def reviewer(self) -> ReviewerPreference:
+        """The stored reviewer name. No environment fallback: a name is a person's, not a host's."""
+        stored = self._store.get_setting(REVIEWER)
+        if stored:
+            return ReviewerPreference(name=stored, source=PreferenceSource.STORED)
+        return ReviewerPreference(name=None, source=PreferenceSource.DEFAULT)
+
+    def set_reviewer(self, name: str) -> ReviewerPreference:
+        """Store the name, with surrounding and repeated whitespace collapsed.
+
+        Not logged: the log records that the name changed, never what it is.
+        """
+        cleaned = " ".join(name.split())
+        if not cleaned:
+            raise ReviewerNameError(
+                "No name was entered, so nothing was saved.",
+                remedy="Type the name a recorded rating should carry, then save.",
+            )
+        if len(cleaned) > REVIEWER_MAX:
+            raise ReviewerNameError(
+                f"That name is {len(cleaned)} characters; a recorded rating holds at most "
+                f"{REVIEWER_MAX}.",
+                remedy="Use a shorter form of the name, such as initials.",
+            )
+        self._store.put_setting(REVIEWER, cleaned)
+        log.info("preference_saved", name=REVIEWER)
+        return self.reviewer()
+
+    def clear_reviewer(self) -> bool:
+        removed = self._store.delete_setting(REVIEWER)
+        log.info("preference_cleared", name=REVIEWER, had_stored_value=removed)
+        return removed
+
 
 __all__ = [
     "MODEL_HOST_ENDPOINT",
     "OFF",
     "ON",
     "REQUEST_CONTENT_EXPORT",
+    "REVIEWER",
+    "REVIEWER_MAX",
     "REVIEW_MODEL",
     "ExportPreference",
     "ModelHostPreference",
     "PreferenceSource",
     "PreferenceStore",
     "ReviewModelPreference",
+    "ReviewerNameError",
+    "ReviewerPreference",
 ]
