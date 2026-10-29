@@ -6,7 +6,7 @@ Labels: **READY** · **NEEDS DISCUSSION** · **NEEDS MEASUREMENT** · **BLOCKED*
 Nothing unready enters the queue. One item per conversation, one PR per item.
 
 Queue lives at `~/docker/overnight/projects/sightline/` (moved from `~/docker/overnight-sightline/`
-on 2026-09-22). Next free item number: **40**.
+on 2026-09-22). Next free item number: **41**.
 
 ---
 
@@ -30,9 +30,9 @@ on 2026-09-22). Next free item number: **40**.
 | 13 | XLSX writer | 2 | READY | **DONE** — PR #28 |
 | 14 | PDF course report | 2 | READY | **DONE** — PR #31 |
 | 15 | Narrative generator and voice contract | 2 | READY | **DONE** — PR #27 |
-| 16 | Review UI | 2 | **NEEDS DISCUSSION** — Q1 who an override records, Q2 whether exports carry the reviewer's rating | re-specified 2026-09-29, PR #30 — see *Notes carried forward* |
+| 16 | Review UI | 2 | READY — Q1 (a) and Q2 (b) decided 2026-10-29 | re-specified 2026-09-29, PR #30; queued `99q-` |
 | 17 | Batch runner | 2 | READY | **DONE** — PR #18 |
-| 18 | Escalation adapter | 3 | **BLOCKED** — ChatGPT Edu API access | — |
+| 18 | Escalation adapter | 3 | **PARKED** 2026-10-29 — ChatGPT Edu API not available | — |
 | 19 | Uploaded-rubric mapping screen | 3 | **SUPERSEDED by 22** | — |
 | 20 | Multi-course comparison view | 3 | **DECIDED — not building it** | see 25 |
 | 21 | Detector integrity guard | 0 | READY | **DONE** — PR #8 |
@@ -49,11 +49,12 @@ on 2026-09-22). Next free item number: **40**.
 | 32 | The suite reads the developer's `.env`; the fixture that promises it does not, does not | 1 | READY | **DONE** — PR #16 |
 | 33 | A routed row costs one call per passage, and nothing bounds the total | 2 | MEASURED | **DONE** — PR #26. Outcome (d): nothing changes |
 | 34 | Acquisition drops every outcome when it records an export note | 1 | READY | **DONE** — PR #33 |
-| 35 | The workbook's action plan holds located items; SPEC §08 promises remediation steps | 2 | **NEEDS DISCUSSION** | — |
-| 36 | Run-progress and New run screens | 2 | **BLOCKED** — on item 16 (its review screen is what the run screen links to) | filed 2026-09-29, PR #30 |
+| 35 | The workbook's action plan holds located items; SPEC §08 promises remediation steps | 2 | DECIDED (a) 2026-10-29 | **DONE** — SPEC §08 corrected in this PR |
+| 36 | Run-progress and New run screens | 2 | **BLOCKED** — on item 16 (its review screen is what the run screen links to); queued after it, gated | filed 2026-09-29, PR #30 |
 | 37 | Host `__pycache__` ships in locally built images, carrying the developer's home path | 1 | READY | **DONE** — PR #34. 177 → 0 files in the dev image, 94 → 0 in runtime |
 | 38 | A bound Tier D row is counted in two coverage buckets, and `coverage` exits 1 calling it a bug | 1 | READY | **DONE** — PR #35. Tier first; 42 → 41 of 68, exit 1 → 0 |
-| 39 | Every other bare pattern in `.dockerignore` is root-only too | 3 | READY | filed 2026-09-29 by item 37, PR #34; not queued — latent, nothing matches today |
+| 39 | Every other bare pattern in `.dockerignore` is root-only too | 3 | READY | filed 2026-09-29 by item 37, PR #34; queued 2026-10-29 |
+| 40 | Sign-in (SSO) and multiple users | 3 | **NEEDS DISCUSSION** — filed 2026-10-29 | — |
 
 ---
 
@@ -135,6 +136,12 @@ them against a model that does not exist yet would mean three sessions each inve
 2026-09-08 and went stale as items 17, 12a, 13 and 15 landed; they are retired, and the queue
 carries `99i-` (item 14) and `99j-` (item 16) instead, each gated on its entry under *Notes
 carried forward* reading READY. Item 16 does not yet (two questions); item 36 waits on it.
+
+**Wave 3 — released 2026-10-29 (operator).** In order: `99p-` item 39 (the latent bug first),
+`99q-` item 16 (re-issued from `99j-` with Q1 and Q2 decided), `99r-` item 36, `99s-` item 24's
+re-run (from `99l-`). Each
+later HEAD gates on its predecessors being DONE on `main` and stops otherwise. Item 22 part 2 is
+not queued: it needs its own specification pass once 36 is DONE.
 
 ---
 
@@ -236,8 +243,12 @@ model. Each of these three items is a fresh chance to collapse them at the last 
 human reads the result — in a sentence, in a table cell, in a table row. All three prompts carry
 that trap explicitly and all three acceptance lists test for it.
 
-**18 — escalation adapter · BLOCKED.** Pending confirmation of ChatGPT Edu API access. The app
-functions fully without it.
+**18 — escalation adapter · PARKED 2026-10-29 (operator).** ChatGPT Edu API access is not
+available. The app functions fully without it. *Noted, not decided:* the adapter is
+OpenAI-compatible and Ollama serves that API, so a larger model on the existing model host could be
+the escalation endpoint. Whether one that fits beside the extraction model resolves the
+disagreement set better than the three runs is a measurement question against the calibration
+corpus, to be filed as its own item if it is wanted.
 
 **19 · SUPERSEDED by 22.** Its premise — that an uploaded rubric needs a mapping screen before it
 is usable — is dead. Under item 04 an unbound rubric runs immediately, extraction-only. What remains
@@ -802,8 +813,23 @@ where it came from; where the two differ, this entry is newer and wins.
 - The full suite is green, ruff and black exit codes are read separately, and all CI jobs are
   green.
 
-**16 · RE-SPECIFIED 2026-09-29 (PR #30). NEEDS DISCUSSION — two questions, Q1 and Q2 below, that
-nothing on `main` answers. Everything else is specified; answering both makes it READY.**
+**16 · RE-SPECIFIED 2026-09-29 (PR #30). READY since 2026-10-29: Q1 and Q2 below are decided.**
+
+*Operator decisions, 2026-10-29 (bitmap, interactive). Do not re-open:*
+- **Q1: (a).** A *Reviewer* setting on the Settings screen, kept with the other preferences.
+  Every override records it. Until it is set, the override form refuses and names Settings, and
+  the form says whose name it will record. A reviewer can log an override, with a note, on every
+  row. When item 40 (sign-in) lands, the signed-in identity replaces the setting. Build the
+  lookup as one function the override path calls, so 40 swaps its source without touching the
+  form or the record.
+- **Q2: (b), built in item 16.** Where an override was recorded, the workbook and the PDF carry
+  the reviewer's latest rating, labelled as the reviewer's, with the machine proposal and its
+  effort figures beside it unchanged: never re-banded, never back-computed. A row with no
+  override carries the proposal, labelled as proposed. This needs bank labels and an override
+  input to `build_workbook` and to item 14's report model. **The earlier build instruction "no
+  change to the PDF or workbook beyond gating their export" is lifted to exactly that extent.**
+  The committed sample has no overrides, so its bytes, and item 14's byte-identical test, do
+  not move.
 
 *Operator decision D2, 2026-09-25 (bitmap, interactive) — verbatim, do not re-open:*
 
@@ -932,7 +958,40 @@ The near-boundary marker and `agreement.brief()` belong to item 24's re-run, not
   afterwards.
 - The full suite is green, ruff and black exit codes are read separately, and all CI jobs are green.
 
-**39 · FILED 2026-09-29 by item 37's session (PR #34). READY, not queued: latent, nothing
+**40 · FILED 2026-10-29 (operator, interactive). NEEDS DISCUSSION. Sign-in through the
+institution's single sign-on, so one Sightline instance can be offered to several users.**
+
+*The ask, verbatim in substance:* run Sightline behind SSO and offer it to multiple users with a
+login, and take the reviewer name an override records from the signed-in identity (item 16 Q1).
+
+*Why it is a discussion and not a build.* It reverses a premise the code and SPEC rest on.
+`sightline.views` and §09 describe a single-user local tool: no login, no CSRF token, one set of
+preferences, and "no production deployment" (*Deployment*, above). Several users on one host
+change each of those. Questions to settle before it is READY:
+1. **Identity provider and protocol.** OIDC against which provider. A self-hosted identity
+   provider fronting the institution's SSO is one route; registering with the institution's
+   provider directly is another. Which claim is the reviewer name (display name, email, or
+   subject id with a display name beside it)?
+2. **Where it runs.** A shared host is a deployment. The roadmap has none, and AGENTS.md forbids
+   deploying from a session. Who operates it, and does the one-process-per-container rule hold
+   (an auth proxy in front is a second container, not a second process in this one)?
+3. **In the app, or in front of it.** A forward-auth proxy passing a verified identity header is
+   the smallest change to the app. Native OIDC in FastAPI is self-contained. Either way the app
+   must refuse a request that did not come through it.
+4. **Canvas credentials.** Today one token in Settings. Per user, or one service token? A shared
+   token means every user acts as its owner in Canvas, and content export POSTs write remote
+   state as that owner.
+5. **Whose data.** Runs, reviews, overrides and exports are one store today. Does every user see
+   every run, or only their own? Who may open a review, which is what satisfies the export gate?
+6. **Settings scope.** The model host, model and Canvas URL are instance settings; the reviewer
+   name becomes the identity. Who may change instance settings (a role)?
+7. **What changes with a login.** CSRF protection on every form post, session expiry, and the
+   model host's concurrency of 1: two users' runs would queue on one model host (item 36
+   already refuses a second active run).
+
+*Depends on:* item 16's reviewer lookup (Q1), which this item replaces. *Blocks:* nothing queued.
+
+**39 · FILED 2026-09-29 by item 37's session (PR #34). READY, queued 2026-10-29: latent, nothing
 matches today. Every other bare pattern in `.dockerignore` excludes at the context root only.**
 
 *Evidence.* Item 37 measured that Docker matches a bare `.dockerignore` pattern against the
@@ -1145,6 +1204,10 @@ reviewer writes the plan, or (b) the bank gains a remediation shape per finding 
 codes), each a fixed instruction reviewed like the rest of the voice, and §01 is amended to allow
 it. (b) is a content-authoring job and a change to the governing rule; not something a build
 session decides.
+
+*Decided 2026-10-29 (operator, interactive): **(a).** SPEC §08 now says the action-plan column
+holds the located items and the reviewer writes the plan. Nothing in the code changes; item 13
+already built it that way. DONE in the PR that recorded the decision.*
 
 **33 · MEASURED 2026-09-28 (PR #26). Outcome (d): nothing changes. Every way of making fewer calls
 lost evidence the current behaviour finds, and on this host the calls were not the cost anyway.**
@@ -2011,6 +2074,10 @@ to this.**
   something credential-shaped" rather than dropped.
 
 ## Corrections log
+
+**2026-10-29 — decisions recorded (operator, interactive).** Item 16: Q1 (a), Q2 (b); READY.
+Item 35: (a), SPEC §08 corrected. Item 18: parked. Item 40 (sign-in, multiple users) filed,
+NEEDS DISCUSSION. SPEC §09's open questions are replaced by the two decisions and item 40.
 
 **2026-09-08 — detector-to-criterion mappings revised against full criterion text.** The first pass
 mapped against criterion text truncated at ~110 characters by a CSV display. Reading the full text
