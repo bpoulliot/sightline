@@ -572,8 +572,8 @@ build, or absent from the run), the others finding nothing leaves it at No Respo
 ### Two artifacts
 
 - **XLSX workbook** — every criterion on the selected rubric, with proposed rating, evidence column
-  filled with quotes and counts, action-plan column filled with remediation steps, and a Canvas link
-  per finding. Macro-free, UTF-8, single header row per sheet, no merged cells. Must survive a
+  filled with quotes and counts, action-plan column filled with the located items (the reviewer
+  writes the plan), and a Canvas link per finding. Macro-free, UTF-8, single header row per sheet, no merged cells. Must survive a
   round-trip through CSV without loss, which the current instrument does not.
 
   **As built (item 13).** `sightline.workbook`: a `Criteria` sheet (one row per criterion, in the
@@ -582,7 +582,7 @@ build, or absent from the run), the others finding nothing leaves it at No Respo
   formula — and the suite proves the CSV round-trip cell for cell on hostile course text. Tier and
   coverage are columns, never colours. **The action-plan column carries the located items, not
   remediation steps:** no source for remediation wording exists, and §01 does not allow a machine
-  to compose one. Roadmap item 35 holds that question.
+  to compose one. Decided 2026-10-29 (roadmap item 35): the reviewer writes the plan.
 - **PDF course report** — summary, prioritized action plan, accessibility and interaction sections
   in full, and the closing narrative.
 
@@ -678,14 +678,17 @@ deployment footprint is a priority. All colour comes from `docs/tokens.css`.
 - **No comparison view.** Multi-course runs stay strictly one report per course. Decided
   2026-09-08; roadmap item 20.
 
+- **An override records the *Reviewer* setting.** It is set once on the Settings screen, and the
+  override form refuses until it is. Decided 2026-10-29; roadmap item 16. Sign-in (item 40) would
+  replace it with the signed-in identity.
+- **Exports carry the reviewer's rating where one was recorded**, labelled as the reviewer's,
+  beside the unchanged machine proposal and its effort figures. A row with no override carries the
+  proposal, labelled as proposed. Decided 2026-10-29; roadmap item 16.
+
 ### Open for discussion
 
-- **Who an override records.** The override record requires a reviewer and there is no login.
-- **Whether an exported workbook and PDF carry the reviewer's rating** where one was recorded, or
-  the machine proposal only.
-
-Both are written out, with options and a recommendation, in roadmap item 16's entry. The item is
-NEEDS DISCUSSION until they are answered.
+- **Sign-in and multiple users.** Everything above assumes one local user with no login. Roadmap
+  item 40 holds the questions.
 
 ---
 
