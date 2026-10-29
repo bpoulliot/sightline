@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from .logging import get_logger
 from .models import (
+    TERMINAL_STATUSES,
     AppSecret,
     AppSetting,
     Base,
@@ -26,7 +27,6 @@ from .models import (
     RunCourse,
     RunEvent,
     RunStatus,
-    TERMINAL_STATUSES,
     as_utc,
     utcnow,
 )
