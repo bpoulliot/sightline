@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from .logging import get_logger
 from .models import (
+    TERMINAL_STATUSES,
     AppSecret,
     AppSetting,
     Base,
@@ -159,7 +160,7 @@ class RunStore:
             run.status = status
             if status is RunStatus.RUNNING and run.started_at is None:
                 run.started_at = utcnow()
-            if status in {RunStatus.SUCCEEDED, RunStatus.FAILED, RunStatus.CANCELLED}:
+            if status in TERMINAL_STATUSES:
                 run.finished_at = utcnow()
             session.add(RunEvent(run_id=run_id, event="run_status", data={"status": status.value}))
 

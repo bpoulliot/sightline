@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from sightline.models import RunStatus
+from sightline.models import TERMINAL_STATUSES, RunStatus
 from sightline.paths import DataPaths
 from sightline.store import RunStore, create_store_engine
 
@@ -49,6 +49,27 @@ def test_status_transitions_are_recorded(store: RunStore) -> None:
     assert done.is_terminal is True
     events = [event.event for event in store.list_events(run_id)]
     assert events.count("run_status") == 2
+
+
+@pytest.mark.parametrize("status", sorted(TERMINAL_STATUSES, key=lambda s: s.value))
+def test_every_terminal_status_records_a_finish_time(store: RunStore, status: RunStatus) -> None:
+    run_id = store.create_run(["101"], rubric_pack="oscqr-3.1.3")
+    store.set_run_status(run_id, RunStatus.RUNNING)
+    store.set_run_status(run_id, status)
+    run = store.get_run(run_id)
+    assert run is not None and run.is_terminal is True
+    assert run.finished_at is not None
+
+
+@pytest.mark.parametrize("status", [RunStatus.RUNNING, RunStatus.INTERRUPTED])
+def test_a_run_that_is_not_over_records_no_finish_time(store: RunStore, status: RunStatus) -> None:
+    # Interrupted is resumable, not terminal: the run is not over until a later pass ends it.
+    run_id = store.create_run(["101"], rubric_pack="oscqr-3.1.3")
+    store.set_run_status(run_id, RunStatus.RUNNING)
+    store.set_run_status(run_id, status)
+    run = store.get_run(run_id)
+    assert run is not None and run.is_terminal is False
+    assert run.finished_at is None
 
 
 def test_course_failure_is_visible_not_silent(store: RunStore) -> None:
