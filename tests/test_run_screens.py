@@ -458,7 +458,11 @@ def test_partial_reads_as_completed_with_failures(client: TestClient) -> None:
     store = store_of(client)
     run_id = store.create_run(["4410", "4411"], rubric_pack=DEFAULT_RUBRIC_PACK)
     store.set_run_status(run_id, RunStatus.PARTIAL)
-    assert "Completed with failures" in text_of(client.get(f"/runs/{run_id}").text)
+    page = text_of(client.get(f"/runs/{run_id}").text)
+    assert "Completed with failures" in page
+    # The store records no finish time for a partial run (filed as a roadmap item); the page
+    # says so rather than calling a finished run unfinished.
+    assert "Finished Not recorded" in page
     assert "Completed with failures" in text_of(client.get("/runs").text)
 
 

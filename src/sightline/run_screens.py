@@ -45,7 +45,7 @@ from .batch import (
     StageState,
     progress_of,
 )
-from .models import STATUS_LABELS, RunEvent, RunStatus, as_utc
+from .models import STATUS_LABELS, TERMINAL_STATUSES, RunEvent, RunStatus, as_utc
 from .new_run import is_running, short_id
 from .paths import DataPaths
 from .review.screen import index_href
@@ -148,6 +148,11 @@ class RunPage:
     @property
     def live(self) -> bool:
         return is_running(self.progress.status)
+
+    @property
+    def finished(self) -> bool:
+        """Over, one way or another. Not every terminal status records when it finished."""
+        return RunStatus(self.progress.status) in TERMINAL_STATUSES
 
     @property
     def interrupted(self) -> bool:

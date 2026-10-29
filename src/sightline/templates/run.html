@@ -18,7 +18,7 @@
     <div><dt>Rubric</dt><dd><code>{{ progress.rubric_pack }}</code></dd></div>
     <div><dt>Recorded</dt><dd>{{ progress.created_at.strftime('%Y-%m-%d %H:%M:%S UTC') }}</dd></div>
     <div><dt>Started</dt><dd>{{ progress.started_at.strftime('%Y-%m-%d %H:%M:%S UTC') if progress.started_at else 'Not yet' }}</dd></div>
-    <div><dt>Finished</dt><dd>{{ progress.finished_at.strftime('%Y-%m-%d %H:%M:%S UTC') if progress.finished_at else 'Not yet' }}</dd></div>
+    <div><dt>Finished</dt><dd>{% if progress.finished_at %}{{ progress.finished_at.strftime('%Y-%m-%d %H:%M:%S UTC') }}{% elif page.finished %}Not recorded{% else %}Not yet{% endif %}</dd></div>
     {%- if page.note %}
     <div><dt>Note</dt><dd>{{ page.note }}</dd></div>
     {%- endif %}
