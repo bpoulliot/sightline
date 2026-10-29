@@ -5,10 +5,10 @@
 <section class="panel" aria-labelledby="h-what">
   <h1 id="h-what">Status</h1>
   <p class="lede">
-    Configuration, the working-data root, recent runs and the determinacy tiers. A course's review
-    opens at <code>/review/</code> followed by its run-store course id, which
-    <code>python -m sightline.batch status</code> prints for every course that finished its run;
-    the run-progress and New run screens are a later roadmap item.
+    Configuration, the working-data root, recent runs and the determinacy tiers. A run is started
+    from the <a href="/courses">New run</a> screen and followed on its page under
+    <a href="/runs">Runs</a>, which links every course that finished to its review — at
+    <code>/review/</code> followed by the course's run-store id.
   </p>
 </section>
 
@@ -65,7 +65,7 @@
       <tbody>
         {% for run in runs %}
         <tr>
-          <th scope="row"><code>{{ run.id[:8] }}</code></th>
+          <th scope="row"><a href="/runs/{{ run.id }}"><code>{{ run.id[:8] }}</code></a></th>
           <td data-label="Rubric">{{ run.rubric_pack }}</td>
           <td data-label="Courses" class="num">{{ run.courses | length }}</td>
           <td data-label="Status"><span class="state">{{ run.status_label }}</span></td>

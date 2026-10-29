@@ -662,18 +662,19 @@ deployment footprint is a priority. All colour comes from `docs/tokens.css`.
   a gate rather than a convention since item 17: `sightline.batch.gate.ExportGate` is the only way
   to a path under `reports/`, it refuses for a course whose review nobody opened, and a structural
   test fails the build if any other module names that directory.
-- **Progress is per course and per stage, and a stage that examined nothing is a failure.** Until
-  the run-progress screen lands (item 36) the surfaces are `GET /api/runs/{id}` and
-  `python -m sightline.batch status`. The run-progress *screen*, and the New run screen, are
-  roadmap item 36 — split from item 16 by operator decision on 2026-09-25, which made item 16 the
-  review screen only.
+- **Progress is per course and per stage, and a stage that examined nothing is a failure.** The
+  surfaces are the run-progress screen (`/runs/{id}`), `GET /api/runs/{id}` and
+  `python -m sightline.batch status`. The run-progress screen and the New run screen are roadmap
+  item 36 — split from item 16 by operator decision on 2026-09-25, which made item 16 the review
+  screen only.
 - **An uploaded rubric runs unmapped.** Rows with no binding fall through to extraction-only, and a
   rubric with no bindings at all loads, runs and produces a usable review. There is no mapping
   screen before first use. Bindings, when wanted, are proposed by a model and confirmed once per
   rubric, never per course. Decided 2026-09-08. Roadmap item 04 built the format and the three
   coverage states; item 22 built the proposals with a command-line review
-  (`python -m sightline.rubric propose` / `review` / `accept`); the confirmation screen waits on
-  the rubric-selection screen of item 36. Item 19 is superseded.
+  (`python -m sightline.rubric propose` / `review` / `accept`); the confirmation screen attaches
+  to the New run screen's rubric picker, which item 36 built, and needs its own specification
+  pass. Item 19 is superseded.
 - **The review screen groups by rubric category, in the instrument's own order.** Severity is a
   sort and a filter within a category, never a second grouping. Decided 2026-09-08; roadmap
   item 16.
@@ -701,6 +702,24 @@ when one was recorded, so a course nobody overrode exports exactly as before. Tw
 decisions above leave open, made here: the exports carry the reviewer's rating and not their name
 (the record keeps the name); and Tier A, B and D rows open with the proposal selected, so recording
 it unchanged records a confirmation.
+
+**As built (item 36).** *New run* is the course screen extended: `POST /courses` resolves what
+was pasted or uploaded, and the courses Canvas resolved come back with a Start form — each course
+ticked where its content can be read, and a rubric picker over the shipped packs with
+`uccs-oscqr-3-1-3` selected. `POST /runs` records the batch with `create_batch_run` (the cap and
+its message are the batch runner's) and submits it to the background runner. A run is not started,
+and the form says why and names Settings, without a Canvas credential, a model host or a chosen
+model, or **while another run is running** — this process's tasks, or a run the store records as
+`running`, which is how a command-line run in another process shows. Bundles stay on the command
+line. *Run progress* is `/runs` (the recent runs) and `/runs/{id}`: per course and per stage, what
+each stage examined and its statement, never a percentage; a failed stage's summary and remedy; the
+run's own failures from its log; the run log itself; for each course with a result a link to its
+review; and beside each course nobody has opened, a closed export control with the gate's own
+reason. An interrupted run names `python -m sightline.batch resume <id>` and has no resume button.
+The live log is the page re-read: an optional script polls `GET /api/runs/{id}` while a run is
+going and reloads when it changes. One wording choice: the stored stage name `score` is never
+shown — every stage is shown by its title (`Roll up effort and order the action plan`), because
+§11 keeps "score" out of the vocabulary.
 
 ### Open for discussion
 

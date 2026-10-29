@@ -604,6 +604,76 @@ td.num { font-family: var(--f-mono); }
 .choices label { display: inline-flex; gap: .35rem; align-items: center; font-size: .93rem; }
 .override textarea { min-height: 3.2rem; }
 
+/* ---- New run and run progress (roadmap item 36) ------------------------------------------ */
+
+/* The Start form's two pickers. A fieldset per choice, each option a sentence with its id. */
+.picker { border: 0; margin: 0 0 1.1rem; padding: 0; min-width: 0; }
+.picker legend {
+  padding: 0;
+  margin: 0 0 .45rem;
+  font-family: var(--f-mono);
+  font-size: .7rem;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ink-mid);
+}
+.picker .field-check label { font-size: .95rem; overflow-wrap: anywhere; }
+.picker .field-check .hint { display: block; margin-top: .15rem; }
+.lede a,
+.empty a,
+.hint a { color: var(--accent-ink); }
+.reasons { margin: .4rem 0 0; padding-left: 1.1rem; }
+.reasons li { margin: 0 0 .45rem; }
+.reasons li:last-child { margin-bottom: 0; }
+.reasons .banner-remedy { display: block; }
+.button[disabled] { cursor: not-allowed; opacity: .6; }
+.button[disabled]:hover { border-color: var(--rule-strong); color: var(--ink); }
+.actions .hint { margin: 0; max-width: var(--measure); }
+a.button { display: inline-block; text-decoration: none; }
+
+.run-head h1 code,
+.run-course h2 code { font-size: .7em; vertical-align: .1em; }
+.run-course h2 { overflow-wrap: anywhere; }
+.run-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35rem .8rem;
+  align-items: baseline;
+  margin: 0 0 1rem;
+}
+.run-statement { color: var(--ink-mid); max-width: var(--measure); }
+.run-head .pairs { margin-bottom: 1rem; }
+.run-head .review-nav a,
+.run-list a,
+.export-reason a { color: var(--accent-ink); }
+
+/* Every column of a stage table stays in view at desktop width; the statement takes what is left. */
+.stages { min-width: 0; }
+.stages th:first-child { width: 15rem; }
+.stages td:nth-child(2) { width: 6rem; }
+.stages td:nth-child(3) { width: 11rem; }
+.stages td { overflow-wrap: anywhere; }
+.stage-failure { color: var(--rust); font-weight: 600; }
+
+.run-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem 1.5rem;
+  margin-top: 1.1rem;
+  padding-top: .9rem;
+  border-top: 1px solid var(--rule);
+}
+.run-action p { margin: 0 0 .4rem; }
+.run-action .subhead { margin-top: 0; }
+.run-action .hint { margin: 0; }
+.export-reason { font-size: .9rem; color: var(--ink-mid); max-width: var(--measure); }
+
+.run-log { min-width: 0; }
+.run-log td,
+.run-log th { overflow-wrap: anywhere; }
+.run-log th:first-child { width: 6rem; }
+
 /* ---- footer ------------------------------------------------------------------------------- */
 
 .footer {
@@ -652,6 +722,11 @@ td.num { font-family: var(--f-mono); }
   .view-form .field select { width: 100%; }
   .block { padding: .5rem .65rem .55rem; }
   .review-head h1 { font-size: 1.4rem; }
+  .run-actions { grid-template-columns: 1fr; }
+  .stages th:first-child,
+  .stages td:nth-child(2),
+  .stages td:nth-child(3),
+  .run-log th:first-child { width: auto; }
 
   /* A category's counts as label-and-value lines, so a card is a short list rather than a
    * column of captions. */

@@ -6,7 +6,8 @@ Labels: **READY** · **NEEDS DISCUSSION** · **NEEDS MEASUREMENT** · **BLOCKED*
 Nothing unready enters the queue. One item per conversation, one PR per item.
 
 Queue lives at `~/docker/overnight/projects/sightline/` (moved from `~/docker/overnight-sightline/`
-on 2026-09-22). Next free item number: **41**.
+on 2026-09-22). Next free item number: **44** (41 is claimed by open PR #40; 42 and 43 were filed
+by item 36's session, PR #43).
 
 ---
 
@@ -36,7 +37,7 @@ on 2026-09-22). Next free item number: **41**.
 | 19 | Uploaded-rubric mapping screen | 3 | **SUPERSEDED by 22** | — |
 | 20 | Multi-course comparison view | 3 | **DECIDED — not building it** | see 25 |
 | 21 | Detector integrity guard | 0 | READY | **DONE** — PR #8 |
-| 22 | Model-proposed bindings, human-confirmed | 3 | part 2 **BLOCKED** — on item 36 | **PART 1 DONE** — PR #32 (proposal engine + command-line review). The confirmation **screen** is the remainder: **BLOCKED** on item 36's rubric picker (operator decision 2026-09-25) |
+| 22 | Model-proposed bindings, human-confirmed | 3 | part 2 **NEEDS SPECIFICATION** — item 36's rubric picker is DONE (PR #43) | **PART 1 DONE** — PR #32 (proposal engine + command-line review). The confirmation **screen** is the remainder, ready for its specification pass (operator decision 2026-09-25) |
 | 23 | Canvas-requested content export | 1 | READY | **DONE** — PR #6 |
 | 24 | Agreement and near-boundary transparency | 2 | READY | **PART 1 DONE** — PR #29 (data, guard, docs); PDF + review-screen rendering is the queued re-run, and both of its surfaces (14, 16) are DONE |
 | 25 | Returned-review ingestion | 3 | **BLOCKED** — needs reviews delivered and returned | — |
@@ -50,11 +51,13 @@ on 2026-09-22). Next free item number: **41**.
 | 33 | A routed row costs one call per passage, and nothing bounds the total | 2 | MEASURED | **DONE** — PR #26. Outcome (d): nothing changes |
 | 34 | Acquisition drops every outcome when it records an export note | 1 | READY | **DONE** — PR #33 |
 | 35 | The workbook's action plan holds located items; SPEC §08 promises remediation steps | 2 | DECIDED (a) 2026-10-29 | **DONE** — SPEC §08 corrected in this PR |
-| 36 | Run-progress and New run screens | 2 | READY — item 16, the review screen it links to, is DONE (PR #42) | filed 2026-09-29, PR #30; queued `99r-` |
+| 36 | Run-progress and New run screens | 2 | READY — item 16, the review screen it links to, is DONE (PR #42) | **DONE** — PR #43. Start form on `/courses` with a rubric picker; `/runs` and `/runs/{id}` per course and per stage |
 | 37 | Host `__pycache__` ships in locally built images, carrying the developer's home path | 1 | READY | **DONE** — PR #34. 177 → 0 files in the dev image, 94 → 0 in runtime |
 | 38 | A bound Tier D row is counted in two coverage buckets, and `coverage` exits 1 calling it a bug | 1 | READY | **DONE** — PR #35. Tier first; 42 → 41 of 68, exit 1 → 0 |
 | 39 | Every other bare pattern in `.dockerignore` is root-only too | 3 | READY | **DONE** — PR #41. Planted nested files 19 → 0 in the dev image, 15 → 0 in runtime |
 | 40 | Sign-in (SSO) and multiple users | 3 | **NEEDS DISCUSSION** — filed 2026-10-29 | — |
+| 42 | A run that completed with failures records no finish time | 1 | READY — filed 2026-10-29 by item 36 | queued `99ra-` |
+| 43 | The app's restart recovery takes over a run another process is executing | 1 | **NEEDS DISCUSSION** — filed 2026-10-29 by item 36 | — |
 
 ---
 
@@ -141,7 +144,9 @@ carried forward* reading READY. Item 16 does not yet (two questions); item 36 wa
 `99q-` item 16 (re-issued from `99j-` with Q1 and Q2 decided), `99r-` item 36, `99s-` item 24's
 re-run (from `99l-`). Each
 later HEAD gates on its predecessors being DONE on `main` and stops otherwise. Item 22 part 2 is
-not queued: it needs its own specification pass once 36 is DONE.
+not queued: 36 is DONE (PR #43), so part 2 is ready for its own specification pass, which comes
+before any queue entry. `99ra-` (item 42, filed by item 36's session) sorts before `99s-` because
+it is silent wrongness: a finished run with no finish time.
 
 ---
 
@@ -436,6 +441,13 @@ default `/24` collides.
 
 **22 · PART 1 DONE 2026-09-29 (PR #32). Model-proposed bindings with a command-line review. The
 confirmation screen is PART 2, BLOCKED on item 36 — never READY by default.**
+
+*2026-10-29 (item 36's session, PR #43): part 2 is now ready for its specification pass.* Item 36
+built the New run screen's rubric picker. It is the Start form on `/courses`, and its options are
+`sightline.new_run.RubricChoice` values from `rubric_choices()`, one per shipped pack. A
+confirmation screen attaches there: for example a per-choice state ("bindings proposed, not
+confirmed") and a link from the choice, without rebuilding the picker. The specification pass
+decides the rest. Part 2 is not queued until that pass makes it READY.
 
 *Operator decision, 2026-09-25 (bitmap, interactive):* **build the proposal engine with a
 COMMAND-LINE review now; the confirmation SCREEN comes later.** Why it had to be decided: this entry
@@ -970,6 +982,54 @@ The near-boundary marker and `agreement.brief()` belong to item 24's re-run, not
   afterwards.
 - The full suite is green, ruff and black exit codes are read separately, and all CI jobs are green.
 
+**43 · FILED 2026-10-29 by item 36's session (PR #43). NEEDS DISCUSSION. The application's
+restart recovery takes over a run another process is executing.**
+
+*Evidence.* `RunStore.recover_interrupted()` marks **every** run whose status is `running` as
+`interrupted`; it cannot tell whose it is. Three places call it:
+- `BackgroundRunner.recover()` at app startup, after which `resume_all()` submits every
+  interrupted run;
+- `BackgroundRunner.shutdown()` at app shutdown;
+- `python -m sightline.batch resume`, which calls it before executing.
+
+A run started by `python -m sightline.batch run` executes in its own process and is `running` only
+in the store. So starting or stopping the app while a CLI run is going marks that run interrupted,
+and an app start then **executes the same run a second time, concurrently**. That means two
+processes writing one run's courses and events, competing for one model host, and with the
+fresh-export setting on, a second content-export POST to each course. Observed in item 36's
+screenshot QA: a run marked `running` in the store, as a CLI run leaves it, was flipped by the app's
+shutdown (`runs_interrupted` logged with its id). The double execution was not reproduced; it
+follows from `resume_all()` reading `resumable_runs()` after `recover()`.
+
+*Why it needs a decision.* The store has no notion of which process owns a run. The options trade
+differently:
+- (a) an owner record on the run (pid and host, or a heartbeat timestamp), which recovery checks
+  before taking a run over;
+- (b) one process at a time: the CLI refuses to run while the app is up, or the reverse;
+- (c) recovery only touches runs this process started, and a run orphaned by a dead CLI process
+  stays `running` until somebody resumes it by hand.
+
+Item 36's start check already treats a store-`running` run as busy, so (a) or (c) would also stop
+a stale `running` row from blocking Start forever after a CLI crash.
+
+*Shares the cause:* none. It is a defect in sightline's own run ownership, not a process gap.
+
+**42 · FILED 2026-10-29 by item 36's session (PR #43). READY. A run that completed with failures
+records no finish time.**
+
+*Evidence.* `RunStore.set_run_status` sets `finished_at` only for `succeeded`, `failed` and
+`cancelled`. `partial` is terminal too (`TERMINAL_STATUSES` in `sightline.models`), and the batch
+runner ends a run with some courses reviewed and some failed in exactly that status. Seen in item
+36's screenshot QA: a partial run's page read *Finished: Not yet*. The page now says *Not recorded*
+for a finished run with no time; `GET /api/runs/{id}` and `python -m sightline.batch status` still
+carry `finished_at: null`. This is wrong output with no error.
+
+*Fix.* Set `finished_at` for every status in `TERMINAL_STATUSES` (leaving `interrupted`, which is
+resumable, unset), and test each terminal status. Then the run page's *Not recorded* branch is
+reached only by runs recorded before the fix.
+
+*Shares the cause:* none. It is a defect in this store's write, not a process gap.
+
 **40 · FILED 2026-10-29 (operator, interactive). NEEDS DISCUSSION. Sign-in through the
 institution's single sign-on, so one Sightline instance can be offered to several users.**
 
@@ -1069,14 +1129,40 @@ before and 1844 / 4 after (the new test skips where there is no build context; C
 it), and before the fix pytest named every test file by the host path. The test fails against the
 old `.dockerignore` and passes against the new one.
 
-**36 · FILED 2026-09-29 (PR #30) under operator decision D2 (2026-09-25; quoted in item 16's entry).
-READY since item 16 landed (PR #42); it was BLOCKED on it. The run-progress screen and the New run
-screen.** SPEC §09 lists both, and
-until D2 no item built either.
+**36 · DONE 2026-10-29 — PR #43.** Filed 2026-09-29 (PR #30) under operator decision D2
+(2026-09-25; quoted in item 16's entry); READY once item 16 landed (PR #42). The run-progress
+screen and the New run screen. SPEC §09 lists both, and until D2 no item built either.
 
-*Why blocked:* the run screen's reason to exist is taking a designer from a finished course to its
-review. That target is item 16's, and item 16 is NEEDS DISCUSSION. Nothing else is open: every call
-below has an answer on `main`. When 16 is DONE this item is READY as written.
+*As built.* SPEC §09 *As built (item 36)* is the description; in short:
+- **New run** is `/courses` extended. The courses Canvas resolved come back with a Start form,
+  each ticked where its content can be read, and a rubric picker over `shipped_packs()` with
+  `uccs-oscqr-3-1-3` selected. `POST /runs` re-checks, calls `create_batch_run` and
+  `BackgroundRunner.submit`, and redirects to the run's page. The picker's options are
+  `sightline.new_run.RubricChoice` values, which is where item 22 part 2 attaches.
+- **Refusals,** each naming Settings or the run in the way: no Canvas credential, no model host,
+  no model chosen, and a run that is running, meaning one of `active_run_ids` or one the store
+  records as `running` (`RunStore.running_runs`). It also refuses a non-id, an unknown rubric, no
+  course chosen, and the cap (`BatchTooLargeError`'s own message).
+- **Run progress** is `sightline.run_screens`: `/runs` and `/runs/{id}`, per course and per stage
+  with each stage's examined count in its own unit and its statement. It shows a failed stage's
+  summary and remedy, the run's own failures from its log, and the run log. Each course with a
+  result links to its review; each course nobody has opened shows a closed export with the gate's
+  reason. An interrupted run names the resume command and has no button.
+- **The live view** is an optional script that polls the API and reloads on change.
+- **Calls made:** the stored stage name `score` is shown by its title, never as the word. The
+  Canvas credential is a start blocker as well as the model host, because acquisition aborts
+  without it exactly as extract does.
+- **Not built:** item 22 part 2, anything of item 40, a resume button, a comparison view, and
+  export-wait progress inside a run (a batch passes no export-progress callback).
+- **Found and filed:** items 42 and 43.
+- **Evidence:** 22 tests in `tests/test_run_screens.py`. One starts a run from the screen through
+  `live_pipeline_factory` against the recorded `course-acquisition` Canvas fixture and the recorded
+  model host. Screenshot QA at 1400 and 390 px read `scrollWidth == innerWidth` on all 18
+  measurements.
+
+*Why it was blocked:* the run screen's reason to exist is taking a designer from a finished course
+to its review. That target is item 16's, which was NEEDS DISCUSSION until 2026-10-29. Nothing else
+was open. The entry below is the contract it was built to, unchanged.
 
 *What exists to build on (at `a76181c`):*
 - **Execution:** `sightline.runner.BackgroundRunner`, wired in `sightline.app`'s lifespan to

@@ -180,8 +180,9 @@ class ExportProgress:
     """One observation of a running export, for whatever is showing the wait.
 
     Carries facts and no verdict: which attempt, what Canvas said, how long it has been, and how
-    long until the next check. The run-progress screen renders these; until it exists the CLI
-    prints them and :func:`wait_for_export` logs them, so the wait is never invisible.
+    long until the next check. ``python -m sightline.acquire`` prints them and
+    :func:`wait_for_export` logs them, so the wait is never invisible. A batch run passes no
+    callback, so its run-progress screen (item 36) shows the wait as the acquire stage running.
     """
 
     export_id: str

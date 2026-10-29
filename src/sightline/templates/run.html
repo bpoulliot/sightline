@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{#- One run (roadmap item 36): per course and per stage, what each stage examined and its
+    statement, every failure with what to change, and beside each course its review and the state
+    of its export. Counts only: there is no progress bar and no percentage. -#}
+{% block title %}Sightline — run {{ page.short_id }}{% endblock %}
+
+{% block content %}
+{% set progress = page.progress %}
+<section class="panel run-head" aria-labelledby="h-run">
+  <p class="review-nav"><a href="/runs">All runs</a><a href="/courses">New run</a></p>
+  <h1 id="h-run">Run <code>{{ page.short_id }}</code></h1>
+  <p class="run-status">
+    <span class="state {{ state_class(progress.status) }}">{{ progress.status_label }}</span>
+    <span class="run-statement">{{ progress.statement() }}</span>
+  </p>
+  <dl class="pairs">
+    <div><dt>Run id</dt><dd><code>{{ progress.run_id }}</code></dd></div>
+    <div><dt>Rubric</dt><dd><code>{{ progress.rubric_pack }}</code></dd></div>
+    <div><dt>Recorded</dt><dd>{{ progress.created_at.strftime('%Y-%m-%d %H:%M:%S UTC') }}</dd></div>
+    <div><dt>Started</dt><dd>{{ progress.started_at.strftime('%Y-%m-%d %H:%M:%S UTC') if progress.started_at else 'Not yet' }}</dd></div>
+    <div><dt>Finished</dt><dd>{% if progress.finished_at %}{{ progress.finished_at.strftime('%Y-%m-%d %H:%M:%S UTC') }}{% elif page.finished %}Not recorded{% else %}Not yet{% endif %}</dd></div>
+    {%- if page.note %}
+    <div><dt>Note</dt><dd>{{ page.note }}</dd></div>
+    {%- endif %}
+  </dl>
+
+  {% if page.live %}
+  <p class="banner" role="status" data-run-poll="/api/runs/{{ progress.run_id }}" data-poll-ms="{{ poll_ms }}">
+    This run is going. The page shows the run store as it was when it was loaded; reload it to
+    see the latest<span class="poll-note" hidden>, or leave it open: it re-reads itself when
+    something changes</span>.
+  </p>
+  {% endif %}
+
+  {% if page.interrupted %}
+  <div class="banner banner-warn" role="status">
+    <p class="banner-head">Interrupted: the run stopped before every course was finished.</p>
+    <p class="banner-remedy">
+      Nothing is known to be wrong with the courses it did not reach. Fix what the failure on this
+      page names, then continue the run with <code>{{ page.resume_command }}</code>. Sightline
+      also continues it the next time it starts.
+    </p>
+  </div>
+  {% endif %}
+
+  {% for failure in page.failures %}
+  <div class="banner banner-bad" role="alert">
+    <p class="banner-head">{{ failure.summary }}</p>
+    {%- if failure.remedy %}
+    <p class="banner-remedy">{{ failure.remedy }}</p>
+    {%- endif %}
+  </div>
+  {% endfor %}
+</section>
+
+{% for card in page.courses %}
+{% set course = card.progress %}
+<section class="panel run-course" id="course-{{ card.number }}" data-course="{{ course.course_id }}" aria-labelledby="h-course-{{ card.number }}">
+  <h2 id="h-course-{{ card.number }}">Course {{ card.number }} <span class="muted">— <code>{{ course.reference }}</code></span></h2>
+  <p class="run-status">
+    <span class="state {{ state_class(course.status) }}">{{ course.status_label }}</span>
+    {%- if course.status == 'running' and course.stage %}
+    <span class="run-statement">In stage: {{ card.stage_title }}</span>
+    {%- endif %}
+  </p>
+
+  <div class="scroll-x">
+    <table class="stages">
+      <caption class="visually-hidden">Course {{ card.number }}, stage by stage</caption>
+      <thead>
+        <tr><th scope="col">Stage</th><th scope="col">State</th><th scope="col">Examined</th><th scope="col">Statement</th></tr>
+      </thead>
+      <tbody>
+        {% for stage in course.stages %}
+        <tr data-stage="{{ stage.stage.value }}" data-state="{{ stage.state.value }}">
+          <th scope="row">{{ stage.stage.title }}</th>
+          <td data-label="State"><span class="state {% if stage.state.value == 'done' %}state-on{% elif stage.state.value == 'failed' %}state-bad{% endif %}">{{ stage.state.value }}</span></td>
+          <td data-label="Examined" class="num">{% if stage.examined is not none %}{{ stage.examined }} <span class="muted">{{ stage.stage.describes }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+          <td data-label="Statement">
+            {%- if stage.state.value == 'failed' %}
+            <span class="stage-failure">{{ stage.summary or stage.statement }}</span>
+            {%- if stage.remedy %}<span class="check-remedy">{{ stage.remedy }}</span>{% endif %}
+            {%- elif stage.statement %}{{ stage.statement }}
+            {%- else %}<span class="muted">—</span>{% endif -%}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if course.error and not card.has_failed_stage %}
+  <div class="banner banner-bad" role="alert"><p class="banner-head">{{ course.error }}</p></div>
+  {% endif %}
+
+  <div class="run-actions">
+    <div class="run-action">
+      <h3 class="subhead">Review</h3>
+      {% if card.review_href %}
+      <p><a class="button button-primary" href="{{ card.review_href }}">{% if course.review_opened %}Return to the review{% else %}Open the review{% endif %}</a></p>
+      <p class="hint">{% if course.review_opened %}Opened {{ course.review_opened_at.strftime('%Y-%m-%d %H:%M UTC') }}.{% else %}Opening it records that a person has read this course's result, which is what lets it be exported.{% endif %}</p>
+      {% else %}
+      <p class="muted">No review yet: there is no result for this course to open.</p>
+      {% endif %}
+    </div>
+    <div class="run-action">
+      <h3 class="subhead">Export</h3>
+      {% if card.export.open %}
+      <p><a href="{{ card.review_href }}#export">Export from the review</a></p>
+      <p class="hint">The review has been opened, so the PDF and the workbook can be written from it.</p>
+      {% else %}
+      <p><button type="button" class="button" disabled aria-describedby="export-reason-{{ card.number }}">Export closed</button></p>
+      <p class="export-reason" id="export-reason-{{ card.number }}">
+        {{ card.export.summary }}
+        {%- if card.export.remedy %} <span class="muted">{{ card.export.remedy }}</span>{% endif %}
+      </p>
+      {% endif %}
+    </div>
+  </div>
+</section>
+{% endfor %}
+
+<section class="panel" aria-labelledby="h-log">
+  <h2 id="h-log">Run log</h2>
+  <p class="note">The most recent entries, newest first, as the run store holds them.</p>
+  {% if page.log %}
+  <div class="scroll-x">
+    <table class="run-log">
+      <caption class="visually-hidden">The run log, newest first</caption>
+      <thead>
+        <tr><th scope="col">Time</th><th scope="col">Entry</th><th scope="col">Course</th><th scope="col">Stage</th><th scope="col">Detail</th></tr>
+      </thead>
+      <tbody>
+        {% for line in page.log %}
+        <tr data-level="{{ line.level }}">
+          <th scope="row" class="num">{{ line.at.strftime('%H:%M:%S') if line.at else '—' }}</th>
+          <td data-label="Entry">{% if line.level == 'error' %}<span class="state state-bad">{{ line.event }}</span>{% elif line.level == 'warning' %}<span class="state state-off">{{ line.event }}</span>{% else %}{{ line.event }}{% endif %}</td>
+          <td data-label="Course" class="num">{{ line.course if line.course is not none else '—' }}</td>
+          <td data-label="Stage">{{ line.stage or '—' }}</td>
+          <td data-label="Detail" class="muted">{{ line.detail or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty">The run log is empty.</p>
+  {% endif %}
+</section>
+
+{% if page.live %}
+<script type="application/json" id="run-progress-data">{{ payload | tojson }}</script>
+<script src="/static/run-progress.js" defer></script>
+{% endif %}
+{% endblock %}

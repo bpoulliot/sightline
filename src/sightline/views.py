@@ -1,9 +1,15 @@
-"""The settings screen and the course-resolution screen.
+"""The settings screen and the New run screen: resolving courses, then starting a run on them.
 
 Server-rendered HTML with light progressive enhancement, no SPA framework (SPEC §09). Both screens
 work with JavaScript switched off: every action is a form post that re-renders the page with the
 result. The JSON endpoints exist for the suite and for later items, not because the pages need
 them.
+
+The New run screen is the course screen of item 02 extended rather than duplicated (roadmap item
+36): ``POST /courses`` resolves what was pasted, and the courses Canvas resolved come back with a
+Start form — a rubric picker and the reasons a run cannot start now, from
+:mod:`sightline.new_run` — that posts to ``/runs``. A started run is followed on its own page,
+served by :mod:`sightline.run_screens`. Bundles stay on the command line.
 
 Two rules shape what is rendered here and they pull in opposite directions.
 
@@ -36,7 +42,7 @@ from fastapi import APIRouter, Form, Request, UploadFile
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-from .batch import progress_of
+from .batch import BatchTooLargeError, create_batch_run, progress_of
 from .canvas import (
     REQUIRED_PERMISSIONS,
     REQUIRED_SCOPES,
@@ -60,6 +66,7 @@ from .llm import (
     load_manifest,
 )
 from .logging import get_logger
+from .new_run import Blocker, blockers, chosen_courses, rubric_choices
 from .preferences import (
     REVIEWER_MAX,
     ExportPreference,
@@ -68,6 +75,7 @@ from .preferences import (
     ReviewerNameError,
     ReviewModelPreference,
 )
+from .runner import BackgroundRunner
 from .store import RunStore
 
 log = get_logger("sightline.views")
@@ -81,6 +89,10 @@ MAX_LOOKUPS = DEFAULT_BATCH_CAP
 #: Cap on an uploaded CSV. Large enough for any realistic course list, small enough that a wrong
 #: file fails as a stated limit rather than as a memory error.
 MAX_CSV_BYTES = 2 * 1024 * 1024
+
+#: A course name carried through the Start form is only ever echoed back onto the page; this keeps
+#: a tampered form from echoing back a novel.
+MAX_LABEL = 200
 
 
 def build_router(templates: Jinja2Templates) -> APIRouter:
@@ -264,11 +276,10 @@ def build_router(templates: Jinja2Templates) -> APIRouter:
     async def run_progress(request: Request, run_id: str) -> JSONResponse:
         """One run, per course and per stage, with every failure carried (SPEC §09).
 
-        JSON and not a screen, deliberately. The run-progress *screen* is roadmap item 36 (split
-        from the review screen, item 16, by operator decision on 2026-09-25); item 17 owes that
-        screen its data, not a second design for it. Until then this endpoint and ``python -m
-        sightline.batch status`` are the surfaces, and both report what each stage examined rather
-        than a percentage nobody can check.
+        The data of the run-progress screen (``/runs/{run_id}``, :mod:`sightline.run_screens`,
+        roadmap item 36), which renders it server-side and whose optional script polls this to
+        know when to re-read the page. ``python -m sightline.batch status`` prints the same. All
+        three report what each stage examined rather than a percentage nobody can check.
         """
         store: RunStore | None = getattr(request.app.state, "store", None)
         progress = progress_of(store, run_id) if store is not None else None
@@ -327,12 +338,116 @@ def build_router(templates: Jinja2Templates) -> APIRouter:
         lookups = await _look_up(credentials, _accepted(batches))
         return _render_courses(request, templates, batches=batches, lookups=lookups)
 
+    @router.post("/runs", include_in_schema=False)
+    async def start_run(request: Request) -> Any:
+        """Record a batch over the chosen courses and start it in the background.
+
+        Every check the Start form showed is made again here, because a page rendered a minute ago
+        is not evidence about now — another run may have started since. Nothing between the checks
+        and :meth:`BackgroundRunner.submit` awaits, so no other request can start one in between.
+        """
+        form = await request.form()
+        courses = chosen_courses([str(value) for value in form.getlist("course")])
+        labels = {
+            course: str(form.get(f"label-{course}", ""))[:MAX_LABEL].strip() for course in courses
+        }
+        rubric = str(form.get("rubric", "")).strip()
+        refusals = _start_refusals(request, courses, rubric)
+        if refusals:
+            return _render_courses(
+                request,
+                templates,
+                chosen=[(course, labels[course]) for course in courses],
+                rubric=rubric,
+                refusals=refusals,
+                status=409,
+            )
+        try:
+            run_id = create_batch_run(
+                _store(request),
+                courses,
+                rubric_pack=rubric,
+                cap=request.app.state.settings.batch_cap,
+            )
+        except BatchTooLargeError as exc:
+            return _render_courses(
+                request,
+                templates,
+                chosen=[(course, labels[course]) for course in courses],
+                rubric=rubric,
+                refusals=[Blocker(summary=exc.summary, remedy=exc.remedy)],
+                status=409,
+            )
+        _runner(request).submit(run_id)
+        log.info("run_started_from_screen", run_id=run_id, courses=len(courses), rubric=rubric)
+        return RedirectResponse(f"/runs/{run_id}", status_code=303)
+
     return router
 
 
 # ---------------------------------------------------------------------------------------------
 # Shared work
 # ---------------------------------------------------------------------------------------------
+
+
+def _store(request: Request) -> RunStore:
+    store: RunStore | None = getattr(request.app.state, "store", None)
+    if store is None:  # pragma: no cover - only reachable without the app lifespan
+        raise RuntimeError("the run store is not initialised")
+    return store
+
+
+def _runner(request: Request) -> BackgroundRunner:
+    runner: BackgroundRunner | None = getattr(request.app.state, "runner", None)
+    if runner is None:  # pragma: no cover - only reachable without the app lifespan
+        raise RuntimeError("the background runner is not initialised")
+    return runner
+
+
+def _start_blockers(request: Request) -> list[Blocker]:
+    return blockers(
+        store=_store(request),
+        runner=_runner(request),
+        credentials=_credentials(request),
+        preferences=_preferences(request),
+    )
+
+
+def _start_refusals(request: Request, courses: list[str], rubric: str) -> list[Blocker]:
+    """Why this Start cannot go ahead: the form's own faults first, then the screen's blockers."""
+    refusals: list[Blocker] = []
+    if not courses:
+        refusals.append(
+            Blocker(
+                summary="No course was chosen, so no run was started.",
+                remedy="Tick at least one of the courses Canvas resolved, then press Start.",
+            )
+        )
+    else:
+        try:
+            host = _credentials(request).canvas().host
+        except CredentialError:
+            host = None  # reported below as a blocker; the ids still parse without a host
+        parsed = parse_course_refs("\n".join(courses), expected_host=host)
+        if [ref.course_id for ref in parsed.accepted] != courses:
+            refusals.append(
+                Blocker(
+                    summary=(
+                        "The form carried something that is not a course id, so no run was "
+                        "started."
+                    ),
+                    remedy="Resolve the courses again on this screen and start from its results.",
+                )
+            )
+    if not any(choice.id == rubric for choice in rubric_choices(rubric)):
+        available = ", ".join(choice.id for choice in rubric_choices()) or "none"
+        refusals.append(
+            Blocker(
+                summary=f"No shipped rubric has the id {rubric!r}, so no run was started.",
+                remedy=f"Choose one of the rubrics listed: {available}.",
+            )
+        )
+    return refusals + _start_blockers(request)
 
 
 def _pulls(request: Request) -> PullRegistry:
@@ -616,12 +731,17 @@ def _render_courses(
     batches: list[tuple[str, RefBatch]] | None = None,
     lookups: list[dict[str, Any]] | None = None,
     upload_error: str | None = None,
+    chosen: list[tuple[str, str]] | None = None,
+    rubric: str | None = None,
+    refusals: list[Blocker] | None = None,
+    status: int = 200,
 ) -> Any:
     credentials: CanvasCredentials | None = None
     try:
         credentials = _credentials(request).canvas()
     except CredentialError:
         credentials = None
+    start = _start_panel(request, lookups or [], chosen=chosen, rubric=rubric, refusals=refusals)
     return templates.TemplateResponse(
         request=request,
         name="courses.html",
@@ -632,5 +752,53 @@ def _render_courses(
             "upload_error": upload_error,
             "canvas_ready": bool(credentials and credentials.complete),
             "max_lookups": MAX_LOOKUPS,
+            "start": start,
         },
+        status_code=status,
     )
+
+
+def _start_panel(
+    request: Request,
+    lookups: list[dict[str, Any]],
+    *,
+    chosen: list[tuple[str, str]] | None,
+    rubric: str | None,
+    refusals: list[Blocker] | None,
+) -> dict[str, Any] | None:
+    """The Start form, or ``None`` when there is no course to start a run on.
+
+    Offered for the courses Canvas resolved, ticked where the token can read the content. A course
+    that resolved but whose content cannot be read is offered unticked: its acquisition would fail,
+    and the lookup table above says why. After a refused Start the form comes back with what was
+    posted, so nobody has to resolve the courses a second time.
+    """
+    if chosen is not None:
+        courses = [
+            {"id": course, "label": label or f"Course {course}", "checked": True, "note": None}
+            for course, label in chosen
+        ]
+    else:
+        courses = [
+            {
+                "id": row["ref"].course_id,
+                "label": row["course"].label,
+                "checked": row["access"].readable,
+                "note": None if row["access"].readable else row["access"].detail,
+            }
+            for row in lookups
+            if row["state"] == "resolved"
+        ]
+    if not courses and not refusals:
+        return None
+    # A refused Start already carries the current blockers; reading them twice would list each
+    # one twice.
+    blocked = refusals if refusals is not None else _start_blockers(request)
+    return {
+        "courses": courses,
+        "rubrics": rubric_choices(rubric),
+        "blockers": blocked,
+        "refused": refusals is not None,
+        "cap": request.app.state.settings.batch_cap,
+        "requests_export": _preferences(request).request_content_export().enabled,
+    }
