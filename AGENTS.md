@@ -24,9 +24,12 @@
   Poll within the session, reread full head SHA/main base/checks immediately before
   the merge (merge style `merge`), and independently confirm main moved. Missing/pending/red is not green.
 - Use Conventional Commits, focused changes and roadmap updates in the same PR.
-  PR descriptions end with `Assisted by Codex`; no invented assistant co-author.
+  Commits end with the `Co-Authored-By:` trailer and PR descriptions with the
+  `Generated with [Claude Code]` line that the session's attribution instructions give;
+  no other assistant identity.
 - Never force-push, use hard reset, bypass protection, deploy, publish a release,
   restart production or change another project's development process.
 - The local lane is `~/docker/overnight/projects/sightline/`. Compose HEAD-only files
   in staged/, then atomically release authorized complete items to queue/. Do not copy
-  standing rules into HEADs. Codex unattended activation remains gated; see DEVELOPMENT.
+  standing rules into HEADs. Queued items run under the Claude runner in the shared `work`
+  lane, gated on a clean `main` checkout; see DEVELOPMENT.

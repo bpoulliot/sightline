@@ -2236,6 +2236,11 @@ to this.**
 
 ## Corrections log
 
+**2026-10-29 — process docs describe the Claude runner.** `AGENTS.md` and `docs/DEVELOPMENT.md`
+dropped the retired Codex queue engine: HEADs begin `<!-- model: opus[1m] -->`, attribution
+follows the session's Claude Code lines, and the queue section describes the `work` lane and its
+clean-`main` gate.
+
 **2026-10-29 — decisions recorded (operator, interactive).** Item 16: Q1 (a), Q2 (b); READY.
 Item 35: (a), SPEC §08 corrected. Item 18: parked. Item 40 (sign-in, multiple users) filed,
 NEEDS DISCUSSION. SPEC §09's open questions are replaced by the two decisions and item 40.
