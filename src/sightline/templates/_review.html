@@ -1,0 +1,28 @@
+{#- Shared pieces of the review screen (roadmap item 16). These macros write no word of their own:
+    every string comes from the page model, which takes it from the phrase bank, the voice layer or
+    a verbatim value, and lints it. data-register names the register a piece is read in. -#}
+{%- macro say(text) -%}<span data-register="{{ text.register }}">{{ text.text }}</span>{%- endmacro -%}
+
+{%- macro sentence(s, page) -%}
+<p class="line line-{{ s.role }}" data-register="{{ s.register }}" data-role="{{ s.role }}">
+  {%- if s.link %}<a href="{{ s.link }}" rel="noreferrer">{{ s.text }}</a>
+    {%- if not s.link_exact %} <span class="url-note">{{ page.labels.link_search.text }}</span>{% endif -%}
+  {%- else %}{{ s.text }}{% endif -%}
+</p>
+{%- endmacro -%}
+
+{%- macro header(page, heading) -%}
+<section class="panel review-head" aria-labelledby="h-review">
+  {%- if heading %}
+  <h1 id="h-review">{{ say(heading) }}</h1>
+  <p class="course-line">{{ say(page.header.title) }}</p>
+  {%- else %}
+  <h1 id="h-review">{{ say(page.header.title) }}</h1>
+  {%- endif %}
+  <p class="meta"><span>{{ say(page.header.instrument) }}</span> <span>{{ say(page.header.opened) }}</span></p>
+  <p class="lede">{{ say(page.header.lede) }}</p>
+  <p class="reviewer{% if not page.header.reviewer_set %} reviewer-missing{% endif %}">{{ say(page.header.reviewer) }}
+    {%- if not page.header.reviewer_set %} <a href="/settings#reviewer">{{ page.labels.review_settings_link.text }}</a>{% endif -%}
+  </p>
+</section>
+{%- endmacro -%}

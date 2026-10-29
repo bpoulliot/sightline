@@ -61,9 +61,11 @@ from .llm import (
 )
 from .logging import get_logger
 from .preferences import (
+    REVIEWER_MAX,
     ExportPreference,
     ModelHostPreference,
     PreferenceStore,
+    ReviewerNameError,
     ReviewModelPreference,
 )
 from .store import RunStore
@@ -126,6 +128,23 @@ def build_router(templates: Jinja2Templates) -> APIRouter:
         return RedirectResponse(
             f"/settings?saved={'export_on' if enabled else 'export_off'}", status_code=303
         )
+
+    @router.post("/settings/reviewer", include_in_schema=False)
+    async def save_reviewer(
+        request: Request,
+        reviewer: Annotated[str, Form()] = "",
+    ) -> Any:
+        """Set the name a rating recorded on the review screen is recorded as (item 16, Q1)."""
+        try:
+            _preferences(request).set_reviewer(reviewer)
+        except ReviewerNameError as exc:
+            return _render_settings(request, templates, reviewer_error=exc)
+        return RedirectResponse("/settings?saved=reviewer#reviewer", status_code=303)
+
+    @router.post("/settings/reviewer/forget", include_in_schema=False)
+    async def forget_reviewer(request: Request) -> Any:
+        _preferences(request).clear_reviewer()
+        return RedirectResponse("/settings?saved=reviewer_forgotten#reviewer", status_code=303)
 
     @router.post("/settings/forget", include_in_schema=False)
     async def forget_settings(request: Request) -> Any:
@@ -245,11 +264,11 @@ def build_router(templates: Jinja2Templates) -> APIRouter:
     async def run_progress(request: Request, run_id: str) -> JSONResponse:
         """One run, per course and per stage, with every failure carried (SPEC §09).
 
-        JSON and not a screen, deliberately. The run-progress *screen* is part of the review UI
-        (roadmap item 16), which is where the question of how a batch and a review sit together
-        gets decided; item 17 owes that screen its data, not a second design for it. Until then
-        this endpoint and ``python -m sightline.batch status`` are the surfaces, and both report
-        what each stage examined rather than a percentage nobody can check.
+        JSON and not a screen, deliberately. The run-progress *screen* is roadmap item 36 (split
+        from the review screen, item 16, by operator decision on 2026-09-25); item 17 owes that
+        screen its data, not a second design for it. Until then this endpoint and ``python -m
+        sightline.batch status`` are the surfaces, and both report what each stage examined rather
+        than a percentage nobody can check.
         """
         store: RunStore | None = getattr(request.app.state, "store", None)
         progress = progress_of(store, run_id) if store is not None else None
@@ -518,6 +537,11 @@ _SAVED_MESSAGES = {
         "applies."
     ),
     "model_chosen": "Saved. Review work will be sent to this model.",
+    "reviewer": "Saved. A rating recorded on the review screen is now recorded with this name.",
+    "reviewer_forgotten": (
+        "The reviewer name has been deleted. The review screen records no rating until one is set "
+        "again; ratings already recorded keep their name."
+    ),
     "installing": (
         "The install has started and is running in the background. Reload this page to see how "
         "far it has got; closing the tab does not stop it."
@@ -534,6 +558,7 @@ def _render_settings(
     credential_error: CredentialError | None = None,
     host_report: HostReport | None = None,
     model_error: ModelHostError | None = None,
+    reviewer_error: ReviewerNameError | None = None,
 ) -> Any:
     credentials: CanvasCredentials | None = None
     error = credential_error
@@ -559,6 +584,8 @@ def _render_settings(
             "credentials": credentials,
             "presence": credentials.presence() if credentials else [],
             "saved_message": _SAVED_MESSAGES.get(saved or ""),
+            # Shown beside the section it is about, which the redirect scrolls to.
+            "saved_section": "reviewer" if (saved or "").startswith("reviewer") else None,
             "report": report,
             "credential_error": error,
             "scopes": REQUIRED_SCOPES,
@@ -575,6 +602,9 @@ def _render_settings(
             "installs": _pulls(request).states(),
             "concurrency": settings.ollama_concurrency,
             "context_tokens": settings.ollama_context_tokens,
+            "reviewer": preferences.reviewer(),
+            "reviewer_error": reviewer_error,
+            "reviewer_max": REVIEWER_MAX,
         },
     )
 

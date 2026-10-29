@@ -28,6 +28,16 @@ A row in full is split into :class:`Block` s by the ``register`` each :class:`Se
 never by reading its text. One block per register, each with its own heading from the bank and its
 own treatment in the stylesheet, so a count and a question are never set in one paragraph.
 
+THE REVIEWER'S RATING SITS BESIDE THE PROPOSAL, NEVER IN ITS PLACE
+------------------------------------------------------------------
+Operator decision Q2 (2026-10-29, roadmap item 16). Where a reviewer recorded a rating, the report
+carries their latest one, labelled as the reviewer's: a field after *Proposed rating* in a row in
+full, a fact in a compact line, a column in the action plan. In those places the proposal is
+labelled as proposed, and it keeps its band, its effort estimate and its place in the action plan;
+nothing is re-banded or back-computed from the human rating. A report for a course nobody
+overrode is the report item 14 printed, byte for byte: every addition is conditional on a rating
+having been recorded.
+
 THE COVERAGE STATES STAY DISTINGUISHABLE IN ONE LINE
 ----------------------------------------------------
 A compact line carries the row's coverage in the bank's words and a *located* cell that says what
@@ -150,6 +160,8 @@ class CompactLine:
     links: tuple[Link, ...]
     #: Shown when there is no link, so the cell is never blank.
     no_link: Text
+    #: The reviewer's recorded rating, labelled as theirs; ``None`` when none was recorded.
+    reviewer: Text | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -174,6 +186,8 @@ class PlanEntry:
     criterion: Text
     reading: Text
     located: Text
+    #: The reviewer's rating, or "none recorded"; ``None`` when nobody recorded any rating.
+    reviewer: Text | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -214,6 +228,8 @@ class ReportModel:
     compact: tuple[Section, ...]
     compact_intro: Text
     narrative: tuple[NarrativeSlot, ...]
+    #: Whether any reviewer's rating is carried. Every Q2 addition to the page is gated on it.
+    reviewed: bool = False
 
     # -- reading it back ------------------------------------------------------------------------
 
@@ -235,6 +251,8 @@ class ReportModel:
         for entry in self.plan:
             for name in ("priority", "criterion", "reading", "located"):
                 yield f"plan {entry.code} {name}", getattr(entry, name)
+            if entry.reviewer is not None:
+                yield f"plan {entry.code} reviewer", entry.reviewer
         for section in (*self.full, *self.compact):
             yield f"section {section.code} title", section.title
             for detail in section.details:
@@ -248,6 +266,8 @@ class ReportModel:
                 for name in ("criterion", "determinacy", "coverage", "reading", "located"):
                     yield f"{line.code} {name}", getattr(line, name)
                 yield f"{line.code} no link", line.no_link
+                if line.reviewer is not None:
+                    yield f"{line.code} reviewer", line.reviewer
                 for link in line.links:
                     yield f"{line.code} link", link.label
 
@@ -298,13 +318,16 @@ def build_report(
     review: LoadedReview,
     *,
     created: datetime,
+    overrides: Mapping[str, Rating] | None = None,
     voice: Voice | None = None,
     register: Register | None = None,
 ) -> ReportModel:
     """The report model for one loaded review, linted, or :class:`ReportError`.
 
     ``created`` is the one timestamp the document carries — the moment a person opened the review
-    (:meth:`sightline.batch.gate.ExportGate.require_open`), never the clock.
+    (:meth:`sightline.batch.gate.ExportGate.require_open`), never the clock. ``overrides`` is the
+    reviewer's latest rating per row code (:func:`sightline.rubric.overrides.reviewer_ratings`);
+    empty or ``None`` prints the report exactly as it was before item 16.
     """
     if not review.base_url:
         raise ReportError(
@@ -320,7 +343,13 @@ def build_report(
     if [row.code for row in projection.rows] != [row.code for row in rendered.rows]:
         raise ReportError("the rendered review does not follow the projection's row order")
     by_code = {row.code: row for row in rendered.rows}
-    ctx = _Builder(voice=voice, review=review)
+    reviewed = dict(overrides or {})
+    unknown = sorted(set(reviewed) - set(by_code))
+    if unknown:
+        raise ReportError(
+            f"a reviewer's rating was given for {unknown}, which this review has no row for"
+        )
+    ctx = _Builder(voice=voice, review=review, overrides=reviewed)
 
     titles = {section.code: section.title for section in review.pack.sections}
     order = [section.code for section in review.pack.sections]
@@ -393,6 +422,7 @@ def build_report(
             )
             for slot in rendered.narrative.slots
         ),
+        reviewed=bool(reviewed),
     )
     _check(model, rules)
     return model
@@ -417,6 +447,9 @@ _LABELS: tuple[str, ...] = (
     "col_determinacy",
     "col_coverage",
     "link_search",
+    "col_reviewer_rating",
+    "reviewer_none",
+    "report_reviewer_intro",
 )
 
 
@@ -428,6 +461,7 @@ def _located(rendered: RenderedRow) -> bool:
 class _Builder:
     voice: Voice
     review: LoadedReview
+    overrides: Mapping[str, Rating]
 
     def label(self, name: str) -> Text:
         register, piece = self.voice.label(name)
@@ -444,6 +478,34 @@ class _Builder:
         if row.tier is Tier.C:
             return self.label("report_reading_question")
         return Text("A", verbatim(row.label))
+
+    def labelled_reading(self, row: RowResult) -> Text:
+        """The proposal where it stands unlabelled beside a reviewer's rating: called proposed."""
+        if row.code not in self.overrides or row.tier is Tier.C:
+            return self.reading(row)
+        return self.fragment("report_proposed_reading", label=verbatim(row.label))
+
+    def human_label(self, row: RowResult) -> Text | None:
+        """The instrument's word for the reviewer's rating on this row, or ``None``."""
+        human = self.overrides.get(row.code)
+        if human is None:
+            return None
+        return Text("A", verbatim(_rating_word(self.review, human)))
+
+    def reviewer_fact(self, row: RowResult) -> Text | None:
+        """The reviewer's rating as a labelled fact, for a compact line. ``None`` if none."""
+        human = self.overrides.get(row.code)
+        if human is None:
+            return None
+        return self.fragment(
+            "report_reviewer_reading", label=verbatim(_rating_word(self.review, human))
+        )
+
+    def reviewer_cell(self, row: RowResult) -> Text | None:
+        """The action plan's reviewer column: their rating, "none recorded", or no column at all."""
+        if not self.overrides:
+            return None
+        return self.human_label(row) or self.label("reviewer_none")
 
     def priority(self, row: RowResult) -> Text:
         if row.priority is None:
@@ -480,6 +542,9 @@ class _Builder:
             Field(self.label("col_coverage"), self.label(_COVERAGE_LABEL[row.coverage])),
             Field(self.label("col_rating"), self.reading(row)),
         ]
+        human = self.human_label(row)
+        if human is not None:
+            fields.append(Field(self.label("col_reviewer_rating"), human))
         if row.rating.is_band and row.hours is not None:
             name = (
                 "effort_calibrated"
@@ -509,10 +574,11 @@ class _Builder:
             criterion=Text("A", verbatim(row.text)),
             determinacy=self.label(_TIER_LABEL[row.tier]),
             coverage=self.label(_COVERAGE_LABEL[row.coverage]),
-            reading=self.reading(row),
+            reading=self.labelled_reading(row),
             located=self.located(row, rendered),
             links=_artifact_links(rendered, self.voice),
             no_link=self.label("report_nothing_to_link"),
+            reviewer=self.reviewer_fact(row),
         )
 
     def plan_entry(self, row: RowResult, rendered: RenderedRow) -> PlanEntry:
@@ -524,6 +590,7 @@ class _Builder:
             criterion=Text("A", verbatim(row.text)),
             reading=self.reading(row),
             located=self.located(row, rendered),
+            reviewer=self.reviewer_cell(row),
         )
 
     # -- the summary ----------------------------------------------------------------------------
@@ -556,6 +623,18 @@ class _Builder:
                 for section, counts in seen.items()
             ),
         )
+
+
+def _rating_word(review: LoadedReview, rating: Rating) -> str:
+    """The instrument's own word for ``rating``, from the scale the review was made with."""
+    scale = review.projection.rating_scale or review.pack.rating_scale
+    words = {
+        Rating.SUFFICIENTLY_PRESENT: scale.sufficiently_present,
+        Rating.NO_RESPONSE: scale.no_response,
+        Rating.NOT_APPLICABLE: scale.not_applicable,
+    }
+    words.update({Rating(band.rating): band.label for band in scale.bands})
+    return words[rating]
 
 
 def blocks_of(sentences: Sequence[Sentence], voice: Voice) -> tuple[Block, ...]:

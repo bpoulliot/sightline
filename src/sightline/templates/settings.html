@@ -11,7 +11,7 @@
     has been entered.
   </p>
 
-  {% if saved_message %}
+  {% if saved_message and saved_section != 'reviewer' %}
   <p class="banner banner-ok" role="status">{{ saved_message }}</p>
   {% endif %}
   {% if credential_error %}
@@ -147,6 +147,42 @@
       </span>
     </div>
   </form>
+</section>
+
+<section class="panel" aria-labelledby="h-reviewer" id="reviewer">
+  <h2 id="h-reviewer">{{ reviewer.title }}</h2>
+  <p class="note">{{ reviewer.note }}</p>
+  {% if saved_message and saved_section == 'reviewer' %}
+  <p class="banner banner-ok" role="status">{{ saved_message }}</p>
+  {% endif %}
+  {% if reviewer_error %}
+  <div class="banner banner-bad" role="alert">
+    <p class="banner-head">{{ reviewer_error.summary }}</p>
+    <p class="banner-remedy">{{ reviewer_error.remedy }}</p>
+  </div>
+  {% endif %}
+
+  <form method="post" action="/settings/reviewer" class="form">
+    <div class="field">
+      <label for="reviewer_name">Reviewer name</label>
+      <input type="text" id="reviewer_name" name="reviewer" autocomplete="name" spellcheck="false"
+             maxlength="{{ reviewer_max }}" value="{{ reviewer.name or '' }}">
+      <p class="hint">
+        {% if reviewer.set %}A rating recorded on the review screen is recorded as
+        <strong>{{ reviewer.name }}</strong>.{% else %}Not set. The review screen records no rating
+        until a name is set here.{% endif %}
+      </p>
+    </div>
+    <div class="actions">
+      <button type="submit" class="button button-primary">Save reviewer</button>
+    </div>
+  </form>
+  {% if reviewer.set %}
+  <form method="post" action="/settings/reviewer/forget" class="form form-inline">
+    <button type="submit" class="button">Forget the reviewer name</button>
+    <p class="hint">Ratings already recorded keep the name they were recorded with.</p>
+  </form>
+  {% endif %}
 </section>
 
 <section class="panel" aria-labelledby="h-model-host" id="models">

@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{#- What the review screen says instead of a page: an unknown course, a course whose review file
+    cannot be read, an export refused by the gate. The words are the refusing code's own — the gate's
+    message is shown as the gate wrote it. -#}
+{% block title %}Sightline{% endblock %}
+
+{% block content %}
+<section class="panel" aria-labelledby="h-message">
+  <div class="banner banner-bad" role="alert">
+    <p class="banner-head" id="h-message">{{ summary }}</p>
+    {%- if remedy %}
+    <p class="banner-remedy">{{ remedy }}</p>
+    {%- endif %}
+  </div>
+  {%- if back %}
+  <p><a href="{{ back_href }}">{{ back }}</a></p>
+  {%- endif %}
+</section>
+{% endblock %}

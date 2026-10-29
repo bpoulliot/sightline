@@ -42,8 +42,9 @@ does not wipe a half-finished batch.
 | Path | What it does |
 |---|---|
 | `/` | Status: configuration presence, the data root, recent runs, the determinacy-tier legend. |
-| `/settings` | Canvas base URL and token, **Test connection**, the model host and model picker, and the token-scope table below. |
+| `/settings` | Canvas base URL and token, **Test connection**, the model host and model picker, the **Reviewer** name a recorded rating carries, and the token-scope table below. |
 | `/courses` | Resolve a course from a pasted URL, a bare id, or an uploaded CSV. |
+| `/review/<course id>` | One course's review: its categories in the instrument's order, a page per category, a rating recorded per row, and the export. See [The review screen](#the-review-screen). |
 
 There is also a command-line entry point, and its first form needs no Canvas token at all:
 
@@ -498,7 +499,7 @@ Sufficiently Present carries none — it has no effort figure to measure from.
 record to the run store's `rating_overrides` table: the machine proposal (rating, hours, marker,
 the findings that were summed) beside the human rating, who set it, when, and the pack id and
 version. Append-only — an override never overwrites the proposal. A run nobody overrode writes
-nothing. The review screen (item 16) is what calls it.
+nothing. The review screen (item 16) is what calls it, one row at a time.
 
 **There is no course-level figure.** No score, index or percentage, and no total of hours across
 rows: effort is not a schedule, and a course total is an aggregate score with a clock face on it.
@@ -730,7 +731,7 @@ python -m sightline.batch run --course 4410 --course 4411 --pack uccs-oscqr-rsi
 python -m sightline.batch status                 # recent runs
 python -m sightline.batch status <run id>        # one run, per course and per stage
 python -m sightline.batch resume <run id>        # continue one that was interrupted
-python -m sightline.batch open-review <course id>
+python -m sightline.batch open-review <course id>   # or open /review/<course id> in the app
 ```
 
 `--bundle` needs no Canvas token and is the way to watch the whole thing work before any
@@ -796,8 +797,9 @@ and leaves `reports/` **empty**. The only path to a file under `reports/` is
 refuses for a course whose review nobody has opened, and `tests/test_export_gate.py` scans the
 package's syntax tree so that no writer can quietly reach past it. The XLSX writer (item 13) and
 the PDF report (item 14) both render to bytes and write through `ExportGate.save`, and
-`python -m sightline.report export COURSE` is the command that does it (see *The PDF course
-report*).
+`sightline.report.export.export_course` does it — called by `python -m sightline.report export
+COURSE` and by the review screen's export control (see *The PDF course report* and *The review
+screen*).
 
 It is not access control — Sightline is one local process with no login. It stops a *program*
 exporting unattended, which is the failure the rule is about: a report delivered to a faculty
@@ -916,14 +918,14 @@ course_id, data)` writes them to the course's export directory through the gate.
 the designer, and written so it can go to the instructor unchanged — one document, one register.
 
 ```sh
-python -m sightline.batch open-review COURSE     # a person opens the review (item 16's screen, later)
+python -m sightline.batch open-review COURSE     # a person opens the review, or opens /review/COURSE
 python -m sightline.report export COURSE         # writes report.pdf and review.xlsx through the gate
 ```
 
 `COURSE` is a run-store course id, as `python -m sightline.batch status RUN` lists it. A course
 nobody has opened is refused with the gate's own message and nothing is written. The export reads
 the course back from the review file its run saved — `sightline.report.loader`, which the review
-screen will read through too — and **re-runs nothing**: not detection, not projection, not
+screen reads through too — and **re-runs nothing**: not detection, not projection, not
 extraction. The instrument's priority order and rating words come from the shipped pack the file
 names, at the version it names; a different version, or a key the renderer needs and the file lacks,
 is refused with the reason rather than filled in.
@@ -962,8 +964,15 @@ narrative.
   target anywhere in the package, so the shortcut round the gate cannot be taken quietly.
 
 It does not render the near-boundary marker or the human-agreement statement (roadmap item 24's
-re-run adds both), a reviewer's overrides (item 16, open question Q2), or remediation wording (item
-35) — the action plan names what was located.
+re-run adds both) or remediation wording (item 35) — the action plan names what was located.
+
+**A rating a reviewer recorded is printed as the reviewer's** (item 16, operator decision Q2): a
+*Reviewer's rating* field beside *Proposed rating* in a criterion in full, a labelled fact in a
+compact line, a column in the action plan, and a column after *Proposed rating* on both workbook
+sheets. The proposal, its band, its effort estimate and its place in the action plan are left as the
+run made them — never re-banded, never back-computed. Every one of those additions appears only when
+a rating was recorded, so the export of a course nobody overrode is unchanged, byte for byte, and
+the committed sample does not move. The reviewer's *name* is not printed: the record keeps it.
 
 ### What the report adds, and under what licence
 
@@ -1013,6 +1022,49 @@ skips, naming the library that differs.
 the phrase bank, the templates, the stylesheet, the fonts or `uv.lock` moves the bytes, and so can a
 rebuild with no code change at all: the base image's tag floats, and a new pango or harfbuzz
 release in it is a new rendering.
+
+## The review screen
+
+`/review/<course id>` is where an instructional designer reads one course's review, records their
+own ratings, and exports. The id is the **run-store** course id that `python -m sightline.batch
+status RUN` prints — never a Canvas host or course id. It reads the course back through
+`sightline.report.loader`, the same loader the export uses, and **re-runs nothing**.
+
+- **Opening is loading.** The first request for any page of a course's review records that a person
+  opened it (`ExportGate.open_review`; a later page never moves the timestamp). That is the human
+  action the export gate waits for. A course whose review file cannot be read is not opened.
+- **Grouped by rubric category, in the instrument's own order** (decided 2026-09-08). The index
+  counts each category's criteria by proposed reading, with nothing added up, beside the number of
+  questions with no rating recorded, and links to the first such question. Inside a category,
+  *severity* is a sort (priority crossed with band; MOB's null priority sorts last and is never
+  dropped) and a filter (by proposed reading, by tier, or questions with no rating recorded) — never
+  a second grouping. A view is its query parameters, so it is a link.
+- **Tier is on every row**, as the ink-density chip, and the row's sentences sit in one block per
+  register, so a Tier A count and a Tier C question never share a channel. The coverage state is in
+  the bank's words: a row nothing examined never reads like a clean one.
+- **A Tier C row opens with nothing selected**, its evidence shown, and is *unresolved* until a
+  rating is recorded for it. Submitting it without a choice records nothing; No Response is a
+  choice like the others. Tier A, B and D rows open with the proposal selected, so recording it
+  unchanged — with a note, say — records a confirmation, which item 12a counts as calibration data.
+- **No bulk-accept of any kind.** One form records one rating for one row.
+- **Who a rating is recorded as** is the *Reviewer* name on the Settings screen (operator decision
+  Q1, 2026-10-29). Until one is set, the form is not offered and a post is refused, naming
+  Settings; the form says whose name it will record. `sightline.review.identity.current_reviewer`
+  is the one lookup, so sign-in (item 40) can replace its source without touching the form or the
+  record.
+- **Overrides go through item 12a's record**: `MachineProposal.from_review` read from the review
+  file, then `record_override`, append-only. The page shows each row's latest record and its note.
+- **The export control** writes `report.pdf` and `review.xlsx` through the gate and offers each
+  back, read through `ExportGate.destination`; both carry recorded ratings as the reviewer's. The
+  export endpoint never opens a review itself, and refuses an unopened course with the gate's own
+  message.
+- **Every word is the voice layer's.** Sentences come from `render_review`; every fixed word on the
+  review pages is a phrase-bank label or format, linted by item 15's register lint, and the suite
+  reads the rendered pages back to prove the templates add none.
+
+It renders no attention flag (a batch never builds a `Comparison`, so a review file holds none), no
+near-boundary marker or agreement statement (item 24's re-run), no progress bar, percentage or
+course score, and no run count beside a quote. The run-progress and New run screens are item 36.
 
 ## How often two reviewers choose the same rating
 
@@ -1308,7 +1360,8 @@ src/sightline/   the application
   batch/         the batch runner: stages, resume, and the export gate
   voice/         the phrase bank, the register lint, the renderer and the closing narrative
   report/        the review-file loader, the PDF report's model, template and print stylesheet, and
-                 the export command
+                 the export (command and function)
+  review/        the review screen: its page model, its routes, and the reviewer lookup
   capabilities.yaml  the capability-tag vocabulary: the one thing detectors and packs share
   model.py       the normalized document model every detector reads
 tests/           the suite
