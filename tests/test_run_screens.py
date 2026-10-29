@@ -41,7 +41,7 @@ from sightline.batch import (
 )
 from sightline.batch import service as batch_service
 from sightline.config import Settings
-from sightline.models import RunStatus
+from sightline.models import Run, RunStatus
 from sightline.preferences import PreferenceStore
 from sightline.rubric.shipped import shipped_packs
 from sightline.store import RunStore
@@ -460,10 +460,27 @@ def test_partial_reads_as_completed_with_failures(client: TestClient) -> None:
     store.set_run_status(run_id, RunStatus.PARTIAL)
     page = text_of(client.get(f"/runs/{run_id}").text)
     assert "Completed with failures" in page
-    # The store records no finish time for a partial run (filed as a roadmap item); the page
-    # says so rather than calling a finished run unfinished.
-    assert "Finished Not recorded" in page
+    finished = store.get_run(run_id)
+    assert finished is not None and finished.finished_at is not None
+    stamp = finished.finished_at.strftime("%Y-%m-%d %H:%M:%S UTC")
+    assert f"Finished {stamp}" in page
+    assert "Not recorded" not in page
     assert "Completed with failures" in text_of(client.get("/runs").text)
+
+
+def test_a_finished_run_with_no_finish_time_reads_not_recorded(client: TestClient) -> None:
+    # What a run recorded before item 42 looks like: terminal, with no finish time. Built
+    # directly, because the store's own write now always records one.
+    store = store_of(client)
+    run_id = store.create_run(["4410", "4411"], rubric_pack=DEFAULT_RUBRIC_PACK)
+    with store.session() as session:
+        run = session.get(Run, run_id)
+        assert run is not None
+        run.status = RunStatus.PARTIAL
+        run.finished_at = None
+    page = text_of(client.get(f"/runs/{run_id}").text)
+    assert "Completed with failures" in page
+    assert "Finished Not recorded" in page
 
 
 def test_an_interrupted_run_names_the_resume_command_and_offers_no_button(

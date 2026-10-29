@@ -151,7 +151,7 @@ class RunPage:
 
     @property
     def finished(self) -> bool:
-        """Over, one way or another. Not every terminal status records when it finished."""
+        """Over, one way or another. A run recorded before item 42 may carry no finish time."""
         return RunStatus(self.progress.status) in TERMINAL_STATUSES
 
     @property
