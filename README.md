@@ -516,10 +516,13 @@ because that is where independent human reviewers disagree most (see
 and where the arithmetic is smallest and so looks most certain. It is **a computed
 distance, not a confidence score**: no percentage, no probability, checkable against the row's own
 findings. It is computed once and persisted with the row in the review file, so every output
-surface shows the same marker. The workbook shows it in its own column (item 13); the PDF and the
-review screen are to show it beside the rating, explained once by
-`sightline.voice.agreement.near_boundary_legend`, when items 14 and 16 land (item 24). A row reading
-Sufficiently Present carries none — it has no effort figure to measure from.
+surface shows the same marker. The workbook shows it in its own column (item 13). The PDF shows it
+after the proposal's *Estimated effort* in a criterion in full and after the proposed reading in a
+compact line, and the review screen as a field after *Estimated effort* (item 24): with the
+proposal, never beside a reviewer's rating. Both explain it with
+`sightline.voice.agreement.near_boundary_legend` — the PDF once, in its *what this document is*
+block, the review screen on each marked row. A row reading Sufficiently Present carries none — it
+has no effort figure to measure from.
 
 **Overrides are the calibration data.** `sightline.rubric.overrides.record_override` appends a
 record to the run store's `rating_overrides` table: the machine proposal (rating, hours, marker,
@@ -989,8 +992,10 @@ narrative.
   writes them through `ExportGate.save`. `tests/test_paths.py` refuses `write_pdf` called with a
   target anywhere in the package, so the shortcut round the gate cannot be taken quietly.
 
-It does not render the near-boundary marker or the human-agreement statement (roadmap item 24's
-re-run adds both) or remediation wording (item 35) — the action plan names what was located.
+Its *what this document is* block says how often human reviewers choose the same rating (see
+[How often two reviewers choose the same rating](#how-often-two-reviewers-choose-the-same-rating)),
+and a row near a band threshold carries the near-boundary marker (item 24). It renders no
+remediation wording (item 35) — the action plan names what was located.
 
 **A rating a reviewer recorded is printed as the reviewer's** (item 16, operator decision Q2): a
 *Reviewer's rating* field beside *Proposed rating* in a criterion in full, a labelled fact in a
@@ -1088,9 +1093,11 @@ status RUN` prints — never a Canvas host or course id. It reads the course bac
   review pages is a phrase-bank label or format, linted by item 15's register lint, and the suite
   reads the rendered pages back to prove the templates add none.
 
-It renders no attention flag (a batch never builds a `Comparison`, so a review file holds none), no
-near-boundary marker or agreement statement (item 24's re-run), no progress bar, percentage or
-course score, and no run count beside a quote. A course's review is reached from its run's page
+Each row closes with the two-sentence agreement statement, collapsed under *How often two human
+reviewers choose the same rating* after the rating form, and a row near a band threshold shows the
+marker after *Estimated effort*, with its legend in that collapsed statement (item 24). It renders no
+attention flag (a batch never builds a `Comparison`, so a review file holds none), no progress bar,
+percentage or course score, and no run count beside a quote. A course's review is reached from its run's page
 (`/runs/<run id>`).
 
 ## How often two reviewers choose the same rating
@@ -1130,7 +1137,8 @@ corpus grows, the numbers change in one file.
 
 **Where a reader meets it.** The PDF's *what this document is* block and the review screen carry
 the two-sentence form, `sightline.voice.agreement.brief()`, with the sample size and the Major
-limit in the same breath; they take it up when items 14 and 16 land. The workbook carries none of
+limit in the same breath: the PDF once, before any paragraph about a reviewer's rating, and the
+review screen collapsed after each row's rating form (item 24). The workbook carries none of
 it: one header row per sheet and a lossless CSV round-trip leave a paragraph no honest place to
 live, and the workbook is the designer's working copy rather than the one forwarded to faculty.
 
