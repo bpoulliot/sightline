@@ -9,9 +9,10 @@ band was cut from.
 
 **This module owns the write path and nothing on a screen.** The review screen
 (:mod:`sightline.review`, roadmap item 16) calls :func:`record_override`, and reads back through
-:func:`latest_overrides`; the exports take :func:`reviewer_ratings`. Nothing here renders anything. The store keeps the table
-append-only (:meth:`sightline.store.RunStore.record_override`): an override never overwrites the
-proposal, and a second override of the same row is a second record.
+:func:`latest_overrides`; the exports take :func:`reviewer_ratings`. Nothing here renders
+anything. The store keeps the table append-only
+(:meth:`sightline.store.RunStore.record_override`): an override never overwrites the proposal, and
+a second override of the same row is a second record.
 
 **A run nobody overrode writes nothing,** and that is the normal case.
 

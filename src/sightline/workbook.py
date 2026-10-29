@@ -402,7 +402,7 @@ def build_workbook(
 
 
 def _with_reviewer(columns: tuple[str, ...], overrides: Mapping[str, Rating]) -> tuple[str, ...]:
-    """``columns`` with the reviewer's column after the proposal's — only if a rating was recorded."""
+    """``columns`` with the reviewer's column after the proposal's, if any rating was recorded."""
     if not overrides:
         return columns
     at = columns.index("col_rating") + 1

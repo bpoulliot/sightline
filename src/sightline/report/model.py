@@ -32,11 +32,11 @@ THE REVIEWER'S RATING SITS BESIDE THE PROPOSAL, NEVER IN ITS PLACE
 ------------------------------------------------------------------
 Operator decision Q2 (2026-10-29, roadmap item 16). Where a reviewer recorded a rating, the report
 carries their latest one, labelled as the reviewer's: a field after *Proposed rating* in a row in
-full, a fact in a compact line, a column in the action plan. In those places the proposal is labelled
-as proposed, and it keeps its band, its effort estimate and its place in the action plan — nothing is
-re-banded or back-computed from the human rating. A report for a course nobody overrode is the
-report item 14 printed, byte for byte: every addition is conditional on a rating having been
-recorded.
+full, a fact in a compact line, a column in the action plan. In those places the proposal is
+labelled as proposed, and it keeps its band, its effort estimate and its place in the action plan;
+nothing is re-banded or back-computed from the human rating. A report for a course nobody
+overrode is the report item 14 printed, byte for byte: every addition is conditional on a rating
+having been recorded.
 
 THE COVERAGE STATES STAY DISTINGUISHABLE IN ONE LINE
 ----------------------------------------------------

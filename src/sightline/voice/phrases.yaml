@@ -221,6 +221,7 @@ labels:
   review_form_hint_proposal: {register: A, text: "The proposed rating is selected. Recording it unchanged, with or without a note, records that you confirmed it."}
   review_needs_reviewer: {register: A, text: "No reviewer name is set, so no rating can be recorded yet. Every recorded rating names who made it: set the name under Reviewer on the Settings screen."}
   review_settings_link: {register: A, text: "Go to Settings"}
+  review_unknown_course: {register: A, text: "No course with this id is in the run store. A review is reached by the run-store course id that python -m sightline.batch status prints."}
 
 A:
   # A Tier A row whose checks all ran, each examined something, and none recorded an observation.

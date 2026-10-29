@@ -250,6 +250,7 @@ LABELS: frozenset[str] = frozenset(
         "review_form_hint_proposal",
         "review_needs_reviewer",
         "review_settings_link",
+        "review_unknown_course",
     }
 )
 

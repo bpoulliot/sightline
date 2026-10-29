@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% from "_review.html" import say, sentence, header %}
+{#- One category of a course's review (roadmap item 16). Rows in the chosen view; each row carries
+    its tier chip, its proposal and the evidence behind it in one block per register, the rating a
+    reviewer recorded if any, and ONE form that records a rating for that row and no other. There
+    is no bulk-accept of any kind (SPEC §09). A Tier C row's choices arrive with nothing checked. -#}
+{% block title %}{{ page.category.text }} · {{ page.header.title.text }}{% endblock %}
+
+{% block content %}
+<nav class="review-nav" aria-label="{{ page.back.label.text }}">
+  <a href="{{ page.back.href }}">{{ page.back.label.text }}</a>
+  {%- if page.previous %}<a href="{{ page.previous.href }}">{{ page.previous.label.text }}</a>{% endif %}
+  {%- if page.next %}<a href="{{ page.next.href }}">{{ page.next.label.text }}</a>{% endif %}
+</nav>
+
+{{ header(page, page.category) }}
+
+{%- if page.saved %}
+<p class="banner banner-ok" role="status">{{ say(page.saved) }}</p>
+{%- endif %}
+{%- if page.refused %}
+<div class="banner banner-bad" role="alert"><p>{{ say(page.refused) }}
+  {%- if not page.header.reviewer_set %} <a href="/settings#reviewer">{{ page.labels.review_settings_link.text }}</a>{% endif -%}
+</p></div>
+{%- endif %}
+
+<section class="panel view" aria-labelledby="h-view">
+  <form method="get" action="{{ page.href }}" class="view-form">
+    <h2 id="h-view" class="visually-hidden">{{ page.labels.review_sort.text }}</h2>
+    <div class="field">
+      <label for="v-sort">{{ page.labels.review_sort.text }}</label>
+      <select id="v-sort" name="sort">
+        {%- for option in page.sorts %}
+        <option value="{{ option.value }}"{% if option.selected %} selected{% endif %}>{{ option.label.text }}</option>
+        {%- endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label for="v-reading">{{ page.labels.review_filter_reading.text }}</label>
+      <select id="v-reading" name="reading">
+        {%- for option in page.readings %}
+        <option value="{{ option.value }}"{% if option.selected %} selected{% endif %}>{{ option.label.text }}</option>
+        {%- endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label for="v-tier">{{ page.labels.review_filter_tier.text }}</label>
+      <select id="v-tier" name="tier">
+        {%- for option in page.tiers %}
+        <option value="{{ option.value }}"{% if option.selected %} selected{% endif %}>{{ option.label.text }}</option>
+        {%- endfor %}
+      </select>
+    </div>
+    <div class="field field-check">
+      <label><input type="checkbox" name="only" value="unresolved"{% if page.view.unresolved %} checked{% endif %}> {{ page.labels.review_filter_unresolved.text }}</label>
+    </div>
+    <div class="actions">
+      <button type="submit" class="button">{{ page.labels.review_apply.text }}</button>
+      <span class="shown">{{ say(page.shown) }}</span>
+    </div>
+  </form>
+</section>
+
+{%- if not page.rows %}
+<p class="empty">{{ say(page.labels.review_rows_none) }}</p>
+{%- endif %}
+
+{%- for row in page.rows %}
+<article class="panel criterion tier-row-{{ row.tier | lower }}" id="{{ row.anchor }}" data-code="{{ row.code }}" data-tier="{{ row.tier }}" data-coverage="{{ row.coverage }}"{% if row.unresolved %} data-unresolved="yes"{% endif %}>
+  <h2 class="criterion-head"><span class="tier tier-{{ row.tier | lower }}">{{ row.tier }}</span> <span class="code">{{ row.code }}</span> <span class="criterion-text">{{ row.criterion.text }}</span></h2>
+  <dl class="fields">
+    {%- for item in row.fields %}
+    <div><dt>{{ item.name.text }}</dt><dd>{{ say(item.value) }}</dd></div>
+    {%- endfor %}
+  </dl>
+  {%- for block in row.blocks %}
+  <section class="block block-{{ block.register | lower }}" data-register="{{ block.register }}">
+    <h3>{{ block.heading.text }}</h3>
+    {%- for s in block.sentences %}
+    {{ sentence(s, page) }}
+    {%- endfor %}
+  </section>
+  {%- endfor %}
+
+  <div class="decision">
+    <h3>{{ page.labels.col_reviewer_rating.text }}</h3>
+    {%- if row.recorded %}
+    <p class="recorded">{{ say(row.recorded.line) }}</p>
+    {%- if row.recorded.note %}<p class="recorded-note">{{ say(row.recorded.note) }}</p>{% endif %}
+    {%- endif %}
+    {%- if row.unresolved %}
+    <p class="unresolved">{{ say(row.unresolved) }}</p>
+    {%- endif %}
+    {%- if page.header.reviewer_set %}
+    <form method="post" action="/review/{{ page.header.course_id | urlencode }}/override" class="form override">
+      <input type="hidden" name="code" value="{{ row.code }}">
+      {%- for name, value in page.view.params().items() %}
+      <input type="hidden" name="{{ name }}" value="{{ value }}">
+      {%- endfor %}
+      <fieldset>
+        <legend>{{ page.labels.review_form_rating.text }}</legend>
+        <div class="choices">
+          {%- for choice in row.choices %}
+          <label><input type="radio" name="rating" value="{{ choice.value }}"{% if choice.checked %} checked{% endif %}> {{ choice.label.text }}</label>
+          {%- endfor %}
+        </div>
+        <p class="hint">{{ say(row.hint) }}</p>
+      </fieldset>
+      <div class="field">
+        <label for="note-{{ row.anchor }}">{{ page.labels.review_form_note.text }}</label>
+        <textarea id="note-{{ row.anchor }}" name="note" rows="2"></textarea>
+      </div>
+      <div class="actions">
+        <button type="submit" class="button button-primary">{{ page.labels.review_form_submit.text }}</button>
+        <span class="hint">{{ say(page.header.reviewer) }}</span>
+      </div>
+    </form>
+    {%- else %}
+    <p class="hint">{{ say(page.header.reviewer) }} <a href="/settings#reviewer">{{ page.labels.review_settings_link.text }}</a></p>
+    {%- endif %}
+  </div>
+</article>
+{%- endfor %}
+
+<nav class="review-nav" aria-label="{{ page.back.label.text }}">
+  <a href="{{ page.back.href }}">{{ page.back.label.text }}</a>
+  {%- if page.previous %}<a href="{{ page.previous.href }}">{{ page.previous.label.text }}</a>{% endif %}
+  {%- if page.next %}<a href="{{ page.next.href }}">{{ page.next.label.text }}</a>{% endif %}
+</nav>
+{% endblock %}

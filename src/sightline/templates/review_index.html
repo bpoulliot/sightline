@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% from "_review.html" import say, header %}
+{#- The review index (roadmap item 16): the categories in the instrument's own order, each with its
+    counts by proposed reading and its questions with no rating recorded, and the export control.
+    Counts only: nothing is added up across categories or readings. -#}
+{% block title %}{{ page.header.title.text }}{% endblock %}
+
+{% block content %}
+{{ header(page, none) }}
+
+<section class="panel" aria-labelledby="h-categories">
+  <h2 id="h-categories">{{ page.labels.review_index_heading.text }}</h2>
+  <p class="note">{{ say(page.labels.review_index_intro) }}</p>
+  <p class="jump">
+    {%- if page.jump_href %}<a href="{{ page.jump_href }}">{{ say(page.jump) }}</a>
+    {%- else %}{{ say(page.jump) }}{% endif -%}
+  </p>
+  <div class="scroll-x">
+    <table class="review-counts">
+      <thead>
+        <tr>
+          <th scope="col">{{ page.labels.col_category.text }}</th>
+          {%- for column in page.columns %}
+          <th scope="col" data-register="{{ column.register }}">{{ column.text }}</th>
+          {%- endfor %}
+          <th scope="col">{{ page.labels.review_col_unresolved.text }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {%- for line in page.categories %}
+        <tr data-category="{{ line.code }}">
+          <th scope="row"><a href="{{ line.href }}">{{ line.title.text }}</a></th>
+          {%- for count in line.counts %}
+          <td class="num{% if count == '0' %} zero{% endif %}" data-label="{{ page.columns[loop.index0].text }}">{{ count }}</td>
+          {%- endfor %}
+          <td class="num{% if line.unresolved == 0 %} zero{% else %} unresolved-count{% endif %}" data-label="{{ page.labels.review_col_unresolved.text }}">{{ line.unresolved }}</td>
+        </tr>
+        {%- endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel" id="export" aria-labelledby="h-export">
+  <h2 id="h-export">{{ page.labels.review_export_heading.text }}</h2>
+  <p class="note">{{ say(page.labels.review_export_intro) }}</p>
+  {%- if page.exported %}
+  <p class="banner banner-ok" role="status">{{ say(page.labels.review_exported) }}</p>
+  {%- endif %}
+  <form method="post" action="/review/{{ page.header.course_id | urlencode }}/export" class="form">
+    <div class="actions">
+      <button type="submit" class="button button-primary">{{ page.labels.review_export_button.text }}</button>
+    </div>
+  </form>
+  {%- if page.files %}
+  <h3 class="subhead">{{ page.labels.review_export_files.text }}</h3>
+  <ul class="files">
+    {%- for file in page.files %}
+    <li><a href="{{ file.href }}"><code>{{ file.name }}</code></a></li>
+    {%- endfor %}
+  </ul>
+  {%- endif %}
+</section>
+{% endblock %}

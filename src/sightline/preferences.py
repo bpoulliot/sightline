@@ -50,7 +50,7 @@ REVIEW_MODEL = "review_model"
 REVIEWER = "reviewer"
 
 #: The longest reviewer name stored. The override record's column is this wide
-#: (:class:`sightline.models.RatingOverride`), so a longer one is refused here rather than cut there.
+#: (:class:`sightline.models.RatingOverride`), so a longer one is refused here, not cut there.
 REVIEWER_MAX = 128
 
 #: Stored spellings. Two words rather than ``1``/``0``, because the value is read by people
