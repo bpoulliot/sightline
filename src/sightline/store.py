@@ -353,6 +353,16 @@ class RunStore:
             statement = select(Run).order_by(Run.created_at.desc()).limit(limit)
             return list(session.scalars(statement))
 
+    def running_runs(self) -> list[Run]:
+        """Every run the store records as running, oldest first.
+
+        Wider than the background runner's own task list: a run started by ``python -m
+        sightline.batch run`` executes in another process and is visible here and nowhere else.
+        """
+        with self.session() as session:
+            statement = select(Run).where(Run.status == RunStatus.RUNNING).order_by(Run.created_at)
+            return list(session.scalars(statement))
+
     def list_events(self, run_id: str, *, limit: int = 200) -> list[RunEvent]:
         with self.session() as session:
             statement = (

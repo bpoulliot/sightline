@@ -47,11 +47,17 @@ from .pipeline import (
     is_bundle_reference,
 )
 from .progress import progress_of
-from .runner import BatchRunner, BatchSummary, BatchTooLargeError, create_batch_run
+from .runner import (
+    DEFAULT_RUBRIC_PACK,
+    BatchRunner,
+    BatchSummary,
+    BatchTooLargeError,
+    create_batch_run,
+)
 from .service import live_pipeline_factory
 from .stages import Stage, StageOutcome
 
-DEFAULT_PACK = "uccs-oscqr-3-1-3"
+DEFAULT_PACK = DEFAULT_RUBRIC_PACK
 
 
 def build_parser() -> argparse.ArgumentParser:

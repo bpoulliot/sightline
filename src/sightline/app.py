@@ -2,9 +2,10 @@
 
 One process, one container. Server-rendered HTML with light progressive enhancement — no SPA
 framework (SPEC §09). This module builds the app, wires the run store, the credential store and
-the background runner into its lifespan, and serves the status page. The settings and course
-screens live in :mod:`sightline.views` and the review screen in :mod:`sightline.review` (roadmap
-item 16); the run-progress and New run screens are roadmap item 36.
+the background runner into its lifespan, and serves the status page. The settings screen and the
+New run screen live in :mod:`sightline.views`, the run-progress screens in
+:mod:`sightline.run_screens` (roadmap item 36) and the review screen in :mod:`sightline.review`
+(roadmap item 16).
 
 The vocabulary constraint from SPEC §11 applies to everything rendered here: Sightline *reviews*
 and *refreshes*. It does not evaluate, score or grade.
@@ -31,6 +32,7 @@ from .llm import PullRegistry
 from .logging import configure_logging, get_logger
 from .preferences import PreferenceStore
 from .review import build_review_router
+from .run_screens import build_run_router
 from .runner import BackgroundRunner
 from .store import RunStore
 from .views import build_router
@@ -158,6 +160,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     templates = Jinja2Templates(directory=str(TEMPLATE_DIR))
     templates.env.globals["app_version"] = __version__
     application.include_router(build_router(templates))
+    application.include_router(build_run_router(templates))
     application.include_router(build_review_router(templates))
 
     # The tokens live outside the package on purpose (see sightline.assets). Serving them from a

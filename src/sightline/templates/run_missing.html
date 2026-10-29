@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Sightline — no such run{% endblock %}
+
+{% block content %}
+<section class="panel" aria-labelledby="h-missing">
+  <div class="banner banner-bad" role="alert">
+    <p class="banner-head" id="h-missing">This run store has no run <code>{{ run_id }}</code>.</p>
+    <p class="banner-remedy">The <a href="/runs">Runs</a> screen lists the runs it has.</p>
+  </div>
+</section>
+{% endblock %}

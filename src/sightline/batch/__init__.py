@@ -26,6 +26,7 @@ from .pipeline import (
 )
 from .progress import CourseProgress, RunProgress, StageProgress, StageState, progress_of
 from .runner import (
+    DEFAULT_RUBRIC_PACK,
     BatchRunner,
     BatchSummary,
     BatchTooLargeError,
@@ -39,6 +40,7 @@ from .service import live_pipeline_factory
 from .stages import ORDER, BatchAborted, NothingExamined, Stage, StageError, StageOutcome
 
 __all__ = [
+    "DEFAULT_RUBRIC_PACK",
     "ORDER",
     "BatchAborted",
     "BatchRunner",

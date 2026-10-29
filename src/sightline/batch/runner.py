@@ -61,6 +61,10 @@ log = get_logger("sightline.batch.runner")
 #: Filename of the artifact a reviewer opens, inside the course's directory under ``runs/``.
 REVIEW_FILENAME = "review.json"
 
+#: The rubric a run is reviewed against when nobody chose another (SPEC §09: rubric selection is
+#: per run, defaulting to OSCQR 3.1.3). One home, read by the command line and the New run screen.
+DEFAULT_RUBRIC_PACK = "uccs-oscqr-3-1-3"
+
 #: Builds the pipeline a run executes, and closes whatever it opened. An async context manager
 #: rather than a plain callable because the real one holds an HTTP client per run.
 PipelineFactory = Callable[[Run], AbstractAsyncContextManager[CoursePipeline]]
@@ -531,6 +535,7 @@ class BatchRunner:
 
 
 __all__ = [
+    "DEFAULT_RUBRIC_PACK",
     "REVIEW_FILENAME",
     "BatchRunner",
     "BatchSummary",

@@ -1,13 +1,15 @@
 {% extends "base.html" %}
-{% block title %}Sightline — courses{% endblock %}
+{% block title %}Sightline — new run{% endblock %}
 
 {% block content %}
 <section class="panel" aria-labelledby="h-resolve">
-  <h1 id="h-resolve">Resolve courses</h1>
+  <h1 id="h-resolve">New run</h1>
   <p class="lede">
     Paste Canvas course URLs or bare course ids, or upload a CSV with a column of either. A URL
-    that points at a page, an assignment or a module still resolves to its course. Nothing is
-    started here — this screen only reports what each reference resolved to.
+    that points at a page, an assignment or a module still resolves to its course. Resolving
+    starts nothing: it reports what each reference resolved to, and the courses Canvas resolved
+    come back with a rubric to pick and a Start button. A course bundle is reviewed from the
+    command line, with <code>python -m sightline.batch run --bundle</code>.
   </p>
 
   {% if upload_error %}
@@ -133,6 +135,80 @@
       </tbody>
     </table>
   </div>
+</section>
+{% endif %}
+{% if start %}
+<section class="panel" id="start" aria-labelledby="h-start">
+  <h2 id="h-start">Start a run</h2>
+  <p class="note">
+    The courses are reviewed one after another against the rubric chosen here, at most
+    {{ start.cap }} in one run. A run's progress, course by course and stage by stage, is on its
+    own page; nothing is exported until somebody opens a course's review.
+  </p>
+
+  {% if start.blockers %}
+  <div class="banner {% if start.refused %}banner-bad{% else %}banner-warn{% endif %}" role="{% if start.refused %}alert{% else %}status{% endif %}">
+    <p class="banner-head">{% if start.refused %}No run was started.{% else %}A run cannot start yet.{% endif %}</p>
+    <ul class="reasons">
+      {% for blocker in start.blockers %}
+      <li>
+        {{ blocker.summary }}
+        <span class="banner-remedy">{{ blocker.remedy }}{% if blocker.href %} <a href="{{ blocker.href }}">{{ blocker.link }}</a>{% endif %}</span>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  <form method="post" action="/runs" class="form">
+    {% if start.courses %}
+    <fieldset class="field picker">
+      <legend>Courses</legend>
+      {% for course in start.courses %}
+      <div class="field-check">
+        <label>
+          <input type="checkbox" name="course" value="{{ course.id }}"{% if course.checked %} checked{% endif %}>
+          <span>{{ course.label }} <span class="muted">— course id <code>{{ course.id }}</code></span>
+          {% if course.note %}<span class="hint">{{ course.note }}</span>{% endif %}</span>
+        </label>
+        <input type="hidden" name="label-{{ course.id }}" value="{{ course.label }}">
+      </div>
+      {% endfor %}
+      <p class="hint">Only courses Canvas resolved are offered. Resolve the others again once the lookup table above says what to change.</p>
+    </fieldset>
+    {% endif %}
+
+    <fieldset class="field picker" id="rubric">
+      <legend>Rubric</legend>
+      {% for choice in start.rubrics %}
+      <div class="field-check" data-rubric="{{ choice.id }}">
+        <label>
+          <input type="radio" name="rubric" value="{{ choice.id }}"{% if choice.selected %} checked{% endif %}>
+          <span>{{ choice.name }} <span class="muted">— version {{ choice.version }}, {{ choice.criteria }} criteria, <code>{{ choice.id }}</code></span>
+          {% if choice.description %}<span class="hint">{{ choice.description }}</span>{% endif %}</span>
+        </label>
+      </div>
+      {% else %}
+      <p class="empty">No rubric pack could be found on disk, so no run can start. Point <code>SIGHTLINE_RUBRIC_PACKS_DIR</code> at the directory holding the packs.</p>
+      {% endfor %}
+    </fieldset>
+
+    <div class="actions">
+      <button type="submit" class="button button-primary"{% if start.blockers and not start.refused %} disabled{% endif %}>Start</button>
+      {% if start.requests_export %}
+      <p class="hint">
+        Starting asks Canvas to build a fresh content export of each course. The export appears in
+        that course's export list; no course content is changed. It can be switched off on the
+        <a href="/settings">Settings</a> screen.
+      </p>
+      {% else %}
+      <p class="hint">
+        Sightline will read an export each course already has, and will not ask Canvas to build
+        one.
+      </p>
+      {% endif %}
+    </div>
+  </form>
 </section>
 {% endif %}
 {% endblock %}

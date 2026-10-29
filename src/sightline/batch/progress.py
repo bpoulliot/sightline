@@ -47,6 +47,10 @@ class StageProgress:
     #: What the stage examined, in its own unit. ``None`` until it has finished.
     examined: int | None = None
     statement: str | None = None
+    #: A failed stage's two halves, kept apart for a screen that sets the remedy on its own line.
+    #: ``statement`` still carries both, which is what the command line prints.
+    summary: str | None = None
+    remedy: str | None = None
 
     def line(self) -> str:
         head = f"{self.stage.value:<8} {self.state.value}"
@@ -60,6 +64,8 @@ class StageProgress:
             "state": self.state.value,
             "examined": self.examined,
             "statement": self.statement,
+            "summary": self.summary,
+            "remedy": self.remedy,
         }
 
 
@@ -203,12 +209,13 @@ def _replay(store: RunStore, run_id: str) -> dict[str, dict[str, StageProgress]]
                 statement=data.get("statement"),
             )
         elif event.event in {"stage_failed", "batch_aborted"}:
+            summary, remedy = data.get("summary"), data.get("remedy")
             entry = StageProgress(
                 stage=stage,
                 state=StageState.FAILED,
-                statement=" ".join(
-                    part for part in (data.get("summary"), data.get("remedy")) if part
-                ),
+                statement=" ".join(part for part in (summary, remedy) if part),
+                summary=summary,
+                remedy=remedy,
             )
         else:
             continue
