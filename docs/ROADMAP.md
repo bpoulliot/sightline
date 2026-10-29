@@ -56,7 +56,7 @@ by item 36's session, PR #43).
 | 38 | A bound Tier D row is counted in two coverage buckets, and `coverage` exits 1 calling it a bug | 1 | READY | **DONE** — PR #35. Tier first; 42 → 41 of 68, exit 1 → 0 |
 | 39 | Every other bare pattern in `.dockerignore` is root-only too | 3 | READY | **DONE** — PR #41. Planted nested files 19 → 0 in the dev image, 15 → 0 in runtime |
 | 40 | Sign-in (SSO) and multiple users | 3 | **NEEDS DISCUSSION** — filed 2026-10-29 | — |
-| 42 | A run that completed with failures records no finish time | 1 | READY — filed 2026-10-29 by item 36 | queued `99ra-` |
+| 42 | A run that completed with failures records no finish time | 1 | READY — filed 2026-10-29 by item 36 | **DONE** — PR #44. Every terminal status stamps `finished_at`; `interrupted` stays unset |
 | 43 | The app's restart recovery takes over a run another process is executing | 1 | **NEEDS DISCUSSION** — filed 2026-10-29 by item 36 | — |
 
 ---
@@ -145,8 +145,8 @@ carried forward* reading READY. Item 16 does not yet (two questions); item 36 wa
 re-run (from `99l-`). Each
 later HEAD gates on its predecessors being DONE on `main` and stops otherwise. Item 22 part 2 is
 not queued: 36 is DONE (PR #43), so part 2 is ready for its own specification pass, which comes
-before any queue entry. `99ra-` (item 42, filed by item 36's session) sorts before `99s-` because
-it is silent wrongness: a finished run with no finish time.
+before any queue entry. `99ra-` (item 42, filed by item 36's session) sorted before `99s-` because
+it is silent wrongness: a finished run with no finish time. It ran DONE — PR #44.
 
 ---
 
@@ -1014,8 +1014,8 @@ a stale `running` row from blocking Start forever after a CLI crash.
 
 *Shares the cause:* none. It is a defect in sightline's own run ownership, not a process gap.
 
-**42 · FILED 2026-10-29 by item 36's session (PR #43). READY. A run that completed with failures
-records no finish time.**
+**42 · DONE 2026-10-29 — PR #44.** Filed 2026-10-29 by item 36's session (PR #43). **A run that
+completed with failures records no finish time.**
 
 *Evidence.* `RunStore.set_run_status` sets `finished_at` only for `succeeded`, `failed` and
 `cancelled`. `partial` is terminal too (`TERMINAL_STATUSES` in `sightline.models`), and the batch
@@ -1027,6 +1027,11 @@ carry `finished_at: null`. This is wrong output with no error.
 *Fix.* Set `finished_at` for every status in `TERMINAL_STATUSES` (leaving `interrupted`, which is
 resumable, unset), and test each terminal status. Then the run page's *Not recorded* branch is
 reached only by runs recorded before the fix.
+
+*As built (PR #44).* `set_run_status` stamps `finished_at` for every status in `TERMINAL_STATUSES`;
+`running` and `interrupted` leave it unset. Runs already in a store are not backfilled, so the run
+page keeps its *Not recorded* branch, tested with a terminal run built directly in the store.
+Local: full suite 1935 passed, 3 skipped; `ruff check` exit 0, `black --check` exit 0.
 
 *Shares the cause:* none. It is a defect in this store's write, not a process gap.
 
