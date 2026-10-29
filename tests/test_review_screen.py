@@ -46,7 +46,7 @@ from sightline.review.screen import QUESTION, SORTS, ReviewScreen, View, reading
 from sightline.rubric import Coverage, Rating
 from sightline.rubric.overrides import MachineProposal, latest_overrides, reviewer_ratings
 from sightline.store import RunStore
-from sightline.voice import Voice, default_register
+from sightline.voice import Voice, agreement, default_register
 from sightline.voice.lint import mask
 from sightline.workbook import WORKBOOK_FILENAME, WorkbookError, build_workbook, to_xlsx
 
@@ -769,13 +769,160 @@ def test_item_15s_lint_passes_over_the_rendered_pages(pages) -> None:
     assert {violation.rule for violation in planted} >= {"grading", "aggregate"}
 
 
-def test_no_attention_flag_near_boundary_marker_or_run_count_is_rendered(pages) -> None:
+def test_no_attention_flag_or_run_count_is_rendered(pages) -> None:
     for html, _page in pages:
         text = main_of(html).text()
-        assert "near a band threshold" not in text.lower()
-        assert "Human reviewers" not in text
         assert not re.search(r"\b\d+ (?:of \d+ )?runs?\b", text)
         assert "attention" not in text.lower()
+
+
+# -- item 24: how often human reviewers agree, and the near-boundary marker ------------------------
+
+
+def _field_names(node: Node) -> list[str]:
+    return [dt.text() for dt in node.find_all("dt")]
+
+
+def _fields_of(node: Node) -> dict[str, str]:
+    (fields,) = [n for n in node.walk() if n.tag == "dl" and n.has_class("fields")]
+    return {
+        pair.children[0].text(): pair.children[1].text()
+        for pair in fields.find_all("div")
+        if len([c for c in pair.children if isinstance(c, Node)]) == 2
+    }
+
+
+def test_every_row_carries_the_agreement_statement_beside_the_decision_not_in_it(
+    client, course, loaded
+) -> None:
+    """Available, not shouted: collapsed under its own heading after each row's rating form, and
+    never inside the block that shows the reviewer's rating."""
+    brief = [sentence.text for sentence in agreement.brief()]
+    heading = Voice().bank.label("agreement_heading")[1]
+    set_reviewer(client)
+    for section in sections_of(loaded):
+        for node in articles(category(client, course, section)):
+            children = [child for child in node.children if isinstance(child, Node)]
+            (details,) = [child for child in children if child.tag == "details"]
+            assert details.has_class("agreement")
+            assert children[-1] is details, "it closes the row, after the decision"
+            (decision,) = [child for child in children if child.has_class("decision")]
+            assert children.index(decision) == len(children) - 2
+            assert not decision.find_all("details")
+            (summary,) = details.find_all("summary")
+            assert summary.text() == heading
+            assert "open" not in details.attrs, "collapsed by default"
+            assert [p.text() for p in details.find_all("p")][: len(brief)] == brief
+
+
+def test_a_marked_row_shows_12as_persisted_marker_after_the_proposals_effort(
+    client, course, loaded
+) -> None:
+    rows = {row.code: row for row in loaded.projection.rows}
+    marked = {code for code, row in rows.items() if row.near_boundary is not None}
+    assert marked and len(marked) < len(rows), "the sample needs marked and unmarked rows"
+    legend = agreement.near_boundary_legend(loaded.projection.effort).text
+    words = {
+        "sufficiently_present": "Sufficiently Present",
+        "minor": "Minor Revision",
+        "moderate": "Moderate Revision",
+    }
+    seen: set[str] = set()
+    for section in sections_of(loaded):
+        for node in articles(category(client, course, section)):
+            code = node.attrs["data-code"]
+            seen.add(code)
+            names = _field_names(node)
+            legends = [p for p in node.walk() if p.tag == "p" and p.has_class("near-legend")]
+            near = rows[code].near_boundary
+            if near is None:
+                assert "Near a band threshold" not in names
+                assert legends == []
+                continue
+            # Directly after the proposal's effort estimate: it is about the proposal's hours.
+            assert names[names.index("Estimated effort") + 1] == "Near a band threshold"
+            value = _fields_of(node)["Near a band threshold"]
+            assert value == (
+                f"{near.hours:g} h is {near.distance_hours:g} h from the {words[near.below]} / "
+                f"{words[near.above]} threshold at {near.threshold_hours:g} h "
+                f"(margin {near.margin_hours:g} h)"
+            )
+            assert not re.search(r"%|★|☆|\b(?:unsure|likely|confiden\w*|probab\w*)\b", value)
+            (legend_p,) = legends
+            assert legend_p.text() == legend
+            assert legend_p.parent is not None and legend_p.parent.tag == "details"
+    assert seen == set(rows), "every row was looked at"
+
+
+def test_the_marker_is_rendered_from_the_review_file_never_recomputed(paths, payload, settings):
+    """Change a persisted marker and the screen says what the file says, not what 12a would."""
+    tampered = copy.deepcopy(payload)
+    found = 0
+
+    def visit(node: Any) -> None:
+        nonlocal found
+        if isinstance(node, dict):
+            if node.get("code") == "MOB 8" and node.get("near_boundary"):
+                node["near_boundary"]["distance_hours"] = 0.07
+                found += 1
+            for value in node.values():
+                visit(value)
+        elif isinstance(node, list):
+            for value in node:
+                visit(value)
+
+    visit(tampered)
+    assert found
+    course_id = finished_course(paths, tampered)
+    with TestClient(create_app(settings)) as test_client:
+        (node,) = [
+            n
+            for n in articles(category(test_client, course_id, "MOB"))
+            if n.attrs["data-code"] == "MOB 8"
+        ]
+    assert " is 0.07 h from the " in _fields_of(node)["Near a band threshold"]
+
+
+def test_the_agreement_sentences_never_change_the_grouping_order_or_filters(
+    client, course, loaded
+) -> None:
+    """The statement and the marker add no grouping, no filter tab and no sort."""
+    html = category(client, course, "ACD")
+    selects = {
+        n.attrs["name"]: [o.attrs["value"] for o in n.find_all("option")]
+        for n in main_of(html).find_all("select")
+    }
+    assert set(selects) == {"sort", "reading", "tier"}
+    assert selects["sort"] == list(SORTS)
+    assert all("near" not in value for values in selects.values() for value in values)
+    assert codes_on(html) == [row.code for row in loaded.projection.rows if row.section == "ACD"]
+
+
+@pytest.mark.parametrize(
+    "planted",
+    [
+        "Sightline agrees with reviewers 91% of the time.",
+        "Sightline accuracy: 82%.",
+        "Sightline confidence: high.",
+        "This review carries a reliability score of 91%.",
+    ],
+)
+def test_the_pages_reading_fires_on_a_figure_or_accuracy_claimed_for_sightline(
+    client, course, planted
+) -> None:
+    """Item 24's guard, on this surface: the element-by-element reading the lint test above makes
+    refuses each forbidden construction once it is on the page, so its silence is a reading."""
+    html = category(client, course, "ACD").replace(
+        '<details class="agreement">',
+        f'<p class="planted">{planted}</p><details class="agreement">',
+        1,
+    )
+    rules = default_register()
+    hits = []
+    for node in main_of(html).walk():
+        if node.tag == "p" and node.has_class("planted"):
+            hits.extend(rules.lint(node.text(), "B", where="planted", sentence=False))
+    assert {violation.rule for violation in hits} >= {"self_assessment"}, planted
 
 
 def test_the_status_page_no_longer_says_the_review_screens_arrive_later(client) -> None:
@@ -883,10 +1030,10 @@ def test_the_pdf_carries_a_recorded_rating_as_the_reviewers_beside_the_unchanged
     plain_details = {d.code: d for s in plain.full for d in s.details}
     names = [f.name.text for f in details["ACD 1"].fields]
     assert names[names.index("Proposed rating") + 1] == "Reviewer's rating"
-    assert (
-        details["ACD 1"].fields[: len(plain_details["ACD 1"].fields) - 1]
-        == plain_details["ACD 1"].fields[: len(plain_details["ACD 1"].fields) - 1]
-    )
+    proposal = names.index("Proposed rating") + 1
+    assert details["ACD 1"].fields[:proposal] == plain_details["ACD 1"].fields[:proposal]
+    # Item 24's marker stays with the proposal's effort, never beside the reviewer's rating.
+    assert names[names.index("Estimated effort") + 1] == "Near a band threshold"
     assert [f for f in details["ACD 1"].fields if f.name.text != "Reviewer's rating"] == list(
         plain_details["ACD 1"].fields
     )

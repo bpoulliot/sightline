@@ -119,6 +119,18 @@
     <p class="hint">{{ say(page.header.reviewer) }} <a href="/settings#reviewer">{{ page.labels.review_settings_link.text }}</a></p>
     {%- endif %}
   </div>
+  {#- How often human reviewers agree (item 24): beside the decision, collapsed, and outside the
+      reviewer's-rating block so it never reads as describing a recorded rating. A row with a
+      near-boundary marker also explains the marker here. #}
+  <details class="agreement">
+    <summary>{{ say(page.labels.agreement_heading) }}</summary>
+    {%- for s in page.agreement %}
+    <p data-register="{{ s.register }}" data-role="{{ s.role }}">{{ s.text }}</p>
+    {%- endfor %}
+    {%- if row.near and page.legend %}
+    <p class="near-legend" data-register="{{ page.legend.register }}" data-role="{{ page.legend.role }}">{{ page.legend.text }}</p>
+    {%- endif %}
+  </details>
 </article>
 {%- endfor %}
 

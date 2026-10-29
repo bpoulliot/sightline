@@ -38,6 +38,20 @@ nothing is re-banded or back-computed from the human rating. A report for a cour
 overrode is the report item 14 printed, byte for byte: every addition is conditional on a rating
 having been recorded.
 
+HOW OFTEN HUMAN REVIEWERS AGREE, AND THE NEAR-BOUNDARY MARKER (roadmap item 24)
+-------------------------------------------------------------------------------
+The *what this document is* block carries :func:`sightline.voice.agreement.brief`: how often human
+reviewers rating the same course independently chose the same rating, with its sample size and its
+limits — a fact about the difficulty of the task, never about Sightline. It is placed before the
+reviewer's-rating paragraph, so it cannot be read as describing the rating a reviewer recorded.
+
+A row whose proposed effort sits within a margin of a band threshold carries item 12a's persisted
+marker, rendered from the review file and never recomputed: a *Near a band threshold* field after
+the proposal's *Estimated effort* in a row in full, a fact after the proposed reading in a compact
+line. It is a distance in hours from a threshold — never a percentage, a star, a colour or a word
+about how sure anything is. :func:`sightline.voice.agreement.near_boundary_legend` explains it once,
+in the *what this document is* block, and only in a report that carries a marker.
+
 THE COVERAGE STATES STAY DISTINGUISHABLE IN ONE LINE
 ----------------------------------------------------
 A compact line carries the row's coverage in the bank's words and a *located* cell that says what
@@ -55,8 +69,10 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from ..detect.base import Tier
+from ..rubric.effort import NearBoundary
 from ..rubric.project import RowResult
 from ..rubric.states import Coverage, Rating
+from ..voice import agreement
 from ..voice.lint import Register, Violation, default_register
 from ..voice.render import Piece, RenderedRow, Sentence, Voice, plain, verbatim
 from ..workbook import WORKBOOK_FILENAME
@@ -162,6 +178,8 @@ class CompactLine:
     no_link: Text
     #: The reviewer's recorded rating, labelled as theirs; ``None`` when none was recorded.
     reviewer: Text | None = None
+    #: The near-boundary marker on the proposal's effort, labelled; ``None`` when there is none.
+    near: Text | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -230,6 +248,10 @@ class ReportModel:
     narrative: tuple[NarrativeSlot, ...]
     #: Whether any reviewer's rating is carried. Every Q2 addition to the page is gated on it.
     reviewed: bool = False
+    #: How often human reviewers choose the same rating: :func:`sightline.voice.agreement.brief`.
+    agreement: tuple[Sentence, ...] = ()
+    #: The near-boundary marker's one explanation; ``None`` when no row carries a marker.
+    legend: Sentence | None = None
 
     # -- reading it back ------------------------------------------------------------------------
 
@@ -268,11 +290,17 @@ class ReportModel:
                 yield f"{line.code} no link", line.no_link
                 if line.reviewer is not None:
                     yield f"{line.code} reviewer", line.reviewer
+                if line.near is not None:
+                    yield f"{line.code} near", line.near
                 for link in line.links:
                     yield f"{line.code} link", link.label
 
     def sentences(self) -> Iterator[tuple[str, Sentence]]:
         """Every rendered sentence the report prints, with a location."""
+        for sentence in self.agreement:
+            yield f"about {sentence.shape}", sentence
+        if self.legend is not None:
+            yield f"about {self.legend.shape}", self.legend
         for section in self.full:
             for detail in section.details:
                 for block in detail.blocks:
@@ -392,6 +420,7 @@ def build_report(
         if _located(by_code[row.code])
     )
 
+    marked = any(row.near_boundary is not None for row in projection.rows)
     course_name = review.course_name or review.course_id or ""
     instrument = verbatim(review.pack.name)
     stamp = created.astimezone(UTC)
@@ -423,6 +452,8 @@ def build_report(
             for slot in rendered.narrative.slots
         ),
         reviewed=bool(reviewed),
+        agreement=agreement.brief(voice=voice),
+        legend=(agreement.near_boundary_legend(projection.effort, voice=voice) if marked else None),
     )
     _check(model, rules)
     return model
@@ -507,6 +538,10 @@ class _Builder:
             return None
         return self.human_label(row) or self.label("reviewer_none")
 
+    def near(self, near: NearBoundary) -> Text:
+        """Item 12a's persisted marker, as the run recorded it: hours, a distance, a threshold."""
+        return Text("A", near_boundary_piece(self.voice, near, _rating_words(self.review)))
+
     def priority(self, row: RowResult) -> Text:
         if row.priority is None:
             return self.fragment("no_priority")
@@ -557,6 +592,8 @@ class _Builder:
                     self.fragment(name, hours=plain(f"{row.hours:g} h")),
                 )
             )
+        if row.near_boundary is not None:
+            fields.append(Field(self.label("col_near_boundary"), self.near(row.near_boundary)))
         return RowDetail(
             code=row.code,
             anchor=anchor_for(row.code),
@@ -579,6 +616,11 @@ class _Builder:
             links=_artifact_links(rendered, self.voice),
             no_link=self.label("report_nothing_to_link"),
             reviewer=self.reviewer_fact(row),
+            near=(
+                self.fragment("near_boundary_fact", marker=self.near(row.near_boundary).piece)
+                if row.near_boundary is not None
+                else None
+            ),
         )
 
     def plan_entry(self, row: RowResult, rendered: RenderedRow) -> PlanEntry:
@@ -625,16 +667,37 @@ class _Builder:
         )
 
 
-def _rating_word(review: LoadedReview, rating: Rating) -> str:
-    """The instrument's own word for ``rating``, from the scale the review was made with."""
+def _rating_words(review: LoadedReview) -> dict[str, str]:
+    """The instrument's own word for every rating, keyed on its value, from the review's scale."""
     scale = review.projection.rating_scale or review.pack.rating_scale
     words = {
-        Rating.SUFFICIENTLY_PRESENT: scale.sufficiently_present,
-        Rating.NO_RESPONSE: scale.no_response,
-        Rating.NOT_APPLICABLE: scale.not_applicable,
+        Rating.SUFFICIENTLY_PRESENT.value: scale.sufficiently_present,
+        Rating.NO_RESPONSE.value: scale.no_response,
+        Rating.NOT_APPLICABLE.value: scale.not_applicable,
     }
-    words.update({Rating(band.rating): band.label for band in scale.bands})
-    return words[rating]
+    words.update({band.rating: band.label for band in scale.bands})
+    return words
+
+
+def _rating_word(review: LoadedReview, rating: Rating) -> str:
+    """The instrument's own word for ``rating``, from the scale the review was made with."""
+    return _rating_words(review)[rating.value]
+
+
+def near_boundary_piece(voice: Voice, near: NearBoundary, words: Mapping[str, str]) -> Piece:
+    """Item 12a's near-boundary marker in the bank's words: the proposal's estimated hours, their
+    distance from the threshold between two named bands, and the margin applied. ``words`` maps a
+    rating value to the instrument's word for it. A distance, never a percentage or a likelihood.
+    """
+    return voice.fragment(
+        "near_boundary",
+        hours=plain(f"{near.hours:g} h"),
+        distance=plain(f"{near.distance_hours:g} h"),
+        below=verbatim(words.get(near.below, near.below)),
+        above=verbatim(words.get(near.above, near.above)),
+        threshold=plain(f"{near.threshold_hours:g} h"),
+        margin=plain(f"{near.margin_hours:g} h"),
+    )
 
 
 def blocks_of(sentences: Sequence[Sentence], voice: Voice) -> tuple[Block, ...]:
@@ -714,4 +777,5 @@ __all__ = [
     "anchor_for",
     "blocks_of",
     "build_report",
+    "near_boundary_piece",
 ]

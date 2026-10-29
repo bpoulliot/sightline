@@ -143,6 +143,7 @@ FORMATS: Mapping[str, frozenset[str]] = {
         "agreement_limit_pairings_differ": ("pairs",),
         "agreement_source": ("measured", "courses", "instrument", "instances"),
         "near_boundary_legend": ("between", "lowest", "at_lowest", "disagreements"),
+        "near_boundary_fact": ("marker",),
         "report_title": ("course", "instrument"),
         "report_instrument": ("instrument", "version"),
         "report_opened": ("date",),
@@ -251,6 +252,7 @@ LABELS: frozenset[str] = frozenset(
         "review_needs_reviewer",
         "review_settings_link",
         "review_unknown_course",
+        "agreement_heading",
     }
 )
 

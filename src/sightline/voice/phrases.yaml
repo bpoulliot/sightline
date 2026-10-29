@@ -101,6 +101,9 @@ formats:
   # The near-boundary marker's one explanation, for the surface where a reader first meets it. The
   # marker is a computed distance from a threshold; this says which margins were applied and why
   # the lowest one is wider. It is never a percentage, a star or a word about how sure anything is.
+  # The marker where it sits beside a proposal on its own line (a compact line of the PDF), named so
+  # it reads as a fact about the proposal's estimated hours and never about a reviewer's rating.
+  near_boundary_fact: {register: A, text: "Near a band threshold: {marker}"}
   near_boundary_legend: {register: A, text: "A proposal marked near a band threshold has estimated hours within {between} of a threshold between two bands, or within {lowest} of the Sufficiently Present / Minor Revision boundary; that margin is wider because {at_lowest} of the {disagreements} disagreements between human reviewers fell at that boundary."}
   # The PDF course report (roadmap item 14). One document for the instructional designer, written so
   # it can be forwarded to the instructor unchanged: every word here is read by both.
@@ -191,6 +194,8 @@ labels:
   # A rating a reviewer recorded, in the exports (roadmap item 16, Q2). Only printed when one was.
   col_reviewer_rating: {register: A, text: "Reviewer's rating"}
   reviewer_none: {register: A, text: "No rating recorded by the reviewer"}
+  # The heading the review screen shows the short agreement statement under (roadmap item 24).
+  agreement_heading: {register: A, text: "How often two human reviewers choose the same rating"}
   report_reviewer_intro: {register: A, text: "Where the reviewer recorded a rating in Sightline, it is printed as the reviewer's rating beside the proposed rating. The proposed rating and its effort estimate are left exactly as the review pass made them."}
   # The review screen (roadmap item 16).
   review_lede: {register: A, text: "Each criterion with what the review pass located, its proposed rating, and a place to record yours. Nothing is run again here: the page reads the review file the run saved."}
