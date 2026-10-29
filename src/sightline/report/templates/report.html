@@ -31,6 +31,14 @@
 <section class="about" data-register="{{ model.about.register }}">
   <h2>{{ model.labels.report_about_heading.text }}</h2>
   <p>{{ model.about.text }}</p>
+  {#- How often human reviewers agree (item 24), before the reviewer's-rating paragraph so it is never
+      read as describing a rating somebody recorded; then the near-boundary marker's one legend. #}
+  <p class="agreement">
+    {%- for s in model.agreement %}<span data-register="{{ s.register }}" data-role="{{ s.role }}">{{ s.text }}</span>{% if not loop.last %} {% endif %}{% endfor -%}
+  </p>
+  {%- if model.legend %}
+  <p class="near-legend" data-register="{{ model.legend.register }}">{{ model.legend.text }}</p>
+  {%- endif %}
   {%- if model.reviewed %}
   <p data-register="{{ model.labels.report_reviewer_intro.register }}">{{ model.labels.report_reviewer_intro.text }}</p>
   {%- endif %}
@@ -134,6 +142,9 @@
       <p class="facts">
         <span class="fact">{{ say(line.determinacy) }}</span>
         <span class="fact">{{ say(line.reading) }}</span>
+        {%- if line.near %}
+        <span class="fact near">{{ say(line.near) }}</span>
+        {%- endif %}
         {%- if line.reviewer %}
         <span class="fact">{{ say(line.reviewer) }}</span>
         {%- endif %}

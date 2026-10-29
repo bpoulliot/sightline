@@ -23,6 +23,17 @@ THE DECISIONS THIS IS BUILT TO (roadmap item 16; SPEC §02, §09)
 - **The reviewer's rating never replaces the proposal.** Both are shown, each labelled.
 - **No aggregate.** Counts by category and reading, never added up; a count of unresolved questions
   is work remaining. No progress bar, no percentage, no course score, no run count.
+
+HOW OFTEN HUMAN REVIEWERS AGREE, AND THE NEAR-BOUNDARY MARKER (roadmap item 24)
+-------------------------------------------------------------------------------
+Every row closes with :func:`sightline.voice.agreement.brief` — how often human reviewers rating the
+same course independently chose the same rating, with its sample size and limits — collapsed under
+its own heading, after the rating form rather than inside it, so it is available where a rating is
+decided without being read as describing the rating a reviewer recorded. A row whose proposed effort
+sits near a band threshold carries item 12a's persisted marker as a field after the proposal's
+*Estimated effort*, rendered from the review file and never recomputed, and that row's collapsed
+statement adds :func:`sightline.voice.agreement.near_boundary_legend`. Neither is a new grouping, a
+filter or a sort: the rows, their order and their categories are exactly as before.
 """
 
 from __future__ import annotations
@@ -35,9 +46,10 @@ from urllib.parse import quote, urlencode
 
 from ..detect.base import Tier
 from ..report.loader import LoadedReview
-from ..report.model import Block, Field, Text, anchor_for, blocks_of
+from ..report.model import Block, Field, Text, anchor_for, blocks_of, near_boundary_piece
 from ..rubric.project import RowResult
 from ..rubric.states import Coverage, Rating
+from ..voice import agreement
 from ..voice.lint import Register, Violation, default_register
 from ..voice.render import Piece, RenderedRow, Sentence, Voice, plain, verbatim
 
@@ -95,6 +107,7 @@ _LABELS: tuple[str, ...] = (
     "col_reviewer_rating",
     "report_summary_question",
     "link_search",
+    "agreement_heading",
 )
 
 
@@ -218,6 +231,8 @@ class ReviewRow:
     unresolved: Text | None
     choices: tuple[Choice, ...]
     hint: Text
+    #: Whether the proposal carries a near-boundary marker, so the row's legend is shown.
+    near: bool = False
 
     @property
     def question(self) -> bool:
@@ -340,6 +355,10 @@ class ReviewCategory(_Page):
     #: The banner after a rating was recorded, or the reason one was not.
     saved: Text | None = None
     refused: Text | None = None
+    #: How often human reviewers choose the same rating: :func:`sightline.voice.agreement.brief`.
+    agreement: tuple[Sentence, ...] = ()
+    #: The near-boundary marker's explanation, shown on the rows that carry one.
+    legend: Sentence | None = None
 
     def texts(self) -> Iterator[tuple[str, Text]]:
         yield from self._base_texts()
@@ -376,6 +395,10 @@ class ReviewCategory(_Page):
             yield f"{row.code} hint", row.hint
 
     def sentences(self) -> Iterator[tuple[str, Sentence]]:
+        for sentence in self.agreement:
+            yield f"agreement {sentence.shape}", sentence
+        if self.legend is not None:
+            yield f"legend {self.legend.shape}", self.legend
         for row in self.rows:
             for block in row.blocks:
                 for sentence in block.sentences:
@@ -584,6 +607,12 @@ class ReviewScreen:
             next=nav(1, "review_next"),
             saved=saved,
             refused=refused,
+            agreement=agreement.brief(voice=self.voice),
+            legend=(
+                agreement.near_boundary_legend(self.review.projection.effort, voice=self.voice)
+                if any(row.near for row in rows)
+                else None
+            ),
         )
         _check(page)
         return page
@@ -618,6 +647,14 @@ class ReviewScreen:
                     self.label("col_effort"), self.fragment(name, hours=plain(f"{row.hours:g} h"))
                 )
             )
+        if row.near_boundary is not None:
+            words = dict(self.rating_words())
+            fields.append(
+                Field(
+                    self.label("col_near_boundary"),
+                    Text("A", near_boundary_piece(self.voice, row.near_boundary, words)),
+                )
+            )
         record = self.records.get(row.code)
         recorded = self._recorded(record) if record is not None else None
         question = row.tier is Tier.C
@@ -646,6 +683,7 @@ class ReviewScreen:
             hint=self.label(
                 "review_form_hint_question" if question else "review_form_hint_proposal"
             ),
+            near=row.near_boundary is not None,
         )
 
     def _priority(self, row: RowResult) -> Text:

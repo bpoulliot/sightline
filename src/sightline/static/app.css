@@ -577,6 +577,22 @@ td.num { font-family: var(--f-mono); }
   text-transform: uppercase;
   color: var(--ink-mid);
 }
+/* Item 24: how often human reviewers agree, collapsed after the decision. Body ink, body size: it is
+ * a measured fact like any other on the page, not small print, and not a banner. */
+.agreement { margin: .8rem 0 0; }
+.agreement summary {
+  cursor: pointer;
+  color: var(--accent-ink);
+  font-size: .9rem;
+}
+.agreement summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.agreement p {
+  margin: .4rem 0 0;
+  max-width: var(--measure);
+  color: var(--ink-mid);
+  font-size: .93rem;
+  overflow-wrap: anywhere;
+}
 .recorded { margin: 0 0 .25rem; font-weight: 600; color: var(--ink); }
 .recorded-note { margin: 0 0 .6rem; color: var(--ink-mid); font-size: .92rem; overflow-wrap: anywhere; }
 .unresolved {

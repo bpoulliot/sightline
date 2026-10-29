@@ -47,10 +47,10 @@ from sightline.report import (
     to_pdf,
 )
 from sightline.report.__main__ import main as report_main
-from sightline.report.model import FULL_SECTIONS, LOCATED_ROLES, Block, blocks_of
+from sightline.report.model import FULL_SECTIONS, LOCATED_ROLES, Block, anchor_for, blocks_of
 from sightline.rubric import Coverage, Rating, shipped_packs
 from sightline.store import RunStore
-from sightline.voice import Voice, default_register, render_review
+from sightline.voice import Voice, agreement, default_register, render_review
 from sightline.voice.lint import mask
 from sightline.voice.render import Sentence
 from sightline.workbook import WORKBOOK_FILENAME
@@ -418,9 +418,26 @@ def test_the_pdf_prints_no_word_the_model_did_not_supply(model, pdf_text) -> Non
     assert stray == [], stray
 
 
+def _sentences_of(flat: str, spans: tuple[tuple[int, int], ...]):
+    """``flat`` cut into sentences, each with the spans that fall inside it, shifted to it.
+
+    ``self_assessment`` refuses a figure in a *sentence* that names Sightline. Read as one blob, the
+    human-agreement figures in the *what this document is* block would sit "beside" every mention
+    of Sightline in the document; read sentence by sentence, each is held to what it says.
+    """
+    start = 0
+    for end in [m.start() for m in re.finditer(r"(?<=[.!?])\s+", flat)] + [len(flat)]:
+        inside = tuple(
+            (max(a, start) - start, min(b, end) - start) for a, b in spans if a < end and b > start
+        )
+        yield flat[start:end], inside
+        start = end + 1
+
+
 def test_item_15s_lint_passes_over_the_pdfs_extracted_text(model, pdf_text) -> None:
     """Read in the register every tier shares — grading, aggregate, self-assessment — with the
-    verbatim spans (course text, criterion text, instrument words) masked, as the lint does."""
+    verbatim spans (course text, criterion text, instrument words) masked, as the lint does.
+    Sentence by sentence, as a sentence is linted (see :func:`_sentences_of`)."""
     flat = _flat(pdf_text)
     spans: list[tuple[int, int]] = []
     missing: list[str] = []
@@ -434,15 +451,26 @@ def test_item_15s_lint_passes_over_the_pdfs_extracted_text(model, pdf_text) -> N
         spans.extend(found)
     assert missing == [], f"verbatim values not found in the PDF text: {missing[:5]}"
     merged = _merge(spans)
-    violations = default_register().lint(
-        flat, "B", where="the PDF's text", sentence=False, spans=merged
-    )
+    rules = default_register()
+    violations = [
+        violation
+        for text, inside in _sentences_of(flat, merged)
+        for violation in rules.lint(text, "B", where="the PDF's text", sentence=False, spans=inside)
+    ]
     assert violations == [], [v.line() for v in violations]
-    # The same reading fires on a planted aggregate, so the pass above is not a reading of nothing.
-    planted = default_register().lint(
-        flat + " The overall score is 80%.", "B", where="planted", sentence=False, spans=merged
-    )
-    assert {violation.rule for violation in planted} >= {"grading", "aggregate"}
+    assert "Human reviewers" in flat and "Sightline" in flat, "the reading below needs both"
+    # The same reading fires on a planted aggregate, and on a human-agreement figure claimed for
+    # Sightline (item 24), so the pass above is not a reading of nothing.
+    for plant, expected in (
+        (" The overall score is 80%.", {"grading", "aggregate"}),
+        (" Sightline agrees with reviewers 91% of the time.", {"self_assessment"}),
+    ):
+        planted = [
+            violation
+            for text, inside in _sentences_of(flat + plant, merged)
+            for violation in rules.lint(text, "B", where="planted", sentence=False, spans=inside)
+        ]
+        assert {violation.rule for violation in planted} >= expected, plant
     # The grep the acceptance asks for, over Sightline's own words.
     own = mask(flat, merged)
     assert not re.search(r"\d\s*%|\bper ?cent", own)
@@ -450,11 +478,136 @@ def test_item_15s_lint_passes_over_the_pdfs_extracted_text(model, pdf_text) -> N
     assert not re.search(r"\b\d+\s+(?:of|out of)\s+\d+\b", own)
 
 
-def test_no_run_count_or_near_boundary_marker_is_printed(pdf_text) -> None:
-    """Item 24's re-run adds the marker and the agreement statement; this item prints neither."""
-    assert "near a band threshold" not in pdf_text
-    assert "Human reviewers" not in pdf_text
+def test_no_run_count_is_printed(pdf_text) -> None:
     assert not re.search(r"\b\d+ (?:of \d+ )?runs?\b", pdf_text)
+
+
+# -- item 24: how often human reviewers agree, and the near-boundary marker -------------------------
+
+
+class _About(HTMLParser):
+    """The paragraphs of the *what this document is* block, in order, with their classes."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.inside = False
+        self.paragraph: list[str] | None = None
+        self.paragraphs: list[tuple[str, str]] = []
+        self.cls = ""
+
+    def handle_starttag(self, tag, attrs) -> None:
+        attributes = dict(attrs)
+        if tag == "section" and "about" in (attributes.get("class") or "").split():
+            self.inside = True
+        elif self.inside and tag == "p":
+            self.paragraph, self.cls = [], attributes.get("class") or ""
+
+    def handle_endtag(self, tag) -> None:
+        if tag == "section":
+            self.inside = False
+        elif tag == "p" and self.paragraph is not None:
+            self.paragraphs.append((self.cls, " ".join("".join(self.paragraph).split())))
+            self.paragraph = None
+
+    def handle_data(self, data) -> None:
+        if self.paragraph is not None:
+            self.paragraph.append(data)
+
+
+def _about(model) -> list[tuple[str, str]]:
+    parser = _About()
+    parser.feed(to_html(model))
+    return parser.paragraphs
+
+
+def test_the_about_block_states_how_often_human_reviewers_agree(model, loaded, pdf_text) -> None:
+    """``brief()`` after the about paragraph, then the marker's one legend — and, in a report that
+    carries a reviewer's rating, both come before the paragraph about it, so neither is read as
+    describing the rating a reviewer recorded."""
+    brief = " ".join(sentence.text for sentence in agreement.brief())
+    legend = agreement.near_boundary_legend(loaded.projection.effort).text
+    assert model.agreement == agreement.brief()
+    assert _about(model) == [("", model.about.text), ("agreement", brief), ("near-legend", legend)]
+    flat = _flat(pdf_text)
+    assert brief in flat and legend in flat
+    assert flat.count("Human reviewers rating the same course") == 1, "said once, not per row"
+
+
+def test_the_agreement_statement_comes_before_the_reviewers_rating_paragraph(loaded) -> None:
+    some_row = next(row.code for row in loaded.projection.rows if row.tier is not Tier.C)
+    reviewed = build_report(loaded, created=OPENED, overrides={some_row: Rating.MAJOR})
+    classes = [cls for cls, _ in _about(reviewed)]
+    assert classes == ["", "agreement", "near-legend", ""]
+    assert _about(reviewed)[-1][1] == reviewed.labels["report_reviewer_intro"].text
+
+
+def test_every_marked_row_carries_12as_marker_on_the_proposals_effort(model, loaded) -> None:
+    rows = {row.code: row for row in loaded.projection.rows}
+    marked = {code for code, row in rows.items() if row.near_boundary is not None}
+    assert marked and len(marked) < len(rows), "the fixture needs marked and unmarked rows"
+    details = {d.code: d for s in model.full for d in s.details}
+    lines = {line.code: line for s in model.compact for line in s.lines}
+    assert set(details) | set(lines) == set(rows)
+    for code, detail in details.items():
+        names = [field.name.text for field in detail.fields]
+        if code in marked:
+            assert names[names.index("Estimated effort") + 1] == "Near a band threshold"
+            value = dict(zip(names, (f.value.text for f in detail.fields), strict=True))
+            assert value["Near a band threshold"].startswith(f"{rows[code].hours:g} h is ")
+        else:
+            assert "Near a band threshold" not in names
+    for code, line in lines.items():
+        if code in marked:
+            assert line.near is not None
+            assert line.near.text.startswith(f"Near a band threshold: {rows[code].hours:g} h is ")
+        else:
+            assert line.near is None
+    for text in [line.near.text for line in lines.values() if line.near] + [
+        f.value.text for d in details.values() for f in d.fields if f.name.text.startswith("Near")
+    ]:
+        assert not re.search(r"%|★|☆|\b(?:unsure|likely|confiden\w*|probab\w*)\b", text)
+
+
+def test_the_compact_marker_sits_with_the_proposal_not_the_reviewers_rating(loaded) -> None:
+    code = next(
+        row.code
+        for row in loaded.projection.rows
+        if row.near_boundary is not None and row.section not in FULL_SECTIONS
+    )
+    reviewed = build_report(loaded, created=OPENED, overrides={code: Rating.MAJOR})
+    html = to_html(reviewed)
+    line = html[html.index(f'id="{anchor_for(code)}"') :]
+    line = line[: line.index("</div>")]
+    reading, near, reviewer = (
+        line.index("Proposed: "),
+        line.index("Near a band threshold: "),
+        line.index("Reviewer&#39;s rating: "),
+    )
+    assert reading < near < reviewer
+
+
+def test_the_marker_is_rendered_from_the_review_file_never_recomputed(review_text) -> None:
+    payload = json.loads(review_text)
+    rows = payload["projection"]["rows"]
+    (target,) = [row for row in rows if row["code"] == "ACD 1"]
+    assert target["near_boundary"], "the fixture's ACD 1 carries a marker"
+    target["near_boundary"]["distance_hours"] = 0.07
+    model = build_report(parse_review(saved(payload)), created=OPENED)
+    (detail,) = [d for s in model.full for d in s.details if d.code == "ACD 1"]
+    (field,) = [f for f in detail.fields if f.name.text == "Near a band threshold"]
+    assert " is 0.07 h from the " in field.value.text
+
+
+def test_a_report_with_no_marker_prints_no_legend_and_no_marker(review_text) -> None:
+    payload = json.loads(review_text)
+    for row in payload["projection"]["rows"]:
+        row["near_boundary"] = None
+    model = build_report(parse_review(saved(payload)), created=OPENED)
+    assert model.legend is None
+    assert [cls for cls, _ in _about(model)] == ["", "agreement"]
+    text = " ".join(page.text for page in read_pdf(to_pdf(model)))
+    assert "near a band threshold" not in text.lower()
+    assert "Human reviewers rating the same course" in _flat(text)
 
 
 # -- bytes ----------------------------------------------------------------------------------------
