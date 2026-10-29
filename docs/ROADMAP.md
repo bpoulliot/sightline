@@ -6,7 +6,7 @@ Labels: **READY** · **NEEDS DISCUSSION** · **NEEDS MEASUREMENT** · **BLOCKED*
 Nothing unready enters the queue. One item per conversation, one PR per item.
 
 Queue lives at `~/docker/overnight/projects/sightline/` (moved from `~/docker/overnight-sightline/`
-on 2026-09-22). Next free item number: **41**.
+on 2026-09-22). Next free item number: **42**.
 
 ---
 
@@ -55,6 +55,7 @@ on 2026-09-22). Next free item number: **41**.
 | 38 | A bound Tier D row is counted in two coverage buckets, and `coverage` exits 1 calling it a bug | 1 | READY | **DONE** — PR #35. Tier first; 42 → 41 of 68, exit 1 → 0 |
 | 39 | Every other bare pattern in `.dockerignore` is root-only too | 3 | READY | filed 2026-09-29 by item 37, PR #34; queued 2026-10-29 |
 | 40 | Sign-in (SSO) and multiple users | 3 | **NEEDS DISCUSSION** — filed 2026-10-29 | — |
+| 41 | A cancelled CI `image` job leaves its sample-report `docker run` running on the shared DinD daemon | 0 | READY | filed 2026-10-29 from `~/docker` TODO I267 |
 
 ---
 
@@ -957,6 +958,37 @@ The near-boundary marker and `agreement.brief()` belong to item 24's re-run, not
 - Screenshot QA is done at 1400 px and 390 px on every screen built, with the CDP target closed
   afterwards.
 - The full suite is green, ruff and black exit codes are read separately, and all CI jobs are green.
+
+**41 · FILED 2026-10-29 from `~/docker` TODO I267 (operator, interactive). READY, Tier 0. A cancelled
+`image` job leaves its sample-report container running on the runner's shared DinD daemon.**
+
+*Evidence.* The `image` job (`.gitea/workflows/ci.yml`, label `cserv`) runs
+`docker run --rm "sightline:ci-dev-${GITHUB_SHA}" pytest -q -rs tests/test_sample_report.py`
+against `act_runner_dind`. Cancelling a job kills the job container and with it the `docker run`
+*client*, not the container that client started: `--rm` only fires when the container exits on
+its own, and the container has no name, so nothing finds it afterwards. On 2026-10-29 that
+pattern in caltidy's PR gate, with re-pushes cancelling runs, took a DinD daemon with no memory
+limit to 28.5 GiB, and the host OOM-killed processes across every service (I267). The daemon now
+has a 16 GiB ceiling shared by every repo's jobs.
+
+*Exposure here is small.* `ci.yml` has no `concurrency` block, so nothing cancels a run
+automatically: only a manual cancel during that step leaks, and the step runs one test file. The
+health-check container in the next step already does this right (named, `docker rm -f` first and
+after). It is Tier 0 because a leak on the shared daemon lands on other projects' jobs, not on
+this one's.
+
+*Fix.* Give the sample-report step the health check's shape: a fixed name
+(`sightline-ci-sample-${GITHUB_SHA}`), `docker rm -f "$name" || true` before the run, the name
+added to the `always()` cleanup step, and `--memory` set from a measured peak with swap off
+(`--memory-swap` equal). If a `concurrency` block with `cancel-in-progress` is ever added, the name
+must be per ref rather than per SHA, so a new run finds the old one's container (caltidy PR #108's
+shape).
+
+*Acceptance.* Cancel the `image` job during the sample-report step. Afterwards
+`docker exec act_runner_dind docker ps` lists no `sightline-ci-sample-*` container once the
+cleanup step has run, and a re-run starts with none. All CI jobs green.
+
+*Shares the cause:* caltidy (fixed, PR #108), accesslens (its item 165), syllabuslock (its B5).
 
 **40 · FILED 2026-10-29 (operator, interactive). NEEDS DISCUSSION. Sign-in through the
 institution's single sign-on, so one Sightline instance can be offered to several users.**
