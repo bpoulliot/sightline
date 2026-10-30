@@ -61,7 +61,7 @@ by item 36's session, PR #43; 44–47 split from item 40 on 2026-10-30).
 | 44 | Signed-in identity behind a trusted proxy | 3 | **READY** — split from 40, 2026-10-30 | — |
 | 45 | Runs per user, an admin role, and per-user Canvas tokens | 3 | **BLOCKED** — on 44 | — |
 | 46 | Queue a run behind the active one | 3 | **BLOCKED** — on 43 and 45 | — |
-| 47 | Reference deployment: identity provider, proxy and app | 3 | **NEEDS DECISION** — which identity provider and proxy | — |
+| 47 | Reference deployment: identity provider, proxy and app | 3 | **BLOCKED** — on 44; Authentik decided 2026-10-30 | — |
 
 ---
 
@@ -155,7 +155,7 @@ re-run) ran DONE — PR #45.
 
 **Wave 4 — composed 2026-10-30, not released.** In order: `99u-` item 43 (the bug first),
 `99v-` item 22 part 2, `99w-` item 44, `99x-` item 45, `99y-` item 46. Each gates on its
-predecessors being DONE on `main`. Item 47 is not composed: it waits on one decision.
+predecessors being DONE on `main`, then `99z-` item 47 (decided the same day: Authentik).
 
 ---
 
@@ -1165,7 +1165,9 @@ refused with 401 before any route runs — a request that did not come through t
 served. `current_reviewer` returns the signed-in identity, and an override records the subject id
 beside the display name (a new column; old records keep their name and no id). Every form post
 carries and checks a CSRF token, in both modes. The Settings screen's Reviewer field is hidden in
-sign-in mode. Session lifetime is the proxy's (item 47), not the app's. *Does not* scope data by
+sign-in mode. Session lifetime is the proxy's (item 47), not the app's. Header names are
+configuration, with defaults that match Authentik's proxy outpost, and nothing else is
+provider-specific: oauth2-proxy in front of Entra ID must work by changing configuration alone. *Does not* scope data by
 user, add roles or touch Canvas tokens: that is 45.
 
 **45 · FILED 2026-10-30 (split from 40). BLOCKED on 44. Runs per user, an admin role, and
@@ -1190,6 +1192,15 @@ the shared secret 44 checks, and keeping the app unreachable except through the 
 agnostic, with `canvas.example.edu` and fake values only; no session deploys it. The one open
 question is the products (for example Authentik with its own outpost, or Keycloak with
 oauth2-proxy). Depends on 44.
+
+*Decided 2026-10-30 (operator): Authentik, and nothing Authentik-only in the app.* The reference
+deployment uses Authentik and its proxy outpost; the operator already runs an Authentik instance,
+so the compose file attaches to an existing one rather than requiring a new one, and says how to run
+one where none exists. The app must stay compatible with other providers, Microsoft Entra ID
+(Active Directory) named: the runbook carries a second worked example, oauth2-proxy in front of
+Entra ID, and item 44's header names and the admin group are configuration, never Authentik
+constants. *Entra's trap:* its group claim carries group object ids, not names, so the admin group
+is configured as whatever string the proxy forwards, and the runbook says so.
 
 **39 · FILED 2026-09-29 by item 37's session (PR #34). READY, queued 2026-10-29: latent, nothing
 matches today. Every other bare pattern in `.dockerignore` excludes at the context root only.**
@@ -2360,8 +2371,8 @@ to this.**
 
 **2026-10-30 — decisions recorded (operator, interactive).** Item 43: (a), an owner record;
 READY. Item 22 part 2 specified; READY. Item 40 decided and split into 44 (READY), 45 and 46
-(BLOCKED on their predecessors) and 47 (NEEDS DECISION on the products). SPEC §09's open
-question is replaced by the decisions.
+(BLOCKED on their predecessors) and 47 (Authentik, compatible with others including Entra ID;
+BLOCKED on 44). SPEC §09's open question is replaced by the decisions.
 
 **2026-10-29 — process docs describe the Claude runner.** `AGENTS.md` and `docs/DEVELOPMENT.md`
 dropped the retired Codex queue engine: HEADs begin `<!-- model: opus[1m] -->`, attribution
