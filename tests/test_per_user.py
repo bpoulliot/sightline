@@ -676,4 +676,4 @@ def test_local_mode_is_one_user_who_is_the_admin_and_the_screens_read_as_before(
             "/settings/model-host", data={"model_host_endpoint": MODEL_HOST}, follow_redirects=False
         )
         assert changed.status_code == 303
-    assert LOCAL == Viewer(subject=None, name=None, admin=True, signed_in=False)
+    assert Viewer(subject=None, name=None, admin=True, signed_in=False) == LOCAL

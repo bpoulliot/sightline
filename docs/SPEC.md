@@ -804,6 +804,37 @@ names; a restart invalidates rendered forms once (the key is never stored); and 
 only on a response that rendered a form, so a first page load's parallel stylesheet requests cannot
 replace the nonce the page's forms carry.
 
+**As built (item 45).** `sightline.access` is the one lookup: `viewer(request)` answers who is
+asking and whether they are an admin. Local mode is `LOCAL`, one implicit user who is the admin, so
+every screen reads as before. In sign-in mode a run records `starter_subject` and `starter_name`
+(added columns; neither goes into the run's events), and the run list, `/`, `/runs/{id}`,
+`GET /api/runs/{id}` and every `/review/{course}` route — pages, a rating posted, the export and
+its downloads — answer only the starter or an admin. Anybody else gets 404 with the same words as
+an id that names nothing, checked before the review is read, so the second person cannot open the
+review and so cannot satisfy the export gate. The run list is filtered in the query, not after it.
+Admin is exact membership of `SIGHTLINE_SIGNIN_ADMIN_GROUP` in item 44's groups; with it unset
+nobody is an admin. Only an admin posts the Canvas base URL, the export preference, the model host
+(save and forget), the model and a model install. Anybody else is refused with 403 and changes
+nothing, including a token riding on the same post as a base URL, and Settings shows them each
+setting's state and no form. Each person's token is an `app_secrets` row named by a digest of
+their subject, encrypted with the existing key. `CredentialStore.canvas_for(subject)` returns the
+instance base URL with that person's token and never the instance's or the environment's token.
+The batch service reads the subject off the run each time it builds a pipeline. A run is therefore
+its starter's on the screen, after a restart resumes it, and under `python -m sightline.batch
+resume`. Start, the course lookup and the connection test use the same credential.
+Four readings taken here:
+- **A starter with no token stops the run** before any Canvas client is built, with a remedy
+  naming Settings. The run is left *interrupted*, not *failed*: that is the batch runner's rule for
+  every missing credential, because nothing is wrong with the courses.
+- **A run with no starter** (every run recorded before this item, and every command-line run)
+  reads Canvas with the instance credential, as before, and is visible to an admin only.
+- **Somebody else's active run** blocks Start and Propose bindings as before (one model host). It
+  is named as another person's run, with no id and no link.
+- **Proposing, accepting and reverting rubric bindings is not admin-only.** The decision names the
+  model host, the model and the Canvas base URL as instance settings, and the item adds the export
+  preference. Bindings are recorded per pack with who accepted them, and they apply to every
+  later run. Whether they are an instance setting is open: roadmap item 45's entry says so.
+
 ---
 
 ## §10 Roadmap
