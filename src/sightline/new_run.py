@@ -8,14 +8,18 @@ Start action share, so the page and the POST cannot disagree about either.
 
 *The rubric choices.* Every pack :func:`sightline.rubric.shipped.shipped_packs` finds, the default
 selected (SPEC §09: rubric selection is per run, defaulting to OSCQR 3.1.3). A choice is a value,
-not markup, so a later screen — item 22's binding confirmation — can attach to a choice without
-the picker being rebuilt.
+not markup, so item 22's binding confirmation attaches to a choice without the picker being
+rebuilt: each choice says whether the pack has *bindings proposed, not confirmed* and links to its
+page (:mod:`sightline.rubric_screens`), and whether runs use bindings accepted there. Neither ever
+blocks Start — bindings are an accelerator, not a prerequisite, and a run uses only confirmed ones.
 
 *The reasons a run cannot start.* Each one is a :class:`Blocker` with a remedy, shown before
 anybody presses Start and checked again when they do:
 
 - no Canvas credential, because acquisition is the first stage;
 - no model host, or no model chosen, because the extract stage aborts a run without them;
+- **bindings are being proposed** on a rubric's page (item 22, part two): the proposer uses the
+  same model host, so the two would compete for it as two runs would;
 - **another run is running.** Two batches would compete for one model host, which is the reason
   :meth:`sightline.runner.BackgroundRunner.resume_all` resumes serially. A run this process is
   executing is in the runner's task list; one started by ``python -m sightline.batch run`` is
@@ -30,14 +34,18 @@ it writes to the course's export list. The Start form says so beside the button.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from .batch import DEFAULT_RUBRIC_PACK
 from .batch.service import CANVAS_REMEDY
 from .credentials import CredentialError, CredentialStore
 from .models import Run, RunStatus
 from .ownership import owner_is_live
+from .paths import DataPaths
 from .preferences import PreferenceStore
+from .proposing import ProposingRegistry, ProposingState
+from .rubric.accepted import BindingsError, BindingStore, resolve_pack
+from .rubric.proposals import fingerprint
 from .rubric.shipped import PacksNotFoundError, shipped_packs
 from .runner import BackgroundRunner
 from .store import RunStore
@@ -56,6 +64,14 @@ class RubricChoice:
     description: str | None
     criteria: int
     selected: bool
+    #: Item 22: a kept proposal set made over the bindings in force has proposals nobody has
+    #: accepted. Said beside the choice, with a link; never a reason the run cannot start.
+    unconfirmed: bool = False
+    #: Item 22: runs over this pack use bindings accepted on its page, rather than the shipped
+    #: pack's own. ``None`` when they use the shipped pack's.
+    accepted: str | None = None
+    #: The rubric's page, where bindings are proposed, confirmed and reverted.
+    href: str = ""
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)
@@ -69,26 +85,73 @@ class Blocker:
     link: str | None = None
 
 
-def rubric_choices(selected: str | None = None) -> tuple[RubricChoice, ...]:
+def rubric_choices(
+    selected: str | None = None, *, paths: DataPaths | None = None
+) -> tuple[RubricChoice, ...]:
     """The shipped packs in file order, with ``selected`` (or the default) chosen.
 
     An empty tuple when no pack can be found; the screen says so rather than offering nothing.
+    With ``paths``, each choice also carries its bindings state (item 22).
     """
     try:
         packs = shipped_packs()
     except PacksNotFoundError:
         return ()
     chosen = selected if selected in packs else DEFAULT_RUBRIC_PACK
-    return tuple(
-        RubricChoice(
+    choices: list[RubricChoice] = []
+    for pack in packs.values():
+        choice = RubricChoice(
             id=pack.id,
             name=pack.name,
             version=pack.version,
             description=pack.description,
             criteria=len(pack.criteria),
             selected=pack.id == chosen,
+            href=rubric_href(pack.id),
         )
-        for pack in packs.values()
+        if paths is not None:
+            choice = _with_bindings(choice, pack.id, paths)
+        choices.append(choice)
+    return tuple(choices)
+
+
+def rubric_href(pack_id: str) -> str:
+    """The rubric's page: its bindings, their history, and the proposals kept for it."""
+    return f"/rubrics/{pack_id}"
+
+
+def unconfirmed_sets(pack_id: str, paths: DataPaths) -> int:
+    """How many kept proposal sets were made over the bindings in force and hold proposals.
+
+    A set made over any other state of the pack can no longer be accepted (part one refuses it),
+    so it is not open, whatever it holds.
+    """
+    resolved = resolve_pack(pack_id, paths)
+    now = fingerprint(resolved.pack)
+    return sum(
+        1
+        for saved in BindingStore(paths).proposal_sets(pack_id)
+        if saved.proposals.fingerprint == now and saved.proposals.proposals
+    )
+
+
+def _with_bindings(choice: RubricChoice, pack_id: str, paths: DataPaths) -> RubricChoice:
+    try:
+        resolved = resolve_pack(pack_id, paths)
+        unconfirmed = unconfirmed_sets(pack_id, paths) > 0
+    except BindingsError:
+        # The rubric's page says what is wrong with the kept bindings; the picker still offers
+        # the pack, and a run started now records what it resolves to when it starts.
+        return choice
+    accepted = resolved.accepted
+    return replace(
+        choice,
+        unconfirmed=unconfirmed,
+        accepted=(
+            None
+            if accepted is None
+            else f"Runs use the bindings accepted on {accepted.at[:10]} by {accepted.reviewer}."
+        ),
     )
 
 
@@ -117,6 +180,7 @@ def blockers(
     runner: BackgroundRunner | None,
     credentials: CredentialStore,
     preferences: PreferenceStore,
+    proposing: ProposingRegistry | None = None,
 ) -> list[Blocker]:
     """Every reason a run cannot start now, in the order somebody would fix them."""
     found: list[Blocker] = []
@@ -160,9 +224,26 @@ def blockers(
                 link="Settings",
             )
         )
+    busy = proposing.running if proposing is not None else None
+    if busy is not None:
+        found.append(proposing_blocker(busy))
     for run in active_runs(store, runner):
         found.append(running_blocker(run))
     return found
+
+
+def proposing_blocker(state: ProposingState) -> Blocker:
+    """The refusal while bindings are being proposed: it names the rubric they are for."""
+    return Blocker(
+        summary=(
+            f"Bindings are being proposed for {state.pack_name}. The proposer asks the same model "
+            "host, one row at a time, and a run would compete with it for that host."
+        ),
+        remedy="Wait for the proposing to finish, then start the run. Its page shows how far it "
+        "has got.",
+        href=rubric_href(state.pack_id),
+        link=state.pack_name,
+    )
 
 
 def running_blocker(run: Run) -> Blocker:
@@ -207,7 +288,10 @@ __all__ = [
     "blockers",
     "chosen_courses",
     "is_running",
+    "proposing_blocker",
     "rubric_choices",
+    "rubric_href",
     "running_blocker",
     "short_id",
+    "unconfirmed_sets",
 ]

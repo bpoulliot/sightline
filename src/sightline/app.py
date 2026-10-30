@@ -4,8 +4,9 @@ One process, one container. Server-rendered HTML with light progressive enhancem
 framework (SPEC §09). This module builds the app, wires the run store, the credential store and
 the background runner into its lifespan, and serves the status page. The settings screen and the
 New run screen live in :mod:`sightline.views`, the run-progress screens in
-:mod:`sightline.run_screens` (roadmap item 36) and the review screen in :mod:`sightline.review`
-(roadmap item 16).
+:mod:`sightline.run_screens` (roadmap item 36), the review screen in :mod:`sightline.review`
+(roadmap item 16) and the rubric pages, where bindings are proposed, confirmed and reverted, in
+:mod:`sightline.rubric_screens` (roadmap item 22).
 
 The vocabulary constraint from SPEC §11 applies to everything rendered here: Sightline *reviews*
 and *refreshes*. It does not evaluate, score or grade.
@@ -31,7 +32,9 @@ from .credentials import CredentialStore
 from .llm import PullRegistry
 from .logging import configure_logging, get_logger
 from .preferences import PreferenceStore
+from .proposing import ProposingRegistry
 from .review import build_review_router
+from .rubric_screens import build_rubric_router
 from .run_screens import build_run_router
 from .runner import BackgroundRunner
 from .store import RunStore
@@ -98,6 +101,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             env_model_host_endpoint=resolved.ollama_base_url,
         )
         pulls = PullRegistry()
+        # Bindings proposed from a rubric's page (roadmap item 22, part two), one at a time.
+        proposing = ProposingRegistry()
         # The pipeline a run executes (roadmap item 17). Wired here rather than inside the
         # background runner because what a run should be built from — credentials, the chosen
         # model, the rubric recorded on the run — is the application's knowledge, not the task
@@ -121,6 +126,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         application.state.credentials = credentials
         application.state.preferences = preferences
         application.state.pulls = pulls
+        application.state.proposing = proposing
         application.state.batch = batch
         interrupted = runner.recover()
         # A restart continues the batch it was in the middle of (SPEC §04). One task, in creation
@@ -145,6 +151,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             # Installs are cancelled before the store closes: a pull task that outlived the
             # process would be a download nobody can see the progress of.
             await pulls.shutdown()
+            await proposing.shutdown()
             await runner.shutdown()
             store.dispose()
             log.info("shutdown", version=__version__)
@@ -162,6 +169,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.include_router(build_router(templates))
     application.include_router(build_run_router(templates))
     application.include_router(build_review_router(templates))
+    application.include_router(build_rubric_router(templates))
 
     # The tokens live outside the package on purpose (see sightline.assets). Serving them from a
     # dedicated route rather than the static mount keeps the "one source of colour" literal.

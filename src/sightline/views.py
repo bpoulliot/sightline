@@ -67,6 +67,7 @@ from .llm import (
 )
 from .logging import get_logger
 from .new_run import Blocker, blockers, chosen_courses, rubric_choices
+from .paths import DataPaths
 from .preferences import (
     REVIEWER_MAX,
     ExportPreference,
@@ -75,6 +76,7 @@ from .preferences import (
     ReviewerNameError,
     ReviewModelPreference,
 )
+from .rubric.accepted import BindingsError, resolve_pack
 from .runner import BackgroundRunner
 from .store import RunStore
 
@@ -363,11 +365,31 @@ def build_router(templates: Jinja2Templates) -> APIRouter:
                 status=409,
             )
         try:
+            # The bindings in force for the rubric now (roadmap item 22, part two): only
+            # confirmed ones, and the run records which, so its reports read them back.
+            digest = resolve_pack(rubric, _paths(request)).digest
             run_id = create_batch_run(
                 _store(request),
                 courses,
                 rubric_pack=rubric,
+                bindings_digest=digest,
                 cap=request.app.state.settings.batch_cap,
+            )
+        except BindingsError as exc:
+            return _render_courses(
+                request,
+                templates,
+                chosen=[(course, labels[course]) for course in courses],
+                rubric=rubric,
+                refusals=[
+                    Blocker(
+                        summary=f"The bindings accepted for this rubric cannot be read: {exc}.",
+                        remedy="Its page says what was found.",
+                        href=f"/rubrics/{rubric}",
+                        link="Rubric",
+                    )
+                ],
+                status=409,
             )
         except BatchTooLargeError as exc:
             return _render_courses(
@@ -404,12 +426,20 @@ def _runner(request: Request) -> BackgroundRunner:
     return runner
 
 
+def _paths(request: Request) -> DataPaths:
+    paths: DataPaths | None = getattr(request.app.state, "paths", None)
+    if paths is None:  # pragma: no cover - only reachable without the app lifespan
+        raise RuntimeError("the data root is not initialised")
+    return paths
+
+
 def _start_blockers(request: Request) -> list[Blocker]:
     return blockers(
         store=_store(request),
         runner=_runner(request),
         credentials=_credentials(request),
         preferences=_preferences(request),
+        proposing=getattr(request.app.state, "proposing", None),
     )
 
 
@@ -796,7 +826,7 @@ def _start_panel(
     blocked = refusals if refusals is not None else _start_blockers(request)
     return {
         "courses": courses,
-        "rubrics": rubric_choices(rubric),
+        "rubrics": rubric_choices(rubric, paths=_paths(request)),
         "blockers": blocked,
         "refused": refusals is not None,
         "cap": request.app.state.settings.batch_cap,

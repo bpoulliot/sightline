@@ -55,6 +55,9 @@ ADDED_COLUMNS: dict[str, dict[str, str]] = {
         "owner_host": "VARCHAR(255)",
         "owner_pid": "INTEGER",
         "owner_heartbeat_at": "DATETIME",
+        # Roadmap item 22, part two: the accepted bindings a run uses. Null on every run a
+        # previous version recorded, which reads as the shipped pack — what those runs ran with.
+        "bindings_digest": "VARCHAR(80)",
     },
 }
 
@@ -137,13 +140,14 @@ class RunStore:
         course_refs: Sequence[str],
         *,
         rubric_pack: str,
+        bindings_digest: str | None = None,
         note: str | None = None,
     ) -> str:
         """Record a new batch. Returns the run id."""
         if not course_refs:
             raise ValueError("a run needs at least one course reference")
         with self.session() as session:
-            run = Run(rubric_pack=rubric_pack, note=note)
+            run = Run(rubric_pack=rubric_pack, bindings_digest=bindings_digest, note=note)
             run.courses = [
                 RunCourse(ordinal=index, course_ref=ref) for index, ref in enumerate(course_refs)
             ]
@@ -154,7 +158,11 @@ class RunStore:
                 RunEvent(
                     run_id=run_id,
                     event="run_created",
-                    data={"courses": len(course_refs), "rubric_pack": rubric_pack},
+                    data={
+                        "courses": len(course_refs),
+                        "rubric_pack": rubric_pack,
+                        "bindings": bindings_digest,
+                    },
                 )
             )
         log.info("run_created", run_id=run_id, courses=len(course_refs), rubric_pack=rubric_pack)

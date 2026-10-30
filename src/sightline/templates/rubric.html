@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% block title %}Sightline — {{ pack.name }}{% endblock %}
+
+{%- macro moves(delta) -%}
+<p class="line">{{ delta.statement }}</p>
+{%- if delta.moved %}
+<ul class="moves">
+  {%- for start, end, rows in delta.moved %}
+  <li>From {{ start }} to {{ end }}: <span class="code">{{ rows | join(', ') }}</span></li>
+  {%- endfor %}
+</ul>
+{%- endif %}
+{%- endmacro -%}
+
+{% block content %}
+<section class="panel" aria-labelledby="h-rubric">
+  <h1 id="h-rubric">{{ pack.name }}</h1>
+  <p class="meta muted">Version {{ pack.version }}, {{ pack.criteria | length }} criteria, <code>{{ pack.id }}</code></p>
+  <p class="lede">
+    A row bound to a capability tag is answered from what the detectors behind that tag observe; a
+    row bound to nothing is answered from passages a model locates and quotes. Bindings are an
+    accelerator, not a prerequisite: a run works with none. Here a model proposes bindings, a
+    person accepts the ones they want, and every run started afterwards uses the accepted ones.
+    The rubric file Sightline ships with is never changed; what is accepted is kept under the data
+    root, with who accepted it and when.
+  </p>
+</section>
+
+{% if just %}
+<div class="banner banner-ok" role="status">
+  {%- if just.kind == 'accepted' %}
+  <p class="banner-head">Acceptance {{ just.number }} is recorded. Runs started from now on use these bindings.</p>
+  {%- else %}
+  <p class="banner-head">Acceptance {{ just.reverts }} is reverted. Runs started from now on use the bindings in force before it.</p>
+  {%- endif %}
+  {{ moves(just.delta) }}
+</div>
+{% endif %}
+
+<section class="panel" id="bindings" aria-labelledby="h-bindings">
+  <h2 id="h-bindings">Bindings runs use</h2>
+  {% if resolved.stale %}
+  <div class="banner banner-warn" role="status">
+    <p class="banner-head">The bindings accepted here were made over the rubric as an earlier build shipped it, so they are not applied.</p>
+    <p class="banner-remedy">Runs use the shipped rubric's own bindings. Propose again to bind the rubric as it is now.</p>
+  </div>
+  {% endif %}
+  {% if latest %}
+  <p class="line">Runs started now use the bindings accepted on {{ latest.at[:10] }} by {{ latest.reviewer }} (acceptance {{ latest.number }}), recorded as <code class="digest">{{ resolved.digest }}</code>.</p>
+  {% else %}
+  <p class="line">Runs started now use the shipped rubric's own bindings. Nothing has been accepted here{% if history %} that is still in force{% endif %}.</p>
+  {% endif %}
+  <dl class="fields">
+    {%- for bucket in buckets %}
+    <div><dt>{{ bucket.label }}</dt><dd>{{ bucket.rows }} row(s)</dd></div>
+    {%- endfor %}
+  </dl>
+  <p class="hint">A run records the bindings it used, so its reports keep them after a later acceptance or revert.</p>
+
+  {% if latest %}
+  <form method="post" action="/rubrics/{{ pack.id }}/revert" class="form decision" id="revert">
+    <h3>Revert acceptance {{ latest.number }}</h3>
+    <p class="line">Reverting puts back the bindings in force before it{% if not latest.before %}, the shipped rubric's own{% endif %}. The acceptance stays in the history below, marked as reverted.</p>
+    {% if revert_delta %}{{ moves(revert_delta) }}{% endif %}
+    <input type="hidden" name="acceptance" value="{{ latest.number }}">
+    {% if not reviewer %}
+    <p class="reviewer-missing">No reviewer is set, so nothing can be reverted. <a href="/settings#reviewer">Settings</a></p>
+    {% endif %}
+    <div class="actions">
+      <button type="submit" class="button"{% if not reviewer %} disabled{% endif %}>Revert acceptance {{ latest.number }}</button>
+    </div>
+  </form>
+  {% endif %}
+</section>
+
+<section class="panel" id="propose" aria-labelledby="h-propose">
+  <h2 id="h-propose">Propose bindings</h2>
+  <p class="note">
+    The review model chosen in Settings{% if model %} (<code>{{ model }}</code>){% endif %} is asked about each row in turn, except Tier D
+    rows, which read Not Applicable bound or not. It is shown the capability catalogue and the
+    criterion's own words, and nothing is accepted by proposing. {{ nondeterminism }}
+  </p>
+
+  {% if proposing %}
+  <div class="banner {% if proposing.error %}banner-bad{% elif proposing.running %}banner-warn{% else %}banner-ok{% endif %}"{% if proposing.running %} data-run-poll="/api/rubrics/{{ pack.id }}/proposing" data-poll-ms="{{ poll_ms }}"{% endif %} role="status">
+    {%- if proposing.running %}
+    <p class="banner-head">Proposing with <code>{{ proposing.model }}</code>, started {{ proposing.started_at.strftime('%Y-%m-%d %H:%M') }} UTC.</p>
+    {%- elif proposing.error %}
+    <p class="banner-head">Proposing with <code>{{ proposing.model }}</code> stopped, and nothing was kept. {{ proposing.error.summary }}</p>
+    <p class="banner-remedy">{{ proposing.error.remedy }}</p>
+    {%- else %}
+    <p class="banner-head">Proposing with <code>{{ proposing.model }}</code> finished. <a href="/rubrics/{{ pack.id }}/proposals/{{ proposing.set_id }}">Open the proposals</a></p>
+    {%- endif %}
+    <dl class="fields">
+      <div><dt>Rows to ask</dt><dd>{{ proposing.to_ask }}</dd></div>
+      <div><dt>Asked so far</dt><dd>{{ proposing.asked }}</dd></div>
+      <div><dt>Could not be asked</dt><dd>{{ proposing.could_not }}</dd></div>
+    </dl>
+    {%- if proposing.running %}
+    <p class="poll-note hint" hidden>This page reloads when the counts change.</p>
+    <script type="application/json" id="run-progress-data">{{ proposing_json | safe }}</script>
+    {%- endif %}
+  </div>
+  {% endif %}
+
+  {% if blockers %}
+  <div class="banner {% if refused %}banner-bad{% else %}banner-warn{% endif %}" role="{% if refused %}alert{% else %}status{% endif %}">
+    <p class="banner-head">{% if refused %}Nothing was started or changed.{% else %}Proposing cannot start now.{% endif %}</p>
+    <ul class="reasons">
+      {% for blocker in blockers %}
+      <li>
+        {{ blocker.summary }}
+        {% if blocker.remedy or blocker.href %}<span class="banner-remedy">{{ blocker.remedy }}{% if blocker.href %} <a href="{{ blocker.href }}">{{ blocker.link }}</a>{% endif %}</span>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  <form method="post" action="/rubrics/{{ pack.id }}/propose" class="form">
+    <div class="actions">
+      <button type="submit" class="button button-primary"{% if blockers and not refused %} disabled{% endif %}>Propose bindings</button>
+      <p class="hint">A run cannot start while proposals are being made, and proposing cannot start while a run is going: both ask the same model host.</p>
+    </div>
+  </form>
+</section>
+
+<section class="panel" id="sets" aria-labelledby="h-sets">
+  <h2 id="h-sets">Proposals kept for this rubric</h2>
+  {% if sets %}
+  <ul class="run-list">
+    {%- for line in sets %}
+    <li>
+      <a href="{{ line.href }}">Proposed on {{ line.saved.proposals.created[:16] | replace('T', ' ') }} with <code>{{ line.saved.proposals.model }}</code></a>
+      <span class="state {% if line.open %}state-on{% else %}state-off{% endif %}">{{ state_words[line.state] }}</span>
+      <span class="hint">{{ line.saved.proposals.statement() }}</span>
+    </li>
+    {%- endfor %}
+  </ul>
+  {% else %}
+  <p class="empty">No proposals are kept for this rubric yet.</p>
+  {% endif %}
+</section>
+
+<section class="panel" id="history" aria-labelledby="h-history">
+  <h2 id="h-history">History</h2>
+  {% if history %}
+  <p class="note">Every acceptance and every revert, newest first. Nothing here is ever removed.</p>
+  <ol class="history" reversed>
+    {%- for entry in history %}
+    <li id="entry-{{ entry.number }}">
+      {%- if entry.kind == 'accepted' %}
+      <p class="line">Acceptance {{ entry.number }}, {{ entry.at[:16] | replace('T', ' ') }}, by {{ entry.reviewer }}: proposal(s) {{ entry.accepted | join(', ') }} from the proposals made {{ entry.proposal_set[:4] }}-{{ entry.proposal_set[4:6] }}-{{ entry.proposal_set[6:8] }}{% if entry.conflicts %}, of which {{ entry.conflicts | join(', ') }} on a row already bound{% endif %}.{% if entry.number in reverted_by %} Reverted by entry {{ reverted_by[entry.number].number }}.{% endif %}</p>
+      <ul class="moves">
+        {%- for code, tag in entry.added %}
+        <li>Bound <span class="code">{{ code }}</span> to <code>{{ tag }}</code></li>
+        {%- endfor %}
+      </ul>
+      {%- else %}
+      <p class="line">Revert of acceptance {{ entry.reverts }}, {{ entry.at[:16] | replace('T', ' ') }}, by {{ entry.reviewer }}.</p>
+      {%- endif %}
+      {{ moves(entry.delta) }}
+    </li>
+    {%- endfor %}
+  </ol>
+  {% else %}
+  <p class="empty">Nothing has been accepted or reverted for this rubric.</p>
+  {% endif %}
+</section>
+<script src="/static/run-progress.js" defer></script>
+{% endblock %}

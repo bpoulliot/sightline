@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Sightline — rubrics{% endblock %}
+
+{% block content %}
+<section class="panel" aria-labelledby="h-rubrics">
+  <h1 id="h-rubrics">Rubrics</h1>
+  <p class="lede">
+    The rubrics a run can be reviewed against. On each rubric's page a model can propose bindings
+    from its rows to the capabilities Sightline's detectors observe, and a person accepts the ones
+    they want, once per rubric, never per course. A run never waits on this: it uses the bindings
+    accepted so far, and the shipped rubric's own where none are.
+  </p>
+  {% if proposing %}
+  <p class="banner banner-warn" role="status">Bindings are being proposed for <a href="/rubrics/{{ proposing.pack_id }}">{{ proposing.pack_name }}</a>.</p>
+  {% endif %}
+</section>
+
+{% for line in lines %}
+<section class="panel" aria-labelledby="h-{{ line.pack.id }}" data-rubric="{{ line.pack.id }}">
+  <h2 id="h-{{ line.pack.id }}"><a href="{{ line.href }}">{{ line.pack.name }}</a></h2>
+  <p class="meta muted">Version {{ line.pack.version }}, {{ line.pack.criteria | length }} criteria, <code>{{ line.pack.id }}</code></p>
+  {% if line.error %}
+  <p class="banner banner-bad" role="alert">The bindings kept for this rubric cannot be read: {{ line.error }}</p>
+  {% else %}
+  {% if line.resolved.accepted %}
+  <p class="line">Runs use the bindings accepted on {{ line.resolved.accepted.at[:10] }} by {{ line.resolved.accepted.reviewer }}.</p>
+  {% else %}
+  <p class="line">Runs use the shipped rubric's own bindings.</p>
+  {% endif %}
+  {% if line.open %}
+  <p class="line unconfirmed">Bindings proposed, not confirmed. <a href="{{ line.href }}#sets">Review them</a></p>
+  {% endif %}
+  {% endif %}
+</section>
+{% else %}
+<section class="panel"><p class="empty">No rubric pack could be found on disk. Point <code>SIGHTLINE_RUBRIC_PACKS_DIR</code> at the directory holding the packs.</p></section>
+{% endfor %}
+{% endblock %}

@@ -282,7 +282,7 @@ def _open(request: Request, course_id: str) -> tuple[ReviewScreen, dict[str, Any
     store, paths = _store(request), _paths(request)
     try:
         text = review_path(paths, store, course_id).read_text(encoding="utf-8")
-        loaded = parse_review(text)
+        loaded = parse_review(text, paths=paths)
     except ReviewFileError as exc:
         raise _Refused(409, str(exc)) from exc
     raw = json.loads(text)

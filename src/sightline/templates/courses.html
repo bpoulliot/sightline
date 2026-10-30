@@ -185,8 +185,12 @@
         <label>
           <input type="radio" name="rubric" value="{{ choice.id }}"{% if choice.selected %} checked{% endif %}>
           <span>{{ choice.name }} <span class="muted">— version {{ choice.version }}, {{ choice.criteria }} criteria, <code>{{ choice.id }}</code></span>
-          {% if choice.description %}<span class="hint">{{ choice.description }}</span>{% endif %}</span>
+          {% if choice.description %}<span class="hint">{{ choice.description }}</span>{% endif %}
+          {% if choice.accepted %}<span class="hint">{{ choice.accepted }}</span>{% endif %}</span>
         </label>
+        {% if choice.unconfirmed %}
+        <p class="hint unconfirmed">Bindings proposed, not confirmed. A run started now uses only confirmed bindings. <a href="{{ choice.href }}#sets">Review the proposals</a></p>
+        {% endif %}
       </div>
       {% else %}
       <p class="empty">No rubric pack could be found on disk, so no run can start. Point <code>SIGHTLINE_RUBRIC_PACKS_DIR</code> at the directory holding the packs.</p>

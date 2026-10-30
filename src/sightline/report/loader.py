@@ -11,6 +11,12 @@ the first one's name. Two facts the file does not carry — the instrument's pri
 rating words — come from the shipped pack the file names, and only at the version it names. A key
 the renderer needs and the file lacks is refused with a stated reason; it is never filled in.
 
+**The pack is read back with the bindings the run used** (roadmap item 22, part two). Bindings can
+be accepted and reverted on the app's rubric page after a run, so a file made with accepted
+bindings names their digest (``pack.bindings``), and the pack is resolved by that digest through
+:func:`sightline.rubric.accepted.resolve_pack` — never by whatever is in force today. A file that
+names none was made with the shipped pack's own bindings, which is what it is read with.
+
 The PDF report reads through here, and so will the review screen (roadmap item 16): one loader,
 so the screen a designer reviews and the document they export cannot disagree about a course.
 """
@@ -27,9 +33,9 @@ from ..batch.runner import REVIEW_FILENAME
 from ..detect.runner import DetectionReport
 from ..extract.runner import RowExtraction
 from ..paths import DataPaths
+from ..rubric.accepted import BindingsError, resolve_pack
 from ..rubric.pack import RubricPack
 from ..rubric.project import Projection
-from ..rubric.shipped import shipped_pack
 from ..store import RunStore
 from ..voice.render import RenderedReview, Voice, render_review
 
@@ -75,8 +81,17 @@ def _require(payload: Mapping[str, Any], key: str, where: str) -> Any:
     return value
 
 
-def load_review(payload: Mapping[str, Any], *, packs_dir: Path | str | None = None) -> LoadedReview:
-    """Turn a parsed review file into a :class:`LoadedReview`, or raise :class:`ReviewFileError`."""
+def load_review(
+    payload: Mapping[str, Any],
+    *,
+    packs_dir: Path | str | None = None,
+    paths: DataPaths | None = None,
+) -> LoadedReview:
+    """Turn a parsed review file into a :class:`LoadedReview`, or raise :class:`ReviewFileError`.
+
+    ``paths`` is the data root the accepted bindings are kept under; a file that names a digest
+    cannot be read without it.
+    """
     course = _require(payload, "course", "")
     named = _require(payload, "pack", "")
     detection = _require(payload, "detection", "")
@@ -86,12 +101,14 @@ def load_review(payload: Mapping[str, Any], *, packs_dir: Path | str | None = No
 
     pack_id = str(_require(named, "id", "pack "))
     version = str(_require(named, "version", "pack "))
+    bindings = named.get("bindings")
     try:
-        pack = shipped_pack(pack_id, packs_dir)
+        shipped = resolve_pack(pack_id, None, digest=None, packs_dir=packs_dir).shipped
     except KeyError as exc:
         raise ReviewFileError(
             f"the review was made against rubric pack {pack_id!r}, which this build does not ship"
         ) from exc
+    pack = shipped
     if pack.version != version:
         raise ReviewFileError(
             f"the review was made against {pack_id!r} version {version!r} and this build ships "
@@ -99,6 +116,17 @@ def load_review(payload: Mapping[str, Any], *, packs_dir: Path | str | None = No
             "from the pack, so reading the review against a different version would order and "
             "name it by an instrument it was not made with."
         )
+    if bindings is not None:
+        try:
+            pack = resolve_pack(
+                pack_id, paths, digest=str(bindings), packs_dir=packs_dir, shipped=shipped
+            ).pack
+        except BindingsError as exc:
+            raise ReviewFileError(
+                f"the review was made with the bindings accepted for {pack_id!r} as {bindings}, "
+                f"and they cannot be read back ({exc}). Reading it with other bindings would show "
+                "it against a rubric it was not made with."
+            ) from exc
 
     try:
         projection = Projection.from_dict(projected, pack=pack)
@@ -127,13 +155,15 @@ def _optional(value: Any) -> str | None:
     return None if value is None else str(value)
 
 
-def parse_review(text: str, *, packs_dir: Path | str | None = None) -> LoadedReview:
+def parse_review(
+    text: str, *, packs_dir: Path | str | None = None, paths: DataPaths | None = None
+) -> LoadedReview:
     """:func:`load_review` over the file's text."""
     try:
         payload = json.loads(text)
     except json.JSONDecodeError as exc:
         raise ReviewFileError(f"the review file is not JSON: {exc}") from exc
-    return load_review(payload, packs_dir=packs_dir)
+    return load_review(payload, packs_dir=packs_dir, paths=paths)
 
 
 def review_path(paths: DataPaths, store: RunStore, course_id: str) -> Path:
@@ -155,7 +185,9 @@ def read_review(
 ) -> LoadedReview:
     """Read one run-store course's review file back. Reads; never writes."""
     return parse_review(
-        review_path(paths, store, course_id).read_text(encoding="utf-8"), packs_dir=packs_dir
+        review_path(paths, store, course_id).read_text(encoding="utf-8"),
+        packs_dir=packs_dir,
+        paths=paths,
     )
 
 

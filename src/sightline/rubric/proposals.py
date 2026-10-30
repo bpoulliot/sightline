@@ -142,6 +142,11 @@ FATAL = (
     ModelThinkingUnsupportedError,
 )
 
+#: How a row whose call the host answered with an error begins its failure. The host's own summary
+#: follows. Worded without "failed", which the register lint reserves (it reads every sentence the
+#: confirmation screen prints).
+HOST_ERROR_PREFIX = "the model host returned an error: "
+
 #: Why a Tier D row is not sent to the model. Such a row reads Not Applicable bound or not, so a
 #: proposal for it could change nothing in the review and would only cost a call.
 NOT_ASKED_TIER_D = (
@@ -640,6 +645,7 @@ async def propose(
     words: Vocabulary | None = None,
     index: TagIndex | None = None,
     clock: Callable[[], str] = _now,
+    progress: Callable[[RowOutcome], None] | None = None,
 ) -> ProposalSet:
     """Ask the model about every row of ``pack``, one call per row, and return what came back.
 
@@ -647,8 +653,17 @@ async def propose(
     and rows of a switched-off section, which a later run may switch on, **except Tier D rows**,
     which are recorded as not asked with the reason (:data:`NOT_ASKED_TIER_D`). The pack is not
     changed. A row whose call failed is recorded as a failure, which is not "none proposed".
+
+    ``progress``, when given, is called with each row's outcome as it is recorded — how the
+    confirmation screen (part two) shows rows asked and rows that could not be asked while it runs.
     """
     words = words or vocabulary()
+
+    def record(outcome: RowOutcome) -> None:
+        rows.append(outcome)
+        if progress is not None:
+            progress(outcome)
+
     index = index or TagIndex.build()
     card = model if isinstance(model, ModelCard) else await client.card(model)
     thinking = thinking_for(card)
@@ -675,7 +690,7 @@ async def propose(
             bound=criterion.bindings,
         )
         if criterion.tier is Tier.D:
-            rows.append(replace(base, not_asked=NOT_ASKED_TIER_D))
+            record(replace(base, not_asked=NOT_ASKED_TIER_D))
             continue
         calls += 1
         try:
@@ -690,10 +705,10 @@ async def propose(
         except FATAL:
             raise
         except ModelHostError as exc:
-            rows.append(replace(base, failure=f"the host failed: {exc.summary}"))
+            record(replace(base, failure=f"{HOST_ERROR_PREFIX}{exc.summary}"))
             continue
         except SchemaViolation as exc:
-            rows.append(replace(base, failure=f"the response did not fit the schema: {exc}"))
+            record(replace(base, failure=f"the response did not fit the schema: {exc}"))
             continue
 
         unknown: list[str] = []
@@ -729,7 +744,7 @@ async def propose(
             ids.append(proposal.id)
         if unknown:
             log.warning("binding_proposal_unknown_tag", code=criterion.code, tags=unknown)
-        rows.append(
+        record(
             replace(
                 base,
                 proposals=tuple(ids),
@@ -1072,6 +1087,7 @@ def _named(proposals: ProposalSet, number: int) -> Proposal:
 
 __all__ = [
     "FILE_VERSION",
+    "HOST_ERROR_PREFIX",
     "NONDETERMINISM_NOTE",
     "NOT_ASKED_TIER_D",
     "Acceptance",

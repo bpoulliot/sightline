@@ -90,6 +90,7 @@ def create_batch_run(
     references: Sequence[str],
     *,
     rubric_pack: str,
+    bindings_digest: str | None = None,
     cap: int = DEFAULT_BATCH_CAP,
     note: str | None = None,
 ) -> str:
@@ -98,13 +99,19 @@ def create_batch_run(
     The cap is checked *here*, at the one point a run comes into existence, rather than in the
     loop that executes it: a run created over the cap and truncated at execution time is a batch
     where courses somebody listed are silently not reviewed.
+
+    ``bindings_digest`` is the accepted bindings the run uses, from
+    :func:`sightline.rubric.accepted.resolve_pack` at the moment it is started; ``None`` is the
+    shipped pack's own.
     """
     cleaned = [reference.strip() for reference in references if reference.strip()]
     if not cleaned:
         raise ValueError("a run needs at least one course reference")
     if len(cleaned) > cap:
         raise BatchTooLargeError(len(cleaned), cap)
-    return store.create_run(cleaned, rubric_pack=rubric_pack, note=note)
+    return store.create_run(
+        cleaned, rubric_pack=rubric_pack, bindings_digest=bindings_digest, note=note
+    )
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)
