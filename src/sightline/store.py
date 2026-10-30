@@ -13,7 +13,7 @@ from contextlib import contextmanager
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Engine, create_engine, event, select
+from sqlalchemy import ColumnElement, Engine, create_engine, event, select, update
 from sqlalchemy.orm import Session, sessionmaker
 
 from .logging import get_logger
@@ -30,6 +30,7 @@ from .models import (
     as_utc,
     utcnow,
 )
+from .ownership import RunOwner, orphan_reason
 from .paths import DataPaths
 from .redaction import scrub, scrub_object
 from .rubric.states import Rating
@@ -48,6 +49,13 @@ ADDED_COLUMNS: dict[str, dict[str, str]] = {
     # Roadmap item 17: the export gate. Null for every course a previous version recorded, which
     # is the correct reading — nobody opened their review.
     "run_courses": {"review_opened_at": "DATETIME"},
+    # Roadmap item 43: the owner record. Null on every run a previous version recorded, which
+    # recovery reads as "no owner" — the same orphaned run it always took over.
+    "runs": {
+        "owner_host": "VARCHAR(255)",
+        "owner_pid": "INTEGER",
+        "owner_heartbeat_at": "DATETIME",
+    },
 }
 
 
@@ -359,6 +367,8 @@ class RunStore:
 
         Wider than the background runner's own task list: a run started by ``python -m
         sightline.batch run`` executes in another process and is visible here and nowhere else.
+        Some of these may have an owner that is gone; :func:`sightline.ownership.owner_is_live`
+        tells them apart.
         """
         with self.session() as session:
             statement = select(Run).where(Run.status == RunStatus.RUNNING).order_by(Run.created_at)
@@ -465,31 +475,155 @@ class RunStore:
     # -- restart semantics -------------------------------------------------------------------
 
     def recover_interrupted(self) -> list[str]:
-        """Mark runs that were mid-flight when the process stopped.
+        """Mark interrupted the ``running`` runs whose owner is gone. Returns the ids touched.
 
-        Called once at startup. A run left in ``running`` did not fail — the process went away —
-        so it becomes ``interrupted``, which is resumable and says so. Returns the ids touched.
+        Called at app startup and by ``python -m sightline.batch resume``. A run left ``running``
+        by a process that went away did not fail, so it becomes ``interrupted``, which is
+        resumable and says so. A run whose owner is still live is another process's work in
+        progress — a command-line run beside the app, say — and is left alone: taking it over is
+        how one run came to execute twice at once (roadmap item 43). What "gone" means is
+        :func:`sightline.ownership.orphan_reason`, and its answer is the reason the run log gets.
         """
         touched: list[str] = []
+        left: list[str] = []
+        now = utcnow()
         with self.session() as session:
             statement = select(Run).where(Run.status == RunStatus.RUNNING)
-            for run in session.scalars(statement):
-                run.status = RunStatus.INTERRUPTED
-                touched.append(run.id)
-                session.add(
-                    RunEvent(
-                        run_id=run.id,
-                        event="run_interrupted",
-                        level="warning",
-                        data={"reason": "process restarted while the run was in progress"},
-                    )
-                )
-                for course in run.courses:
-                    if RunStatus(course.status) is RunStatus.RUNNING:
-                        course.status = RunStatus.INTERRUPTED
+            for run in session.scalars(statement).all():
+                reason = orphan_reason(run, now=now)
+                if reason is None:
+                    left.append(run.id)
+                    continue
+                if self._interrupt(session, run, reason=f"Recovered: {reason}."):
+                    touched.append(run.id)
+        if left:
+            log.info("runs_left_to_their_owners", run_ids=left, count=len(left))
         if touched:
             log.warning("runs_interrupted", run_ids=touched, count=len(touched))
         return touched
+
+    def interrupt_owned(self, owner: RunOwner) -> list[str]:
+        """Mark interrupted the ``running`` runs ``owner`` holds. The app's shutdown sweep.
+
+        Only this process's own runs: a run another process owns is not this shutdown's business,
+        however it looks from here.
+        """
+        touched: list[str] = []
+        with self.session() as session:
+            statement = select(Run).where(
+                Run.status == RunStatus.RUNNING,
+                Run.owner_host == owner.host,
+                Run.owner_pid == owner.pid,
+            )
+            for run in session.scalars(statement).all():
+                reason = "The process executing it shut down before the run finished."
+                if self._interrupt(session, run, reason=reason):
+                    touched.append(run.id)
+        if touched:
+            log.warning("runs_interrupted", run_ids=touched, count=len(touched))
+        return touched
+
+    def _interrupt(self, session: Session, run: Run, *, reason: str) -> bool:
+        """Move one ``running`` run, as read in ``session``, to ``interrupted`` and clear its owner.
+
+        A compare-and-set against the status and owner record that were read: if the owner beat,
+        finished or handed over in between, nothing is written and this returns false.
+        """
+        result = session.execute(
+            update(Run)
+            .where(Run.id == run.id, Run.status == RunStatus.RUNNING, *_same_owner(run))
+            .values(
+                status=RunStatus.INTERRUPTED,
+                owner_host=None,
+                owner_pid=None,
+                owner_heartbeat_at=None,
+            )
+            .execution_options(synchronize_session=False)
+        )
+        if result.rowcount != 1:
+            return False
+        session.add(
+            RunEvent(
+                run_id=run.id, event="run_interrupted", level="warning", data={"reason": reason}
+            )
+        )
+        for course in run.courses:
+            if RunStatus(course.status) is RunStatus.RUNNING:
+                course.status = RunStatus.INTERRUPTED
+        return True
+
+    # -- ownership (roadmap item 43) ---------------------------------------------------------
+    #
+    # See sightline.ownership for what an owner is and when one is gone. Every write below is a
+    # compare-and-set on the owner record, because the processes that race for a run share
+    # nothing but this file.
+
+    def claim_run(self, run_id: str, owner: RunOwner) -> bool:
+        """Record ``owner`` as executing ``run_id``, unless a live owner already is.
+
+        The update matches only the owner record that was read, so of two processes that both
+        found the run orphaned, exactly one write lands and the other is told no.
+        """
+        with self.session() as session:
+            run = session.get(Run, run_id)
+            if run is None:
+                raise KeyError(run_id)
+            if orphan_reason(run, me=owner) is None:
+                log.info("run_claim_refused", run_id=run_id, reason="owned by a live process")
+                return False
+            result = session.execute(
+                update(Run)
+                .where(Run.id == run_id, *_same_owner(run))
+                .values(
+                    owner_host=owner.host,
+                    owner_pid=owner.pid,
+                    owner_heartbeat_at=utcnow(),
+                    updated_at=Run.updated_at,
+                )
+                .execution_options(synchronize_session=False)
+            )
+            claimed = result.rowcount == 1
+        if claimed:
+            log.info("run_claimed", run_id=run_id, host=owner.host, pid=owner.pid)
+        else:
+            log.info("run_claim_refused", run_id=run_id, reason="claimed by another process first")
+        return claimed
+
+    def heartbeat_run(self, run_id: str, owner: RunOwner) -> bool:
+        """Refresh ``owner``'s heartbeat. False when ``owner`` no longer holds the run.
+
+        Leaves ``updated_at`` alone: that column says the run changed, and a heartbeat is not a
+        change anybody watching the run needs to see.
+        """
+        with self.engine.begin() as connection:
+            result = connection.execute(
+                update(Run)
+                .where(Run.id == run_id, Run.owner_host == owner.host, Run.owner_pid == owner.pid)
+                .values(owner_heartbeat_at=utcnow(), updated_at=Run.updated_at)
+            )
+            return result.rowcount == 1
+
+    def release_run(self, run_id: str, owner: RunOwner) -> bool:
+        """Clear ``owner``'s record from ``run_id``. False when ``owner`` no longer held it.
+
+        A run still ``running`` here did not finish — its owner stopped part-way, by a cancel or a
+        crash it did not record — so it is marked interrupted now rather than left for the next
+        recovery to find.
+        """
+        with self.session() as session:
+            run = session.get(Run, run_id)
+            if run is None or (run.owner_host, run.owner_pid) != (owner.host, owner.pid):
+                return False
+            if RunStatus(run.status) is RunStatus.RUNNING:
+                reason = "The process executing it stopped before the run finished."
+                return self._interrupt(session, run, reason=reason)
+            result = session.execute(
+                update(Run)
+                .where(Run.id == run_id, *_same_owner(run))
+                .values(owner_host=None, owner_pid=None, owner_heartbeat_at=None)
+                .execution_options(synchronize_session=False)
+            )
+            return result.rowcount == 1
 
     def resumable_runs(self) -> list[Run]:
         with self.session() as session:
@@ -499,3 +633,12 @@ class RunStore:
                 .order_by(Run.created_at)
             )
             return list(session.scalars(statement))
+
+
+def _same_owner(run: Run) -> tuple[ColumnElement[bool], ...]:
+    """Conditions that match ``run``'s owner record exactly as it was read, nulls included."""
+    return (
+        Run.owner_host.is_not_distinct_from(run.owner_host),
+        Run.owner_pid.is_not_distinct_from(run.owner_pid),
+        Run.owner_heartbeat_at.is_not_distinct_from(run.owner_heartbeat_at),
+    )

@@ -117,6 +117,16 @@ class Run(Base):
     status: Mapped[RunStatus] = mapped_column(String(16), default=RunStatus.PENDING)
     rubric_pack: Mapped[str] = mapped_column(String(64))
     note: Mapped[str | None] = mapped_column(Text, default=None)
+    #: Who is executing this run: the host name and process id that claimed it, and when that
+    #: process last said it was still working. Set while a process executes the run and cleared
+    #: when it stops, so a ``running`` row with no owner was left by a process that never recorded
+    #: one. Recovery reads these to take over only a run whose owner is gone (roadmap item 43);
+    #: :mod:`sightline.ownership` says what "gone" means.
+    owner_host: Mapped[str | None] = mapped_column(String(255), default=None)
+    owner_pid: Mapped[int | None] = mapped_column(Integer, default=None)
+    owner_heartbeat_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), default=None
+    )
 
     courses: Mapped[list[RunCourse]] = relationship(
         back_populates="run",
