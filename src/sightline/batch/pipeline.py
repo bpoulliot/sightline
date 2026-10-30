@@ -232,9 +232,14 @@ class ReviewPipeline:
         data_paths: DataPaths | None = None,
         links: LinkResolver | None = None,
         effort: EffortModel | None = None,
+        bindings: str | None = None,
     ) -> None:
         self.source = source
         self.pack = pack
+        #: The digest of the accepted bindings ``pack`` carries (roadmap item 22, part two), written
+        #: into each review file so its report reads the pack back with them. ``None`` is the
+        #: shipped pack's own bindings, and then the review file names none.
+        self.bindings = bindings
         #: The cost table, loaded by whoever built the pipeline. ``None`` is the shipped table.
         self.effort = effort
         self.client = client
@@ -466,6 +471,13 @@ class ReviewPipeline:
         """
         document = work.document
         projection = work.projection
+        pack: dict[str, Any] = {
+            "id": projection.pack_id if projection else self.pack.id,
+            "name": projection.pack_name if projection else self.pack.name,
+            "version": projection.pack_version if projection else self.pack.version,
+        }
+        if self.bindings is not None:
+            pack["bindings"] = self.bindings
         return {
             "course": {
                 "reference": work.reference,
@@ -473,11 +485,7 @@ class ReviewPipeline:
                 "name": document.course.name if document else None,
                 "base_url": document.base_url if document else None,
             },
-            "pack": {
-                "id": projection.pack_id if projection else self.pack.id,
-                "name": projection.pack_name if projection else self.pack.name,
-                "version": projection.pack_version if projection else self.pack.version,
-            },
+            "pack": pack,
             "stages": [outcome.to_dict() for outcome in work.outcomes.values()],
             "detection": work.detection.to_dict() if work.detection else None,
             "projection": projection.to_dict() if projection else None,

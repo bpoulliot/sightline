@@ -36,8 +36,9 @@ from ..logging import configure_logging
 from ..ownership import RunHold, RunOwnedElsewhereError
 from ..paths import DataPaths
 from ..preferences import PreferenceStore
+from ..rubric.accepted import BindingsError, resolve_pack
 from ..rubric.effort import load_effort_model
-from ..rubric.shipped import shipped_pack, shipped_packs
+from ..rubric.shipped import shipped_packs
 from ..store import RunStore
 from .gate import ExportGate
 from .pipeline import (
@@ -56,7 +57,7 @@ from .runner import (
     PipelineFactory,
     create_batch_run,
 )
-from .service import live_pipeline_factory
+from .service import live_pipeline_factory, resolved_pack
 from .stages import Stage, StageOutcome
 
 DEFAULT_PACK = DEFAULT_RUBRIC_PACK
@@ -148,15 +149,15 @@ def _open(settings: Settings) -> tuple[DataPaths, RunStore]:
 
 def _bundle_factory(
     settings: Settings,
-    pack_id: str,
+    paths: DataPaths,
     *,
     endpoint: str | None,
     model: str | None,
 ):
-    pack = shipped_pack(pack_id)
-
     @asynccontextmanager
-    async def build(_run: Any):
+    async def build(run: Any):
+        # The pack with the bindings the run recorded, as the app's pipeline resolves it.
+        resolved = resolved_pack(run, paths)
         client = (
             OllamaClient(
                 endpoint,
@@ -170,7 +171,8 @@ def _bundle_factory(
             yield Narrating(
                 ReviewPipeline(
                     source=BundleSource(),
-                    pack=pack,
+                    pack=resolved.pack,
+                    bindings=resolved.digest,
                     client=client,
                     model=model,
                     effort=load_effort_model(settings.effort_costs),
@@ -198,7 +200,6 @@ def _factory(
     store: RunStore,
     *,
     bundles: bool,
-    pack_id: str,
     endpoint: str | None,
     model: str | None,
 ):
@@ -215,7 +216,7 @@ def _factory(
     if bundles:
         return _bundle_factory(
             settings,
-            pack_id,
+            paths,
             endpoint=endpoint or preferences.model_host().endpoint,
             model=model or preferences.review_model().name,
         )
@@ -259,11 +260,19 @@ async def _start(args: argparse.Namespace, settings: Settings) -> int:
 
     paths, store = _open(settings)
     try:
+        # The bindings accepted for the pack on its page in the app, as the app's Start uses them
+        # (roadmap item 22, part two). The run records which, and resuming it keeps them.
+        try:
+            resolved = resolve_pack(args.pack, paths)
+        except BindingsError as exc:
+            print(f"The accepted bindings for {args.pack} cannot be read: {exc}.", file=sys.stderr)
+            return 2
         try:
             run_id = create_batch_run(
                 store,
                 references,
                 rubric_pack=args.pack,
+                bindings_digest=resolved.digest,
                 cap=settings.batch_cap,
                 note=args.note,
             )
@@ -271,12 +280,20 @@ async def _start(args: argparse.Namespace, settings: Settings) -> int:
             print(f"{exc.summary} {exc.remedy}", file=sys.stderr)
             return 2
         print(f"Run {run_id}: {len(references)} course(s) against {args.pack}.")
+        if resolved.digest is not None:
+            print(f"It uses the bindings accepted for {args.pack}, recorded as {resolved.digest}.")
+        if resolved.stale is not None:
+            print(
+                f"The bindings accepted for {args.pack} were made over the pack as an earlier "
+                "build shipped it, so this run uses the shipped pack's own. Propose again on the "
+                "rubric's page in the app.",
+                file=sys.stderr,
+            )
         factory = _factory(
             settings,
             paths,
             store,
             bundles=bool(args.bundle),
-            pack_id=args.pack,
             endpoint=args.endpoint,
             model=args.model,
         )
@@ -322,7 +339,6 @@ async def _resume(args: argparse.Namespace, settings: Settings) -> int:
             paths,
             store,
             bundles=bundles,
-            pack_id=run.rubric_pack,
             endpoint=args.endpoint,
             model=args.model,
         )

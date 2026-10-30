@@ -254,6 +254,24 @@ A pack imported with a declared join key does not record which column that was, 
 needs the mapping file it was built from (`--map`), and checks it against the pack first. The
 mapping printed has none of that file's comments; they are not data.
 
+### The same, on the Rubrics screen
+
+For the shipped rubrics the app does all of this on a screen (*Rubrics* in the navigation, and a
+link from the New run screen's rubric picker). **Propose bindings** asks the review model chosen in
+Settings, in the background, one row at a time; it is refused while a review run is going, and a
+run is refused while proposals are being made, because both ask the same model host. The
+confirmation screen shows every proposal with the same what, why and how, every box unchecked;
+*Check all* checks every proposal that is not a conflict, and each conflict needs its own box. The
+coverage change of exactly the checked proposals is shown before **Accept** is offered.
+
+Accepting applies to the app's copy of the rubric, never to the shipped file. Each acceptance is
+kept under the data root (`rubrics/<pack id>/`) with who accepted it and when, the proposal
+numbers and the coverage change, and the latest one can be reverted; nothing is removed from the
+history. Every run started afterwards — from the app or `python -m sightline.batch` — uses the
+accepted bindings and records their digest, so its reports read the same bindings after a later
+acceptance or revert. A run may start while proposals wait: it uses only confirmed bindings, and
+the picker says *bindings proposed, not confirmed* beside the rubric.
+
 ---
 
 ## Bindings, and the three states

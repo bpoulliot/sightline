@@ -793,3 +793,23 @@ a.button { display: inline-block; text-decoration: none; }
     margin-top: .35rem;
   }
 }
+
+/* ---- rubric pages (roadmap item 22, part two) ------------------------------------------------ */
+
+.moves { margin: .3rem 0 .2rem; padding-left: 1.2rem; font-size: .93rem; max-width: var(--measure); overflow-wrap: anywhere; }
+.moves li { margin: .1rem 0; }
+.history { margin: 0; padding-left: 1.4rem; }
+.history > li { margin: 0 0 .9rem; }
+.others { list-style: none; margin: 0; padding: 0; }
+.others > li { margin: 0 0 1rem; padding-bottom: .8rem; border-bottom: 1px solid var(--rule); }
+.others > li:last-child { border-bottom: 0; }
+.proposal-row { margin: 0 0 1.4rem; }
+.proposal-row .criterion-head,
+.others .criterion-head { font-family: var(--f-body); font-size: 1rem; font-weight: 600; line-height: 1.45; margin: 0 0 .4rem; overflow-wrap: anywhere; }
+.proposal .field-check { margin: 0 0 .5rem; }
+.proposal .field-check label { font-weight: 600; }
+.confirm-actions { display: flex; flex-wrap: wrap; gap: .6rem; }
+.digest { overflow-wrap: anywhere; word-break: break-all; }
+.run-list .state { margin-left: .3rem; white-space: normal; }
+.none-proposed > summary { cursor: pointer; margin: .4rem 0 .8rem; color: var(--accent-ink); }
+.picker .unconfirmed { padding-left: 1.75rem; margin: .15rem 0 .4rem; }

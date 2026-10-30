@@ -37,7 +37,7 @@ by item 36's session, PR #43; 44–47 split from item 40 on 2026-10-30).
 | 19 | Uploaded-rubric mapping screen | 3 | **SUPERSEDED by 22** | — |
 | 20 | Multi-course comparison view | 3 | **DECIDED — not building it** | see 25 |
 | 21 | Detector integrity guard | 0 | READY | **DONE** — PR #8 |
-| 22 | Model-proposed bindings, human-confirmed | 3 | part 2 **READY** — specified 2026-10-30 (operator) | **PART 1 DONE** — PR #32 (proposal engine + command-line review). Part 2, the confirmation **screen**, is specified under *Notes carried forward* |
+| 22 | Model-proposed bindings, human-confirmed | 3 | **DONE** | **DONE** — part 1 PR #32 (proposal engine + command-line review); part 2 PR #49 (the Rubrics screens: propose, confirm, revert; runs record the bindings they used) |
 | 23 | Canvas-requested content export | 1 | READY | **DONE** — PR #6 |
 | 24 | Agreement and near-boundary transparency | 2 | READY | **DONE** — PR #29 (data, guard, docs) and PR #45 (the statement and the marker in the PDF and on the review screen) |
 | 25 | Returned-review ingestion | 3 | **BLOCKED** — needs reviews delivered and returned | — |
@@ -156,7 +156,7 @@ re-run) ran DONE — PR #45.
 **Wave 4 — composed 2026-10-30, not released.** In order: `99u-` item 43 (the bug first),
 `99v-` item 22 part 2, `99w-` item 44, `99x-` item 45, `99y-` item 46. Each gates on its
 predecessors being DONE on `main`, then `99z-` item 47 (decided the same day: Authentik). `99u-`
-(item 43) ran DONE — PR #48.
+(item 43) ran DONE — PR #48. `99v-` (item 22 part 2) ran DONE — PR #49.
 
 ---
 
@@ -269,9 +269,9 @@ corpus, to be filed as its own item if it is wanted.
 is usable — is dead. Under item 04 an unbound rubric runs immediately, extraction-only. What remains
 worth building is item 22.
 
-**22 — model-proposed bindings, human-confirmed · PART 1 DONE (PR #32): the proposal engine and a
-command-line review. The confirmation screen is the remainder, BLOCKED on item 36** (operator
-decision 2026-09-25, recorded with the measurement under *Notes carried forward*). Give the model
+**22 — model-proposed bindings, human-confirmed · DONE: part 1 (PR #32) the proposal engine and a
+command-line review; part 2 (PR #49) the confirmation screen** (split by operator decision
+2026-09-25, recorded with the measurement under *Notes carried forward*). Give the model
 the detector catalogue and the uploaded criterion text; it proposes tag bindings a human confirms
 **once per rubric, never per course**. An accelerator, not a prerequisite.
 
@@ -455,8 +455,39 @@ default `/24` collides.
 
 ## Notes carried forward
 
-**22 · PART 1 DONE 2026-09-29 (PR #32). Model-proposed bindings with a command-line review. The
-confirmation screen is PART 2, BLOCKED on item 36 — never READY by default.**
+**22 · DONE. Part 1 2026-09-29 (PR #32): model-proposed bindings with a command-line review.
+Part 2 2026-10-30 (PR #49): the screen that proposes, confirms and reverts them.**
+
+*As built (part 2, PR #49).* SPEC §09 *As built (item 22, part 2)* is the description; in short:
+- **Screens:** `sightline.rubric_screens` — `/rubrics`, `/rubrics/{pack}` (bindings in force with
+  their coverage, revert, *Propose bindings* and its progress, kept sets, history) and
+  `/rubrics/{pack}/proposals/{set}` (the confirmation screen). A *Rubrics* entry in the navigation;
+  the New run picker links each choice to its page.
+- **Propose:** `sightline.proposing` runs `propose()` in the app (new optional `progress`
+  callback), review model from Settings, client at concurrency 1. Refused while a run executes
+  (`new_run.active_runs`, item 43's live owner); Start refused while proposing
+  (`new_run.proposing_blocker`); each names the other. Progress: rows to ask, asked, could not be
+  asked.
+- **Confirm:** every 2026-09-08 decision as part 1 recorded it; *Accept* is offered only after the
+  delta of exactly the checked set is shown (a hidden token compares the two). Accept and revert
+  record `current_reviewer`, the time, the numbers and the delta, and are refused without a
+  Reviewer.
+- **Apply:** `sightline.rubric.accepted` — states under their sha256 digest, an append-only
+  history, `resolve_pack` the one resolver (views, `python -m sightline.batch`,
+  `sightline.batch.service`, `sightline.report.loader`). `runs.bindings_digest` is an added
+  column; the review file names `pack.bindings` only when bindings were accepted, so the committed
+  sample is unchanged.
+- **Calls made, reversible:** a set is accepted once, as a unit (accepting changes the pack, so
+  part 1's fingerprint refuses the rest; a revert reopens it); a state made over a shipped pack
+  that has since changed is not applied to new runs, and the page says so; for a join-key pack
+  (both shipped packs) `accept()`'s base mapping is `rubrics/maps/<pack>.yaml` with the bindings
+  in force written in; part 1's failure prefix "the host failed:" became "the model host
+  returned an error:" because the register lint reserves "failed".
+- **Not built:** a confidence anything; a bulk accept that covers conflicts; a change to the
+  proposal call's context window; anything of items 44–47; proposing from the command line into
+  the app's store (the CLI keeps printing files, unchanged).
+- **Evidence:** 36 tests in `tests/test_rubric_screens.py`; screenshot QA at 1400 and 390 px, 14
+  measurements, all `scrollWidth == innerWidth` after one fix (a set-state chip overflowed at 390).
 
 *2026-10-29 (item 36's session, PR #43): part 2 is now ready for its specification pass.* Item 36
 built the New run screen's rubric picker. It is the Start form on `/courses`, and its options are
@@ -2394,6 +2425,9 @@ to this.**
   something credential-shaped" rather than dropped.
 
 ## Corrections log
+
+**2026-10-30 — item 22 part 2 built (PR #49).** SPEC §09 gains *As built (item 22, part 2)*;
+`docs/RUBRIC-PACKS.md` describes the Rubrics screen beside the command line. Item 22 is DONE.
 
 **2026-10-30 — item 43 built (PR #48).** SPEC §04 *Runtime* and §09 *As built (item 36)* now
 say that a run records its owner. They also say that recovery, shutdown and Start's check act on

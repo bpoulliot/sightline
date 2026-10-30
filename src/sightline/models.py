@@ -116,6 +116,11 @@ class Run(Base):
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
     status: Mapped[RunStatus] = mapped_column(String(16), default=RunStatus.PENDING)
     rubric_pack: Mapped[str] = mapped_column(String(64))
+    #: The accepted bindings the run uses (roadmap item 22, part two): the digest of a state kept
+    #: under the data root by :mod:`sightline.rubric.accepted`, recorded when the run is created.
+    #: ``None`` is the shipped pack's own bindings, which is also what every run recorded before
+    #: the column existed ran with.
+    bindings_digest: Mapped[str | None] = mapped_column(String(80), default=None)
     note: Mapped[str | None] = mapped_column(Text, default=None)
     #: Who is executing this run: the host name and process id that claimed it, and when that
     #: process last said it was still working. Set while a process executes the run and cleared

@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+{% block title %}Sightline — proposed bindings, {{ page.pack.name }}{% endblock %}
+
+{%- macro proposal_card(card, editable) -%}
+{%- set p = card.proposal -%}
+<section class="block proposal" id="proposal-{{ p.id }}" data-proposal="{{ p.id }}" data-tag="{{ p.tag }}">
+  {%- if editable %}
+  <div class="field-check">
+    <label>
+      <input type="checkbox" name="{{ card.field }}" value="{{ p.id }}"{% if card.checked %} checked{% endif %}>
+      <span>Accept proposal {{ p.id }}: bind <code>{{ p.tag }}</code></span>
+    </label>
+  </div>
+  {%- else %}
+  <h3>Proposal {{ p.id }}: bind <code>{{ p.tag }}</code></h3>
+  {%- endif %}
+  <dl class="fields">
+    <div><dt>What</dt><dd><code>{{ p.tag }}</code>: <span class="summary">{{ p.summary }}</span></dd></div>
+    <div><dt>Detectors behind it</dt><dd>
+      {%- if card.detectors %}
+      <ul class="moves">
+        {%- for detector, reports in card.detectors %}
+        <li><span class="code">{{ detector }}</span> reports <span class="reports">{{ reports }}</span></li>
+        {%- endfor %}
+      </ul>
+      {%- else %}
+      No detector implements this tag yet.
+      {%- endif %}
+    </dd></div>
+    <div><dt>Why</dt><dd class="why" data-span-state="{{ p.span_state }}">
+      {%- if p.span_state == 'verified' %}The criterion's own words: <q class="span">{{ p.span }}</q>{% elif p.span_state == 'discarded' %}No supporting span. The model returned words that are not in the criterion text; they were discarded and are not shown.{% else %}No supporting span. The model named no words of the criterion.{% endif -%}
+    </dd></div>
+    <div><dt>How it changes the review</dt><dd class="changes">{{ p.changes }}</dd></div>
+    {%- if p.conflict %}
+    <div><dt>Bound now</dt><dd>This row is bound to <code>{{ p.bound | join(', ') }}</code> now. Accepting adds <code>{{ p.tag }}</code> beside it, which changes a binding set somebody authored.</dd></div>
+    {%- endif %}
+  </dl>
+</section>
+{%- endmacro -%}
+
+{%- macro row_head(row) -%}
+<h3 class="criterion-head"><span class="tier tier-{{ row.tier.value | lower }}">{{ row.tier.value }}</span> <span class="code">{{ row.code }}</span> <span class="criterion-text">{{ row.criterion }}</span></h3>
+{%- endmacro -%}
+
+{% block content %}
+<section class="panel review-head" aria-labelledby="h-proposals">
+  <h1 id="h-proposals">Proposed bindings: {{ page.pack.name }}</h1>
+  <p class="meta"><span>Version {{ page.pack.version }}</span> <span>Proposed {{ page.saved.proposals.created[:16] | replace('T', ' ') }} UTC with <code>{{ page.saved.proposals.model }}</code> on Ollama {{ page.saved.proposals.host_version or '(version not read)' }}</span></p>
+  <p class="line">{{ page.saved.proposals.statement() }}</p>
+  <p class="note">{{ nondeterminism }}</p>
+  <p class="lede">
+    Nothing here is accepted until you accept it, and every box starts unchecked. Check all checks
+    every proposal that is not a conflict. A conflict is a proposal on a row already bound to other
+    tags: conflicts are listed apart, check all never checks one, and each needs its own box. What
+    accepting the checked proposals changes is shown before anything is accepted.
+  </p>
+  <p><a href="{{ href }}">The rubric's page</a>: the bindings runs use, and the history.</p>
+</section>
+
+{% for banner in page.banners %}
+<div class="banner banner-bad" role="alert">
+  <p class="banner-head">{{ banner.summary }}</p>
+  {% if banner.remedy %}<p class="banner-remedy">{{ banner.remedy }}</p>{% endif %}
+</div>
+{% endfor %}
+
+{% if not_open %}
+<div class="banner banner-warn" role="status" id="closed">
+  <p class="banner-head">{{ not_open.summary }}</p>
+  <p class="banner-remedy">{{ not_open.remedy }}{% if not_open.href %} <a href="{{ not_open.href }}">{{ not_open.link }}</a>{% endif %}</p>
+</div>
+{% endif %}
+
+{% if page.open %}<form method="post" action="/rubrics/{{ page.pack.id }}/proposals/{{ page.saved.id }}#change" class="form confirm-form">
+<input type="hidden" name="base" value="{{ page.base }}">
+{% endif %}
+
+<section class="panel" id="proposals" aria-labelledby="h-list">
+  <h2 id="h-list">Proposals</h2>
+  {% if page.proposals %}
+  <p class="note">In the rubric's own order, and by tag name within a row.</p>
+  {% for row in page.proposals %}
+  <article class="proposal-row" data-code="{{ row.outcome.code }}">
+    {{ row_head(row.outcome) }}
+    <p class="line muted">Bound now: {% if row.outcome.bound %}<code>{{ row.outcome.bound | join(', ') }}</code>{% else %}nothing{% endif %}</p>
+    {% for card in row.cards %}{{ proposal_card(card, page.open) }}{% endfor %}
+  </article>
+  {% endfor %}
+  {% else %}
+  <p class="empty">No proposal on a row that is bound to nothing yet.</p>
+  {% endif %}
+</section>
+
+<section class="panel" id="conflicts" aria-labelledby="h-conflicts">
+  <h2 id="h-conflicts">Conflicts</h2>
+  {% if page.conflicts %}
+  <p class="note">Each of these would add a tag to a row already bound to others. Check all leaves them alone; check each one you want on its own.</p>
+  {% for row in page.conflicts %}
+  <article class="proposal-row" data-code="{{ row.outcome.code }}">
+    {{ row_head(row.outcome) }}
+    {% for card in row.cards %}{{ proposal_card(card, page.open) }}{% endfor %}
+  </article>
+  {% endfor %}
+  {% else %}
+  <p class="empty">No proposal is on a row already bound to other tags.</p>
+  {% endif %}
+</section>
+
+{% if page.open %}
+<section class="panel" id="change" aria-labelledby="h-change">
+  <h2 id="h-change">What accepting changes</h2>
+  {% if page.change and page.change.delta %}
+  <p class="line">Accepting proposal(s) {{ (page.change.names + page.change.conflicts) | sort | join(', ') }}: {{ page.change.delta.statement }}</p>
+  {% if page.change.delta.moved %}
+  <ul class="moves">
+    {%- for start, end, rows in page.change.delta.moved %}
+    <li>From {{ start }} to {{ end }}: <span class="code">{{ rows | join(', ') }}</span></li>
+    {%- endfor %}
+  </ul>
+  {% endif %}
+  <input type="hidden" name="shown" value="{{ page.change.token }}">
+  {% elif page.change and page.change.error %}
+  <p class="line reviewer-missing">{{ page.change.error }}</p>
+  {% else %}
+  <p class="line">Not shown yet. Check the proposals you want, then show what accepting them changes.</p>
+  {% endif %}
+  {% if page.reviewer %}
+  <p class="hint">An acceptance is recorded as {{ page.reviewer }}, with the time and the proposal numbers.</p>
+  {% else %}
+  <p class="reviewer-missing">No reviewer is set, so nothing can be accepted. <a href="/settings#reviewer">Settings</a></p>
+  {% endif %}
+  <div class="actions confirm-actions">
+    <button type="submit" name="action" value="check_all" class="button">Check all that are not conflicts</button>
+    <button type="submit" name="action" value="preview" class="button">Show what the checked proposals change</button>
+    <button type="submit" name="action" value="accept" class="button button-primary"{% if not page.can_accept %} disabled{% endif %}>Accept the checked proposals</button>
+  </div>
+  <p class="hint">Accept is offered once the change of exactly the checked proposals is shown above. Checking or unchecking a box after that means showing the change again.</p>
+</section>
+</form>
+{% endif %}
+
+{%- macro other_row(row) -%}
+    <li data-code="{{ row.code }}">
+      {{ row_head(row) }}
+      {%- if row.failure is not none %}
+      <p class="line could-not">Could not be asked: <span class="failure">{{ row.failure }}</span></p>
+      {%- elif row.not_asked is not none %}
+      <p class="line not-asked">Not asked: {{ row.not_asked }}</p>
+      {%- elif not row.proposals %}
+      <p class="line none">None proposed.</p>
+      {%- endif %}
+      {%- for tag in row.already_bound %}
+      <p class="line muted"><code>{{ tag }}</code> was proposed again and is bound here already; there is nothing to accept.</p>
+      {%- endfor %}
+      {%- for tag in row.unknown %}
+      <p class="line muted">Dropped: <code>{{ tag }}</code> is not a capability tag this build knows. It is reported here and never written.</p>
+      {%- endfor %}
+    </li>
+{%- endmacro -%}
+<section class="panel" id="others" aria-labelledby="h-others">
+  <h2 id="h-others">Rows with nothing to accept</h2>
+  {% if page.flagged %}
+  <ul class="others">
+    {% for row in page.flagged %}{{ other_row(row) }}{% endfor %}
+  </ul>
+  {% endif %}
+  {% if page.none_proposed %}
+  <details class="none-proposed">
+    <summary>Rows asked with none proposed: {{ page.none_proposed | length }}</summary>
+    <ul class="others">
+      {% for row in page.none_proposed %}{{ other_row(row) }}{% endfor %}
+    </ul>
+  </details>
+  {% endif %}
+  {% if not page.others %}
+  <p class="empty">Every row asked has a proposal above.</p>
+  {% endif %}
+</section>
+{% endblock %}
