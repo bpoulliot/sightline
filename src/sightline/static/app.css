@@ -810,4 +810,6 @@ a.button { display: inline-block; text-decoration: none; }
 .proposal .field-check label { font-weight: 600; }
 .confirm-actions { display: flex; flex-wrap: wrap; gap: .6rem; }
 .digest { overflow-wrap: anywhere; word-break: break-all; }
-.run-list .state { margin-left: .3rem; }
+.run-list .state { margin-left: .3rem; white-space: normal; }
+.none-proposed > summary { cursor: pointer; margin: .4rem 0 .8rem; color: var(--accent-ink); }
+.picker .unconfirmed { padding-left: 1.75rem; margin: .15rem 0 .4rem; }

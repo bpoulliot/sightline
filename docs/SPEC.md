@@ -734,6 +734,36 @@ going and reloads when it changes. One wording choice: the stored stage name `sc
 shown — every stage is shown by its title (`Roll up effort and order the action plan`), because
 §11 keeps "score" out of the vocabulary.
 
+**As built (item 22, part 2).** *Rubrics* (`sightline.rubric_screens`) is `/rubrics`, a page per
+shipped pack at `/rubrics/{pack}`, and a confirmation screen per proposal set at
+`/rubrics/{pack}/proposals/{set}`. *Propose bindings* runs part one's `propose()` as a background
+task (`sightline.proposing`) with the review model from Settings, through item 09's client at
+concurrency 1; its progress is rows to ask, rows asked and rows that could not be asked. It is
+refused while a run is executing (item 36's check, with item 43's live owner), Start is refused
+while it runs, and each refusal names the other. A finished set is kept under the data root; a
+task that stops keeps nothing and says why. The confirmation screen keeps part one's order and
+every 2026-09-08 decision: boxes unchecked, *check all* never touches a conflict, conflicts listed
+apart with their own boxes, what / why / how per proposal, Tier D *not asked*, a failed row *could
+not be asked*. **Accept is offered only after the coverage delta of exactly the checked set has
+been shown** — `accept()`'s own delta, computed without writing — and a set that changed since is
+shown again, not accepted. Accepting needs the Reviewer setting and records it
+(`current_reviewer`), the time, the proposal numbers and the delta. A set made over another state
+of the pack is refused with *propose again*; accepting changes the pack, so a set is accepted once,
+as a unit, and reverting that acceptance opens it again. `sightline.rubric.accepted` keeps
+`rubrics/<pack>/` under the data root: the sets, each accepted state immutably under its sha256
+digest (an edited state file is refused), and an append-only history; a revert undoes the latest
+standing acceptance. **`resolve_pack` is the one resolver**: the New run screen and
+`python -m sightline.batch run` record the digest in force on the run (`runs.bindings_digest`,
+an added column), the batch service and the command's bundle path resolve a run by that digest, so
+a resumed run keeps its bindings, and the review file names it (`pack.bindings`) for
+`sightline.report.loader`. A run or a review file with none reads the shipped pack. An accepted
+state made over a shipped pack this build no longer ships is not applied to new runs and the page
+says so. The picker shows *bindings proposed, not confirmed* with a link, and which accepted
+bindings runs use; it never blocks Start. Two readings taken here: accepting and reverting are
+refused without a Reviewer, as an override is; and for a pack imported with a join key (both
+shipped packs) the base mapping `accept()` needs is the shipped `rubrics/maps/<pack>.yaml` with
+the bindings in force written in.
+
 ### Sign-in and multiple users (decided 2026-10-30, roadmap item 40)
 
 Everything above describes the local single-user mode, which stays the default. In sign-in mode:

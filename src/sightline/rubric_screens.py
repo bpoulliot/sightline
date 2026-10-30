@@ -193,6 +193,24 @@ class ConfirmPage:
     banners: list[Blocker] = field(default_factory=list)
 
     @property
+    def flagged(self) -> list[RowOutcome]:
+        """Rows that could not be asked, were not asked, or carried something not kept."""
+        return [row for row in self.others if row not in self.none_proposed]
+
+    @property
+    def none_proposed(self) -> list[RowOutcome]:
+        """Rows asked, answered, and given no proposal — and nothing else to say."""
+        return [
+            row
+            for row in self.others
+            if row.failure is None
+            and row.not_asked is None
+            and not row.proposals
+            and not row.already_bound
+            and not row.unknown
+        ]
+
+    @property
     def non_conflicts(self) -> int:
         return sum(len(row.cards) for row in self.proposals)
 
@@ -823,10 +841,10 @@ def _proposing(request: Request) -> ProposingRegistry:
 
 #: What each state of a kept proposal set is called on the rubric's page.
 STATE_WORDS: Mapping[str, str] = {
-    "open": "Open: made over the bindings in force, and none of it accepted",
+    "open": "Open",
     "accepted": "Accepted",
     "empty": "No binding proposed",
-    "other state": "Made over the rubric as it was then; it can no longer be accepted",
+    "other state": "Made over an earlier state",
 }
 
 

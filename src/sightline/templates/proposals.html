@@ -139,11 +139,7 @@
 </form>
 {% endif %}
 
-<section class="panel" id="others" aria-labelledby="h-others">
-  <h2 id="h-others">Rows with nothing to accept</h2>
-  {% if page.others %}
-  <ul class="others">
-    {% for row in page.others %}
+{%- macro other_row(row) -%}
     <li data-code="{{ row.code }}">
       {{ row_head(row) }}
       {%- if row.failure is not none %}
@@ -160,9 +156,23 @@
       <p class="line muted">Dropped: <code>{{ tag }}</code> is not a capability tag this build knows. It is reported here and never written.</p>
       {%- endfor %}
     </li>
-    {% endfor %}
+{%- endmacro -%}
+<section class="panel" id="others" aria-labelledby="h-others">
+  <h2 id="h-others">Rows with nothing to accept</h2>
+  {% if page.flagged %}
+  <ul class="others">
+    {% for row in page.flagged %}{{ other_row(row) }}{% endfor %}
   </ul>
-  {% else %}
+  {% endif %}
+  {% if page.none_proposed %}
+  <details class="none-proposed">
+    <summary>Rows asked with none proposed: {{ page.none_proposed | length }}</summary>
+    <ul class="others">
+      {% for row in page.none_proposed %}{{ other_row(row) }}{% endfor %}
+    </ul>
+  </details>
+  {% endif %}
+  {% if not page.others %}
   <p class="empty">Every row asked has a proposal above.</p>
   {% endif %}
 </section>
