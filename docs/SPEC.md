@@ -782,6 +782,28 @@ Everything above describes the local single-user mode, which stays the default. 
   position, cancellable by its starter or an admin. Item 46.
 - **Sessions last 8 hours and end when the browser closes**, held by the proxy. Item 47.
 
+**As built (item 44).** `sightline.signin` and `sightline.csrf`, two pure ASGI middlewares that run
+before any route. With `SIGHTLINE_SIGNIN` on, a request is refused with 401 and a body that names no
+header when the shared secret header is missing or wrong (constant-time compare), when the secret
+or an identity header arrives twice, or when the subject is missing; `GET /healthz` alone answers
+without the proxy, with `{"status": …}` and nothing else. Settings refuses to start sign-in mode
+without a secret of at least 32 characters, or with two header names the same. Header names are
+configuration (`SIGHTLINE_SIGNIN_*_HEADER`, `SIGHTLINE_SIGNIN_GROUPS_SEPARATOR`); the defaults are
+Authentik's outpost headers and a Sightline-named secret header, and the suite runs the same checks
+with oauth2-proxy's header set. `current_reviewer` returns a `Reviewer` (display name, subject id)
+from the identity, and an override records `reviewer_subject` beside `reviewer` (an added column;
+older records and local-mode records have none). The display name falls back to the subject when
+the proxy sends none. Groups are read and kept on the identity; nothing decides anything from them
+until item 45. The Settings screen's Reviewer section shows the signed-in name instead of the field,
+and a post to the Reviewer setting is refused. CSRF, in both modes: the token is an HMAC of a cookie
+nonce and the subject under a per-process key, accepted as the `csrf_token` field or an
+`X-CSRF-Token` header; a missing or wrong token is refused with 403 and a page that says to reload.
+Three readings taken here: the acceptance and revert history of the rubric screens records the
+display name only, as before — the subject id is recorded on overrides, which is what this item
+names; a restart invalidates rendered forms once (the key is never stored); and the cookie is set
+only on a response that rendered a form, so a first page load's parallel stylesheet requests cannot
+replace the nonce the page's forms carry.
+
 ---
 
 ## §10 Roadmap

@@ -1,7 +1,7 @@
 """The review screen's routes (roadmap item 16): the index, a page per category, and two actions.
 
 Server-rendered, and every action is a form post that works with JavaScript off, like
-:mod:`sightline.views`; no login and no CSRF token, for the reason given there. A course is reached
+:mod:`sightline.views`, carrying the CSRF token :mod:`sightline.csrf` checks. A course is reached
 by its **run-store** course id — the id ``python -m sightline.batch status`` prints — so neither a
 Canvas host nor a Canvas course id is ever in a path.
 
@@ -13,9 +13,10 @@ review itself, and refuses an unopened course with the gate's own message.
 
 **Recording a rating** is one form for one row: the machine proposal is read from the review file
 (:meth:`sightline.rubric.overrides.MachineProposal.from_review`), the reviewer from
-:func:`sightline.review.identity.current_reviewer` — the one lookup — and both go to item 12a's
-append-only record. There is no route that records more than one row, by design (SPEC §09: no
-bulk-accept).
+:func:`sightline.review.identity.current_reviewer` — the one lookup, which in sign-in mode is the
+signed-in identity, recorded by subject id with the display name beside it (item 44) — and both go
+to item 12a's append-only record. There is no route that records more than one row, by design
+(SPEC §09: no bulk-accept).
 """
 
 from __future__ import annotations
@@ -41,7 +42,7 @@ from ..rubric.states import Rating
 from ..store import RunStore
 from ..voice.render import Voice
 from ..workbook import WORKBOOK_FILENAME, WorkbookError
-from .identity import current_reviewer
+from .identity import current_reviewer, reviewer_name
 from .screen import NOTE_MAX, ExportFile, ReviewScreen, View, category_href, index_href
 
 log = get_logger("sightline.review")
@@ -139,7 +140,7 @@ def build_review_router(templates: Jinja2Templates) -> APIRouter:
         section = row.section
 
         reviewer = current_reviewer(request)
-        if not reviewer:
+        if reviewer is None:
             # The form is not offered without a name; a post that arrives anyway is refused the
             # same way, naming Settings, and records nothing.
             return _category(
@@ -186,7 +187,8 @@ def build_review_router(templates: Jinja2Templates) -> APIRouter:
             course_id=course_id,
             proposal=proposal,
             human=human,
-            reviewer=reviewer,
+            reviewer=reviewer.name,
+            reviewer_subject=reviewer.subject,
             note=text or None,
         )
         log.info("rating_recorded", course_id=course_id, criterion=row.code)
@@ -292,7 +294,7 @@ def _open(request: Request, course_id: str) -> tuple[ReviewScreen, dict[str, Any
         review=loaded,
         opened=opened,
         records=latest_overrides(store, course_id),
-        reviewer=current_reviewer(request),
+        reviewer=reviewer_name(request),
     )
     return screen, raw
 

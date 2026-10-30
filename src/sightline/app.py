@@ -8,6 +8,11 @@ New run screen live in :mod:`sightline.views`, the run-progress screens in
 (roadmap item 16) and the rubric pages, where bindings are proposed, confirmed and reverted, in
 :mod:`sightline.rubric_screens` (roadmap item 22).
 
+Two middlewares run before any route (roadmap item 44): in sign-in mode
+:class:`sightline.signin.SignInMiddleware` refuses a request that did not come through the auth
+proxy, and in both modes :class:`sightline.csrf.CsrfMiddleware` refuses a form post without its
+token. Sign-in runs first, so the token can be bound to the signed-in subject.
+
 The vocabulary constraint from SPEC §11 applies to everything rendered here: Sightline *reviews*
 and *refreshes*. It does not evaluate, score or grade.
 """
@@ -29,6 +34,7 @@ from .assets import TokensNotFoundError, resolve_tokens_css
 from .batch import BatchRunner, live_pipeline_factory
 from .config import Settings, get_settings
 from .credentials import CredentialStore
+from .csrf import REFUSED_REMEDY, REFUSED_SUMMARY, CsrfMiddleware, CsrfTokens, csrf_field
 from .llm import PullRegistry
 from .logging import configure_logging, get_logger
 from .preferences import PreferenceStore
@@ -37,6 +43,7 @@ from .review import build_review_router
 from .rubric_screens import build_rubric_router
 from .run_screens import build_run_router
 from .runner import BackgroundRunner
+from .signin import SignInConfig, SignInMiddleware, signed_in
 from .store import RunStore
 from .views import build_router
 
@@ -141,6 +148,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             ollama_configured=preferences.model_host().configured,
             ollama_concurrency=resolved.ollama_concurrency,
             escalation_configured=resolved.escalation_configured,
+            signin=resolved.signin,
             interrupted_runs=len(interrupted),
             resumed_runs=len(resumed),
             batch_cap=resolved.batch_cap,
@@ -166,6 +174,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     templates = Jinja2Templates(directory=str(TEMPLATE_DIR))
     templates.env.globals["app_version"] = __version__
+    templates.env.globals["csrf_field"] = csrf_field
+
+    # Added innermost first: Starlette wraps each middleware around the ones added before it.
+    csrf = CsrfTokens()
+    application.state.csrf = csrf
+    refused = templates.get_template("review_message.html")
+    application.add_middleware(
+        CsrfMiddleware,
+        tokens=csrf,
+        refused_page=lambda: refused.render(
+            nav=None, summary=REFUSED_SUMMARY, remedy=REFUSED_REMEDY, back=None
+        ),
+    )
+    signin = SignInConfig.from_settings(resolved)
+    if signin is not None:
+        application.add_middleware(SignInMiddleware, config=signin)
     application.include_router(build_router(templates))
     application.include_router(build_run_router(templates))
     application.include_router(build_review_router(templates))
@@ -187,7 +211,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def healthz(request: Request) -> JSONResponse:
         """Liveness and readiness in one place; the container HEALTHCHECK calls this.
 
-        Every check reports what it examined, not merely that it passed.
+        Every check reports what it examined, not merely that it passed — to a caller inside the
+        deployment. In sign-in mode this path is the one answered without the proxy (the check
+        runs inside the container), so a request nobody signed in made gets the status alone: no
+        data root, no run counts.
         """
         checks: dict[str, Any] = {}
 
@@ -215,8 +242,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             checks["design_tokens"] = {"ok": False, "error": str(exc)}
 
         healthy = all(check["ok"] for check in checks.values())
-        payload = {"status": "ok" if healthy else "unhealthy", "version": __version__, **checks}
-        return JSONResponse(payload, status_code=200 if healthy else 503)
+        status = "ok" if healthy else "unhealthy"
+        code = 200 if healthy else 503
+        if resolved.signin and signed_in(request.state) is None:
+            return JSONResponse({"status": status}, status_code=code)
+        payload = {"status": status, "version": __version__, **checks}
+        return JSONResponse(payload, status_code=code)
 
     @application.get("/", include_in_schema=False)
     async def index(request: Request) -> Any:

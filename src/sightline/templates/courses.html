@@ -26,6 +26,7 @@
   {% endif %}
 
   <form method="post" action="/courses" enctype="multipart/form-data" class="form">
+    {{ csrf_field() }}
     <div class="field">
       <label for="references">Course URLs or ids</label>
       <textarea id="references" name="references" rows="5" spellcheck="false"
@@ -161,6 +162,7 @@
   {% endif %}
 
   <form method="post" action="/runs" class="form">
+    {{ csrf_field() }}
     {% if start.courses %}
     <fieldset class="field picker">
       <legend>Courses</legend>

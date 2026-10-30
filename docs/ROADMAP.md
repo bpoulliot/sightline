@@ -58,10 +58,10 @@ by item 36's session, PR #43; 44–47 split from item 40 on 2026-10-30).
 | 40 | Sign-in (SSO) and multiple users | 3 | **DECIDED** 2026-10-30 — split into 44–47 | Nothing to build under this number; the decisions are its entry |
 | 42 | A run that completed with failures records no finish time | 1 | READY — filed 2026-10-29 by item 36 | **DONE** — PR #44. Every terminal status stamps `finished_at`; `interrupted` stays unset |
 | 43 | The app's restart recovery takes over a run another process is executing | 1 | **READY** — (a) an owner record, decided 2026-10-30 | **DONE** — PR #48. Runs record host, pid and a heartbeat; recovery, shutdown and Start read them |
-| 44 | Signed-in identity behind a trusted proxy | 3 | **READY** — split from 40, 2026-10-30 | — |
-| 45 | Runs per user, an admin role, and per-user Canvas tokens | 3 | **BLOCKED** — on 44 | — |
+| 44 | Signed-in identity behind a trusted proxy | 3 | READY | **DONE** — PR #50 (sign-in mode behind a proxy secret, the subject on overrides, CSRF on every form post) |
+| 45 | Runs per user, an admin role, and per-user Canvas tokens | 3 | **READY** — 44 is DONE (PR #50) | — |
 | 46 | Queue a run behind the active one | 3 | **BLOCKED** — on 45 (43 is DONE, PR #48) | — |
-| 47 | Reference deployment: identity provider, proxy and app | 3 | **BLOCKED** — on 44; Authentik decided 2026-10-30 | — |
+| 47 | Reference deployment: identity provider, proxy and app | 3 | **BLOCKED** — on 44 (DONE, PR #50); Authentik decided 2026-10-30 | — |
 
 ---
 
@@ -156,7 +156,8 @@ re-run) ran DONE — PR #45.
 **Wave 4 — composed 2026-10-30, not released.** In order: `99u-` item 43 (the bug first),
 `99v-` item 22 part 2, `99w-` item 44, `99x-` item 45, `99y-` item 46. Each gates on its
 predecessors being DONE on `main`, then `99z-` item 47 (decided the same day: Authentik). `99u-`
-(item 43) ran DONE — PR #48. `99v-` (item 22 part 2) ran DONE — PR #49.
+(item 43) ran DONE — PR #48. `99v-` (item 22 part 2) ran DONE — PR #49. `99w-` (item 44) ran
+DONE — PR #50.
 
 ---
 
@@ -1213,7 +1214,7 @@ change each of those. Questions to settle before it is READY:
 no proxy configured the app is today's single-user local tool, unchanged, and the Reviewer
 setting still names the reviewer.
 
-**44 · FILED 2026-10-30 (split from 40). READY. Signed-in identity behind a trusted proxy.**
+**44 · DONE 2026-10-30 — PR #50.** Filed 2026-10-30 (split from 40). **Signed-in identity behind a trusted proxy.**
 A sign-in mode, off by default. When on, every request must carry the proxy's identity headers
 (subject, display name, groups; names configurable) and a shared secret the proxy adds, or it is
 refused with 401 before any route runs — a request that did not come through the proxy is not
@@ -1225,8 +1226,17 @@ configuration, with defaults that match Authentik's proxy outpost, and nothing e
 provider-specific: oauth2-proxy in front of Entra ID must work by changing configuration alone. *Does not* scope data by
 user, add roles or touch Canvas tokens: that is 45.
 
-**45 · FILED 2026-10-30 (split from 40). BLOCKED on 44. Runs per user, an admin role, and
-per-user Canvas tokens.** A run records the subject who started it. The run list, run pages,
+*As built (PR #50).* `sightline.signin` and `sightline.csrf`, two middlewares ahead of every
+route; SPEC §09 *As built (item 44)* has the detail and three readings taken. What 45 and 47 start
+from: the identity is `request.state.identity` (`sightline.signin.Identity`: subject, name,
+groups), read through `sightline.review.identity.current_reviewer`; groups are parsed with
+`SIGHTLINE_SIGNIN_GROUPS_SEPARATOR` and nothing reads them yet; the secret header defaults to
+`X-Sightline-Proxy-Secret`, which 47's runbook tells the proxy to add; `GET /healthz` is the one
+unauthenticated path. The rubric screens' acceptance history still records the display name only
+— if 45 wants the subject there too, it is a small change in `sightline.rubric.accepted`.
+
+**45 · FILED 2026-10-30 (split from 40). READY — 44 is DONE (PR #50). Runs per user, an admin
+role, and per-user Canvas tokens.** A run records the subject who started it. The run list, run pages,
 reviews and exports show a user only their own runs, and anything else answers 404, not 403.
 Admin is membership in a configured identity-provider group, read from 44's groups header; an
 admin sees every run and alone may change instance settings. Each user stores their own Canvas
@@ -2425,6 +2435,11 @@ to this.**
   something credential-shaped" rather than dropped.
 
 ## Corrections log
+
+**2026-10-30 — item 44 built (PR #50).** SPEC §09 gains *As built (item 44)*; the README gains
+*Sign-in behind a proxy* and the sign-in variables; `.env.example` carries them. Item 44 is DONE
+and item 45 is READY. The `sightline.views` and review-route docstrings no longer say there is no
+CSRF token.
 
 **2026-10-30 — item 22 part 2 built (PR #49).** SPEC §09 gains *As built (item 22, part 2)*;
 `docs/RUBRIC-PACKS.md` describes the Rubrics screen beside the command line. Item 22 is DONE.

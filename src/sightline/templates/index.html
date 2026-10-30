@@ -30,7 +30,7 @@
           <th scope="row">{{ row.name }}</th>
           <td data-label="Environment variable"><code>{{ row.env }}</code></td>
           <td data-label="State">
-            <span class="state {% if row.state == 'configured' %}state-on{% else %}state-off{% endif %}">{{ row.state }}</span>
+            <span class="state {% if row.state in ('configured', 'on') %}state-on{% else %}state-off{% endif %}">{{ row.state }}</span>
           </td>
           <td data-label="Note" class="muted">{{ row.note }}</td>
         </tr>

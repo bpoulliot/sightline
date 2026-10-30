@@ -35,10 +35,10 @@ from typing import Any
 
 import httpx
 import pytest
-from fastapi.testclient import TestClient
 
 import ollama_recordings as recordings
 from canvas_recordings import EXAMPLE_BASE_URL, FAKE_TOKEN
+from form_clients import FormClient as TestClient
 from run_owners import OTHER_HOST, set_owner
 from sightline import rubric_screens
 from sightline.app import TEMPLATE_DIR, create_app

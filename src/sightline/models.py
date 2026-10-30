@@ -273,7 +273,11 @@ class RatingOverride(Base):
 
     #: The human side.
     human_rating: Mapped[str] = mapped_column(String(32))
-    #: Who set it — whatever identifier the review screen has for the person. Free text.
+    #: Who set it — whatever identifier the review screen has for the person. Free text: the
+    #: Reviewer setting in local mode, the signed-in display name in sign-in mode.
     reviewer: Mapped[str] = mapped_column(String(128))
+    #: The signed-in subject's stable id (roadmap item 44), or null. Null on every record made in
+    #: local mode and on every record a previous version made, which keep their name and no id.
+    reviewer_subject: Mapped[str | None] = mapped_column(String(255), default=None)
     note: Mapped[str | None] = mapped_column(Text, default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

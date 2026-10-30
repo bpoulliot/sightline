@@ -160,11 +160,11 @@ class ReviewerPreference:
     """Who a rating recorded on the review screen is recorded as (roadmap item 16, Q1).
 
     Free text — a name, initials, an email address; whatever the person wants the record to say.
-    Sightline has no login (:mod:`sightline.views`), so this is a statement, not an identity, and
-    it is never used to decide what anybody may do. Read it through
+    In local mode Sightline has no login, so this is a statement, not an identity, and it is never
+    used to decide what anybody may do. Read it through
     :func:`sightline.review.identity.current_reviewer`, the one lookup the override path calls,
-    so that sign-in (roadmap item 40) can replace the source without touching the form or the
-    record.
+    which in sign-in mode (roadmap item 44) answers with the signed-in identity instead and never
+    reads this.
     """
 
     name: str | None

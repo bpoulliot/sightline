@@ -24,10 +24,10 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from fastapi.testclient import TestClient
 
 import ollama_recordings as recordings
 from canvas_recordings import EXAMPLE_BASE_URL, FAKE_TOKEN, Recording, load
+from form_clients import FormClient as TestClient
 from run_owners import OTHER_HOST, STALE, dead_pid, live_process, set_owner, this_host
 from sightline import views
 from sightline.app import create_app

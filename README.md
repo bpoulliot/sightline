@@ -830,8 +830,9 @@ the PDF report (item 14) both render to bytes and write through `ExportGate.save
 COURSE` and by the review screen's export control (see *The PDF course report* and *The review
 screen*).
 
-It is not access control — Sightline is one local process with no login. It stops a *program*
-exporting unattended, which is the failure the rule is about: a report delivered to a faculty
+It is not access control — in local mode Sightline is one process with no login, and sign-in
+mode (item 44) does not yet scope runs by user (item 45). It stops a *program* exporting
+unattended, which is the failure the rule is about: a report delivered to a faculty
 member that no instructional designer ever read.
 
 ### What a batch costs, measured
@@ -1081,8 +1082,8 @@ status RUN` prints — never a Canvas host or course id. It reads the course bac
 - **Who a rating is recorded as** is the *Reviewer* name on the Settings screen (operator decision
   Q1, 2026-10-29). Until one is set, the form is not offered and a post is refused, naming
   Settings; the form says whose name it will record. `sightline.review.identity.current_reviewer`
-  is the one lookup, so sign-in (item 40) can replace its source without touching the form or the
-  record.
+  is the one lookup: in sign-in mode (item 44) it answers with the signed-in identity, and the
+  record keeps the subject's stable id beside the display name.
 - **Overrides go through item 12a's record**: `MachineProposal.from_review` read from the review
   file, then `record_override`, append-only. The page shows each row's latest record and its note.
 - **The export control** writes `report.pdf` and `review.xlsx` through the gate and offers each
@@ -1273,6 +1274,11 @@ repository is a bug, and `tests/test_config.py` fails the build over one.
 | `SIGHTLINE_TOKENS_CSS` | Override the location of `docs/tokens.css`. |
 | `SIGHTLINE_PORT` | Host port for the compose service. Default `8099`. |
 | `SIGHTLINE_LOG_LEVEL` / `SIGHTLINE_LOG_FORMAT` | `INFO` and `json` by default; `console` is easier to read locally. |
+| `SIGHTLINE_SIGNIN` | Sign-in mode. Default `false`. See *Sign-in behind a proxy*. |
+| `SIGHTLINE_SIGNIN_SECRET` | The secret the auth proxy adds to every request it forwards. Required in sign-in mode, at least 32 characters. Environment only. |
+| `SIGHTLINE_SIGNIN_SECRET_HEADER` | The header the secret arrives in. Default `X-Sightline-Proxy-Secret`. |
+| `SIGHTLINE_SIGNIN_SUBJECT_HEADER` / `_NAME_HEADER` / `_GROUPS_HEADER` | The identity headers. Defaults `X-authentik-uid`, `X-authentik-name`, `X-authentik-groups` (Authentik's proxy outpost). |
+| `SIGHTLINE_SIGNIN_GROUPS_SEPARATOR` | What separates groups in the groups header. Default `\|`. |
 
 `CANVAS_BASE_URL` and `CANVAS_API_TOKEN` are the **fallback**. Normally both are entered on the
 settings screen and held encrypted in the run store; the environment is what a container uses when
@@ -1296,6 +1302,54 @@ artifact that travels — copied for a bug report, backed up, opened in a SQLite
 screen-share — and encrypting means none of that exposes a token. It does **not** defend against
 someone who can read the whole data root, because by default the key is a file in it. If that is
 the threat, put the key in `SIGHTLINE_SECRET_KEY` and keep it somewhere the volume is not.
+
+### Sign-in behind a proxy
+
+Sightline is a single-user local tool by default. **Sign-in mode** (`SIGHTLINE_SIGNIN=true`, roadmap
+item 44) is for one instance offered to several people: an identity provider federates the
+institution's sign-on, an auth proxy in front of the app signs people in, and the app trusts the
+identity the proxy forwards — only from the proxy. The proxy adds a shared secret header to every
+request; a request without it, with a wrong one, with an identity header sent twice, or without a
+subject is refused with 401 before any route runs. The one exception is `GET /healthz`, which the
+container's health check calls from inside the container; without the proxy it answers with its
+status and nothing else.
+
+The reviewer is then the signed-in person: an override records the subject's stable id beside the
+display name, so a renamed person keeps their history, and the Reviewer field on Settings gives way
+to *You are signed in as …*. Sessions — how long, and signing out — are the proxy's (item 47).
+Sign-in mode does not yet scope runs by user, add an admin role or per-user Canvas tokens; that is
+item 45.
+
+Header names are configuration and nothing in the app is provider-specific. The defaults are
+Authentik's proxy outpost headers; Authentik is told to add the secret with a property mapping. For
+oauth2-proxy in front of Entra ID with `--pass-user-headers`:
+
+```
+SIGHTLINE_SIGNIN=true
+SIGHTLINE_SIGNIN_SECRET=<43 characters from: python -c "import secrets; print(secrets.token_urlsafe(32))">
+SIGHTLINE_SIGNIN_SECRET_HEADER=X-Proxy-Shared-Secret
+SIGHTLINE_SIGNIN_SUBJECT_HEADER=X-Forwarded-User
+SIGHTLINE_SIGNIN_NAME_HEADER=X-Forwarded-Preferred-Username
+SIGHTLINE_SIGNIN_GROUPS_HEADER=X-Forwarded-Groups
+SIGHTLINE_SIGNIN_GROUPS_SEPARATOR=,
+```
+
+with the proxy (or the server in front of it) adding `X-Proxy-Shared-Secret`. Two things the app
+cannot check for you: the proxy must **replace**, not append to, an identity header a client sends
+(the app refuses a header that arrives twice, which catches an appending proxy), and the app's port
+must be reachable only through the proxy. Entra's groups header carries group object ids, not
+names.
+
+The secret is registered with `sightline.redaction` by value and the identity headers by name, so
+a header line, a request scope or a logged header mapping keeps the header's name and loses its
+value.
+
+**Every form post carries a CSRF token, in both modes.** A local tool listens on a port any web
+page in the same browser can post to. Each page with a form renders a hidden `csrf_token`: an HMAC
+of a random nonce held in an `HttpOnly`, `SameSite=Lax` cookie and, in sign-in mode, of the
+signed-in subject, under a key the process draws at start. A post without it — or with
+`X-CSRF-Token` for a script — is refused with a page that says to reload. A restart draws a new
+key, so a page left open across one is refused once and works after a reload.
 
 ## What is in this repository, and what never is
 

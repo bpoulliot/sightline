@@ -59,6 +59,7 @@
 
   {% if latest %}
   <form method="post" action="/rubrics/{{ pack.id }}/revert" class="form decision" id="revert">
+    {{ csrf_field() }}
     <h3>Revert acceptance {{ latest.number }}</h3>
     <p class="line">Reverting puts back the bindings in force before it{% if not latest.before %}, the shipped rubric's own{% endif %}. The acceptance stays in the history below, marked as reverted.</p>
     {% if revert_delta %}{{ moves(revert_delta) }}{% endif %}
@@ -118,6 +119,7 @@
   {% endif %}
 
   <form method="post" action="/rubrics/{{ pack.id }}/propose" class="form">
+    {{ csrf_field() }}
     <div class="actions">
       <button type="submit" class="button button-primary"{% if blockers and not refused %} disabled{% endif %}>Propose bindings</button>
       <p class="hint">A run cannot start while proposals are being made, and proposing cannot start while a run is going: both ask the same model host.</p>

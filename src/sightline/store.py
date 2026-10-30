@@ -59,6 +59,10 @@ ADDED_COLUMNS: dict[str, dict[str, str]] = {
         # previous version recorded, which reads as the shipped pack — what those runs ran with.
         "bindings_digest": "VARCHAR(80)",
     },
+    # Roadmap item 44: the signed-in subject beside the reviewer's display name. Null on every
+    # override a previous version recorded, and on every one recorded in local mode — those keep
+    # their name and have no id.
+    "rating_overrides": {"reviewer_subject": "VARCHAR(255)"},
 }
 
 
@@ -288,9 +292,13 @@ class RunStore:
         effort_calibrated: bool,
         human_rating: str,
         reviewer: str,
+        reviewer_subject: str | None = None,
         note: str | None = None,
     ) -> int:
         """Append one override beside the proposal it replaces. Returns the new record's id.
+
+        ``reviewer_subject`` is the signed-in subject's stable id in sign-in mode (roadmap item
+        44) and ``None`` in local mode. Neither it nor the name goes into the run event.
 
         Both ratings must be internal rating names; a label ("Minor Revision") is refused rather
         than stored, because a record 12b cannot key on is a record lost.
@@ -320,6 +328,7 @@ class RunStore:
                 effort_calibrated=effort_calibrated,
                 human_rating=human_rating,
                 reviewer=reviewer.strip(),
+                reviewer_subject=(reviewer_subject or "").strip() or None,
                 note=note,
             )
             session.add(record)

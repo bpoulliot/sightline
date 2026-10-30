@@ -22,8 +22,8 @@ from typing import Any
 import openpyxl
 import pytest
 from fastapi.templating import Jinja2Templates
-from fastapi.testclient import TestClient
 
+from form_clients import FormClient as TestClient
 from pdf_reader import read_pdf
 from sightline.app import TEMPLATE_DIR, create_app
 from sightline.batch import (
@@ -41,6 +41,7 @@ from sightline.paths import DataPaths
 from sightline.preferences import REVIEWER_MAX, PreferenceStore
 from sightline.report import REPORT_FILENAME, ReportError, build_report, parse_review, to_pdf
 from sightline.report.model import anchor_for
+from sightline.review import Reviewer
 from sightline.review import routes as review_routes
 from sightline.review.screen import QUESTION, SORTS, ReviewScreen, View, reading_key
 from sightline.rubric import Coverage, Rating
@@ -621,12 +622,16 @@ def test_the_form_says_whose_name_it_will_record(client, course) -> None:
 def test_the_override_path_takes_the_reviewer_from_the_one_lookup(
     client, course, store, monkeypatch
 ) -> None:
-    """Item 40 swaps the source of :func:`current_reviewer`; nothing else needs to change."""
-    monkeypatch.setattr(review_routes, "current_reviewer", lambda request: "Signed-in Person")
+    """Item 44 swaps the source of :func:`current_reviewer`; the record takes what it answers."""
+    monkeypatch.setattr(
+        review_routes,
+        "current_reviewer",
+        lambda request: Reviewer(name="Signed-in Person", subject="subject-0001"),
+    )
     category(client, course, "MOB")
     assert record(client, course, "MOB 2", rating="major").status_code == 303
     (saved,) = store.list_overrides(course_id=course)
-    assert saved.reviewer == "Signed-in Person"
+    assert (saved.reviewer, saved.reviewer_subject) == ("Signed-in Person", "subject-0001")
     # And nothing in the review package reads the preference except the lookup itself.
     package = REPO / "src" / "sightline" / "review"
     readers = sorted(

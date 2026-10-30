@@ -48,6 +48,7 @@
   <p class="banner banner-ok" role="status">{{ say(page.labels.review_exported) }}</p>
   {%- endif %}
   <form method="post" action="/review/{{ page.header.course_id | urlencode }}/export" class="form">
+    {{ csrf_field() }}
     <div class="actions">
       <button type="submit" class="button button-primary">{{ page.labels.review_export_button.text }}</button>
     </div>
