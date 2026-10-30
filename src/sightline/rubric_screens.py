@@ -690,7 +690,8 @@ def _render_rubric(
             "model": _preferences(request).review_model().name,
             "reviewer": current_reviewer(request),
             "just": just,
-            "nondeterminism": NONDETERMINISM_NOTE,
+            # Its first sentence: the rest speaks of a file, and none exists before proposing.
+            "nondeterminism": NONDETERMINISM_NOTE.split(". ")[0] + ".",
             "state_words": STATE_WORDS,
         },
         status_code=status,
