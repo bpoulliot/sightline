@@ -57,10 +57,10 @@ by item 36's session, PR #43; 44–47 split from item 40 on 2026-10-30).
 | 39 | Every other bare pattern in `.dockerignore` is root-only too | 3 | READY | **DONE** — PR #41. Planted nested files 19 → 0 in the dev image, 15 → 0 in runtime |
 | 40 | Sign-in (SSO) and multiple users | 3 | **DECIDED** 2026-10-30 — split into 44–47 | Nothing to build under this number; the decisions are its entry |
 | 42 | A run that completed with failures records no finish time | 1 | READY — filed 2026-10-29 by item 36 | **DONE** — PR #44. Every terminal status stamps `finished_at`; `interrupted` stays unset |
-| 43 | The app's restart recovery takes over a run another process is executing | 1 | **READY** — (a) an owner record, decided 2026-10-30 | — |
+| 43 | The app's restart recovery takes over a run another process is executing | 1 | **READY** — (a) an owner record, decided 2026-10-30 | **DONE** — PR #48. Runs record host, pid and a heartbeat; recovery, shutdown and Start read them |
 | 44 | Signed-in identity behind a trusted proxy | 3 | **READY** — split from 40, 2026-10-30 | — |
 | 45 | Runs per user, an admin role, and per-user Canvas tokens | 3 | **BLOCKED** — on 44 | — |
-| 46 | Queue a run behind the active one | 3 | **BLOCKED** — on 43 and 45 | — |
+| 46 | Queue a run behind the active one | 3 | **BLOCKED** — on 45 (43 is DONE, PR #48) | — |
 | 47 | Reference deployment: identity provider, proxy and app | 3 | **BLOCKED** — on 44; Authentik decided 2026-10-30 | — |
 
 ---
@@ -155,7 +155,8 @@ re-run) ran DONE — PR #45.
 
 **Wave 4 — composed 2026-10-30, not released.** In order: `99u-` item 43 (the bug first),
 `99v-` item 22 part 2, `99w-` item 44, `99x-` item 45, `99y-` item 46. Each gates on its
-predecessors being DONE on `main`, then `99z-` item 47 (decided the same day: Authentik).
+predecessors being DONE on `main`, then `99z-` item 47 (decided the same day: Authentik). `99u-`
+(item 43) ran DONE — PR #48.
 
 ---
 
@@ -1032,8 +1033,8 @@ The near-boundary marker and `agreement.brief()` belong to item 24's re-run, not
   afterwards.
 - The full suite is green, ruff and black exit codes are read separately, and all CI jobs are green.
 
-**43 · FILED 2026-10-29 by item 36's session (PR #43). NEEDS DISCUSSION. The application's
-restart recovery takes over a run another process is executing.**
+**43 · DONE 2026-10-30 — PR #48.** Filed 2026-10-29 by item 36's session (PR #43). **The
+application's restart recovery takes over a run another process is executing.**
 
 *Evidence.* `RunStore.recover_interrupted()` marks **every** run whose status is `running` as
 `interrupted`; it cannot tell whose it is. Three places call it:
@@ -1076,6 +1077,29 @@ treated as orphaned, as today.
 *Trap.* The app container and a command-line run in another container can share the data volume
 but not a process namespace, and the host name is the container's. A process id means something
 only when the host name matches; across hosts the heartbeat is the whole test.
+
+*As built (PR #48).* `runs` gains `owner_host`, `owner_pid` and `owner_heartbeat_at` through
+`ADDED_COLUMNS`. `sightline.ownership` holds the rule and its two constants: `HEARTBEAT_INTERVAL`
+is 30 seconds and `STALE_AFTER` is ten intervals, five minutes. The heartbeat is a thread, not an
+asyncio task, so a stage that awaits the model host or holds the event loop in a long synchronous
+parse cannot delay it. `RunHold` claims a run with a compare-and-set on the owner record, so of two
+processes reaching for one orphaned run exactly one wins. It beats while the run executes and
+clears the record on the way out. A run still `running` at that point is marked interrupted
+instead of being left for the next recovery. The background runner claims before it marks a run
+`running`. `python -m sightline.batch run|resume` execute under a hold, and `resume` of a run with
+a live owner exits 2 and names `status`. App shutdown interrupts only this process's runs
+(`RunStore.interrupt_owned`). Start counts a store-`running` run as busy only while its owner is
+live. One case the decision did not name, decided here: a record that carries **this** process's
+own pid on this host is live only while this process holds the run, because a restarted container
+gives its app the same small pid under the same host name. Two limits remain:
+- Reuse of a pid by an unrelated process on the same host is invisible to a pid check. The
+  heartbeat ends it within `STALE_AFTER`.
+- An owner taken over after five silent minutes (a suspended machine, say) stops beating when it
+  notices, but it does not stop executing.
+
+Tests: `tests/test_ownership.py`, and the Start tests in `tests/test_run_screens.py`. They use real
+child processes, live or reaped, and a host name that is not this one. With the liveness rule
+disabled, 9 of them fail.
 
 **42 · DONE 2026-10-29 — PR #44.** Filed 2026-10-29 by item 36's session (PR #43). **A run that
 completed with failures records no finish time.**
@@ -1183,7 +1207,9 @@ local mode there is one implicit user who is admin, so nothing changes.
 one.** Start while a run is active accepts the run as queued instead of refusing it. Queued runs
 execute one at a time in the order they were started; the run page reads *queued, N ahead*; the
 starter or an admin can cancel a queued run. A command-line run with a live owner (43) counts as
-the active run. No priority, no reordering, no estimate of when it starts.
+the active run. No priority, no reordering, no estimate of when it starts. *The dependency on 43
+is met (DONE 2026-10-30, PR #48): `sightline.ownership.owner_is_live` is the test for "a live
+owner", and `sightline.new_run.active_runs` already applies it. 46 still waits on 45.*
 
 **47 · FILED 2026-10-30 (split from 40). NEEDS DECISION: which identity provider and which
 proxy.** A reference compose file — identity provider, auth proxy, app; three containers — and a
@@ -2368,6 +2394,10 @@ to this.**
   something credential-shaped" rather than dropped.
 
 ## Corrections log
+
+**2026-10-30 — item 43 built (PR #48).** SPEC §04 *Runtime* and §09 *As built (item 36)* now
+say that a run records its owner. They also say that recovery, shutdown and Start's check act on
+whether that owner is live, not on the `running` status alone.
 
 **2026-10-30 — decisions recorded (operator, interactive).** Item 43: (a), an owner record;
 READY. Item 22 part 2 specified; READY. Item 40 decided and split into 44 (READY), 45 and 46

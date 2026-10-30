@@ -230,6 +230,12 @@ worker container. At 1–16 courses the work is I/O-bound against Ollama and the
 distribute. Run state persists to SQLite so a restart resumes. Follows the van1sh footprint
 deliberately.
 
+A run that is executing records its **owner**: host name, process id, and a heartbeat the owner
+refreshes while it works. The app and a command-line run can be different processes, or different
+containers sharing the data volume. A restart therefore takes over only a run whose owner is gone:
+a dead process id on the same host, or a stale heartbeat on any host. A process id means nothing
+across hosts. Roadmap item 43; the rule is `sightline.ownership`.
+
 ### Nothing institution-specific is compiled in
 
 Sightline is intended to be reusable and open source. Every deployment-specific value is
@@ -716,7 +722,8 @@ ticked where its content can be read, and a rubric picker over the shipped packs
 its message are the batch runner's) and submits it to the background runner. A run is not started,
 and the form says why and names Settings, without a Canvas credential, a model host or a chosen
 model, or **while another run is running** — this process's tasks, or a run the store records as
-`running`, which is how a command-line run in another process shows. Bundles stay on the command
+`running` whose owner is live, which is how a command-line run in another process shows (item 43:
+a `running` row whose owner is gone does not block Start). Bundles stay on the command
 line. *Run progress* is `/runs` (the recent runs) and `/runs/{id}`: per course and per stage, what
 each stage examined and its statement, never a percentage; a failed stage's summary and remedy; the
 run's own failures from its log; the run log itself; for each course with a result a link to its
