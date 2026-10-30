@@ -255,7 +255,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         store: RunStore | None = getattr(request.app.state, "store", None)
         # The person's own runs in sign-in mode, every run for an admin (roadmap item 45).
         who = viewer(request)
-        runs = store.list_runs(limit=10, starter_subject=who.runs_filter) if store is not None else []
+        runs = (
+            store.list_runs(limit=10, starter_subject=who.runs_filter) if store is not None else []
+        )
         paths = getattr(request.app.state, "paths", resolved.paths)
         return templates.TemplateResponse(
             request=request,

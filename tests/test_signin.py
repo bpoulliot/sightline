@@ -50,6 +50,7 @@ REFERENCE = "uccs-oscqr-3-1-3"
 SECRET = "fake-proxy-secret-0000000000000000000000"
 SUBJECT = "fake-subject-7f3a9c"
 NAME = "Pat Example"
+ADMIN_GROUP = "fake-sightline-admins"
 
 AUTHENTIK = {
     "secret": "X-Sightline-Proxy-Secret",
@@ -341,7 +342,10 @@ def course(paths: DataPaths) -> str:
     payload = json.loads(SAMPLE.read_text(encoding="utf-8"))
     store = RunStore.open(paths)
     try:
-        run_id = create_batch_run(store, ["examples/sample-course"], rubric_pack=REFERENCE)
+        # Started by the person who reviews it: a run is its starter's (roadmap item 45).
+        run_id = create_batch_run(
+            store, ["examples/sample-course"], rubric_pack=REFERENCE, starter_subject=SUBJECT
+        )
         pipeline = SavedReviewPipeline(payload)
         asyncio.run(BatchRunner(store, paths, pipeline_factory(pipeline)).execute(run_id))
         run = store.get_run(run_id)
@@ -521,8 +525,10 @@ def mode(request, settings: Settings, data_root: Path) -> Iterator[tuple[TestCli
         with TestClient(create_app(settings)) as client:
             yield client, {}
     else:
-        with TestClient(create_app(signin_settings(data_root))) as client:
-            yield client, proxied()
+        # An admin: the forms these tests post include the instance settings (roadmap item 45).
+        admin = signin_settings(data_root, signin_admin_group=ADMIN_GROUP)
+        with TestClient(create_app(admin)) as client:
+            yield client, proxied(groups=ADMIN_GROUP)
 
 
 def test_a_form_post_without_its_token_is_refused_with_a_page_that_says_to_reload(mode) -> None:
