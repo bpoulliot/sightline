@@ -63,7 +63,7 @@ USER_TOKEN_PREFIX = "canvas-user:"
 
 
 def user_secret_name(subject: str) -> str:
-    """The ``app_secrets`` row holding ``subject``'s token. A digest, so it fits and names nobody."""
+    """The ``app_secrets`` row for ``subject``'s token: a digest, so it fits and names nobody."""
     digest = hashlib.blake2b(subject.encode("utf-8"), digest_size=24).hexdigest()
     return f"{USER_TOKEN_PREFIX}{digest}"
 

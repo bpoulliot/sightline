@@ -6,7 +6,8 @@
 <section class="panel" aria-labelledby="h-runs">
   <h1 id="h-runs">Runs</h1>
   <p class="lede">
-    The {{ limit }} most recent runs, newest first. Each run's page shows every course, stage by
+    The {{ limit }} most recent {% if signed_in and not admin %}runs you started{% else %}runs{% endif %}, newest first.
+    {%- if signed_in and admin %} You are an admin, so this lists every person's runs and who started each.{% elif signed_in %} Runs other people start are theirs, and are not listed here.{% endif %} Each run's page shows every course, stage by
     stage, with what each stage examined and every failure with what to change. A new run is
     started from the <a href="/courses">New run</a> screen.
   </p>
@@ -19,7 +20,7 @@
     <table class="run-list">
       <caption class="visually-hidden">The most recent runs, with their courses and status</caption>
       <thead>
-        <tr><th scope="col">Run</th><th scope="col">Status</th><th scope="col">Courses</th><th scope="col">Reviewed</th><th scope="col">Failed</th><th scope="col">Rubric</th><th scope="col">Recorded</th></tr>
+        <tr><th scope="col">Run</th><th scope="col">Status</th><th scope="col">Courses</th><th scope="col">Reviewed</th><th scope="col">Failed</th><th scope="col">Rubric</th>{% if signed_in and admin %}<th scope="col">Started by</th>{% endif %}<th scope="col">Recorded</th></tr>
       </thead>
       <tbody>
         {% for row in rows %}
@@ -30,6 +31,7 @@
           <td data-label="Reviewed" class="num">{{ row.reviewed }}</td>
           <td data-label="Failed" class="num">{{ row.failed }}</td>
           <td data-label="Rubric"><code>{{ row.run.rubric_pack }}</code></td>
+          {% if signed_in and admin %}<td data-label="Started by">{% if row.run.starter_subject %}{{ row.run.starter_name or row.run.starter_subject }}{% else %}<span class="muted">nobody recorded</span>{% endif %}</td>{% endif %}
           <td data-label="Recorded" class="muted">{{ row.run.created_at.strftime('%Y-%m-%d %H:%M UTC') }}</td>
         </tr>
         {% endfor %}

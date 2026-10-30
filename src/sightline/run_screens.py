@@ -23,6 +23,10 @@ somebody has, the export control is shown closed, with the export gate's own rea
 (:meth:`sightline.batch.gate.ExportGate.require_open`) — the gate's words, not a paraphrase of
 them. This page never opens a review and never exports.
 
+**A run is its starter's** (roadmap item 45). In sign-in mode the list holds only the runs the
+signed-in person started — every run, for an admin, with who started each — and a run page for
+anybody else's run answers 404 with the same page as a run that does not exist.
+
 Nothing here logs a course reference (item 17). The page shows each course's reference because
 the person reading it is the person who typed it, the same decision the course screen makes.
 """
@@ -36,6 +40,7 @@ from typing import Any
 from fastapi import APIRouter, Request
 from fastapi.templating import Jinja2Templates
 
+from .access import viewer, visible_run
 from .batch import (
     CourseProgress,
     ExportGate,
@@ -45,7 +50,7 @@ from .batch import (
     StageState,
     progress_of,
 )
-from .models import STATUS_LABELS, TERMINAL_STATUSES, RunEvent, RunStatus, as_utc
+from .models import STATUS_LABELS, TERMINAL_STATUSES, Run, RunEvent, RunStatus, as_utc
 from .new_run import is_running, short_id
 from .paths import DataPaths
 from .review.screen import index_href
@@ -169,7 +174,8 @@ def build_run_router(templates: Jinja2Templates) -> APIRouter:
     @router.get("/runs", include_in_schema=False)
     async def run_list(request: Request) -> Any:
         store = _store(request)
-        runs = store.list_runs(limit=RUN_LIST_LIMIT)
+        who = viewer(request)
+        runs = store.list_runs(limit=RUN_LIST_LIMIT, starter_subject=who.runs_filter)
         rows = [
             {
                 "run": run,
@@ -187,18 +193,27 @@ def build_run_router(templates: Jinja2Templates) -> APIRouter:
         return templates.TemplateResponse(
             request=request,
             name="runs.html",
-            context={"nav": "runs", "rows": rows, "limit": RUN_LIST_LIMIT},
+            context={
+                "nav": "runs",
+                "rows": rows,
+                "limit": RUN_LIST_LIMIT,
+                # Sign-in mode (item 45): whose runs these are, and for an admin who started each.
+                "signed_in": who.signed_in,
+                "admin": who.admin,
+            },
         )
 
     @router.get("/runs/{run_id}", include_in_schema=False)
     async def run_page(request: Request, run_id: str) -> Any:
         store = _store(request)
-        progress = progress_of(store, run_id)
+        who = viewer(request)
+        visible = visible_run(request, store, run_id)
+        progress = progress_of(store, run_id) if visible is not None else None
         if progress is None:
             return templates.TemplateResponse(
                 request=request,
                 name="run_missing.html",
-                context={"nav": "runs", "run_id": run_id},
+                context={"nav": "runs", "run_id": run_id, "signed_in": who.signed_in},
                 status_code=404,
             )
         page = build_page(store, _paths(request), progress)
@@ -211,6 +226,8 @@ def build_run_router(templates: Jinja2Templates) -> APIRouter:
                 "payload": progress.to_dict(),
                 "poll_ms": POLL_MS,
                 "state_class": state_class,
+                # Item 45: an admin reading somebody's run is told whose it is.
+                "starter": _starter(visible) if who.signed_in and who.admin else None,
             },
         )
 
@@ -220,6 +237,13 @@ def build_run_router(templates: Jinja2Templates) -> APIRouter:
 # ---------------------------------------------------------------------------------------------
 # Assembling a page
 # ---------------------------------------------------------------------------------------------
+
+
+def _starter(run: Run | None) -> str:
+    """Who started a run, for an admin; a run with no starter recorded says so."""
+    if run is None or run.starter_subject is None:
+        return "nobody recorded — started on the command line or before runs recorded a starter"
+    return run.starter_name or run.starter_subject
 
 
 def build_page(store: RunStore, paths: DataPaths, progress: RunProgress) -> RunPage:
