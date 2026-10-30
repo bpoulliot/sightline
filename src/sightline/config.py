@@ -170,6 +170,14 @@ class Settings(BaseSettings):
         min_length=1,
         validation_alias="SIGHTLINE_SIGNIN_GROUPS_SEPARATOR",
     )
+    #: The identity-provider group whose members are admins (roadmap item 45): an admin sees
+    #: every run and alone changes the instance settings. Matched exactly against what the proxy
+    #: forwards in the groups header — a group *name* from Authentik, an object id from Entra ID.
+    #: Unset, nobody signed in is an admin, and the instance settings come from the environment
+    #: and whatever was stored before. Local mode ignores it: its one user is the admin.
+    signin_admin_group: str | None = Field(
+        default=None, validation_alias="SIGHTLINE_SIGNIN_ADMIN_GROUP"
+    )
 
     # -- Server ------------------------------------------------------------------------------
     host: str = Field(default="127.0.0.1", validation_alias="SIGHTLINE_HOST")
@@ -188,6 +196,13 @@ class Settings(BaseSettings):
             return None
         text = value.strip().rstrip("/")
         return text or None
+
+    @field_validator("signin_admin_group")
+    @classmethod
+    def _blank_is_unset(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return value.strip() or None
 
     @field_validator("log_level")
     @classmethod
@@ -332,8 +347,10 @@ class Settings(BaseSettings):
                 "env": "SIGHTLINE_SIGNIN",
                 "state": "on" if self.signin else "off",
                 "note": (
-                    "On: every request must come through the sign-in proxy, and the signed-in "
-                    "identity is the reviewer. Off: a local single-user tool."
+                    "On: every request must come through the sign-in proxy, the signed-in "
+                    "identity is the reviewer, each person sees their own runs and reads Canvas "
+                    "with their own token, and members of SIGHTLINE_SIGNIN_ADMIN_GROUP see every "
+                    "run and change the instance settings. Off: a local single-user tool."
                 ),
             },
         ]

@@ -5,6 +5,15 @@ per run and because what it should be built from is only known once the run exis
 pack is recorded on the run, and the credentials are whatever is in force at the moment the run
 starts rather than when the process booted.
 
+**A run reads Canvas as the person who started it** (roadmap item 45). A run recorded in sign-in
+mode carries its starter's subject, and every Canvas call it makes — reads, and the content-export
+request, which writes to the course's export list — carries that person's own token, from
+:meth:`sightline.credentials.CredentialStore.canvas_for`. The factory reads the subject off the run
+each time it builds, so a run resumed after a restart is still its starter's. A starter with no
+token stops the run before any course is touched, with a remedy naming Settings; no other token is
+borrowed. A run with no starter (local mode, the command line, a run older than the column) uses
+the instance credential, as every run did before.
+
 **Everything missing fails as a stated condition of the run, not as a stack trace.** No Canvas
 credentials, no model host, a pack id nothing on disk answers to: each raises
 :class:`~sightline.batch.stages.BatchAborted` carrying what to do about it, which the runner
@@ -47,6 +56,12 @@ CANVAS_REMEDY = (
     "Enter the Canvas URL and an API token on the Settings screen, then start the run again."
 )
 
+#: Said when the person who started a run has no Canvas token of their own (roadmap item 45).
+STARTER_TOKEN_REMEDY = (
+    "The person who started this run stores their own Canvas API token on the Settings screen, "
+    "then starts the run again."
+)
+
 
 def live_pipeline_factory(
     *,
@@ -67,7 +82,7 @@ def live_pipeline_factory(
     @asynccontextmanager
     async def build(run: Run) -> AsyncIterator[CoursePipeline]:
         resolved = resolved_pack(run, paths)
-        canvas = _canvas(credentials)
+        canvas = _canvas(credentials, run)
         endpoint = model_endpoint or preferences.model_host().endpoint
         model = model_name or preferences.review_model().name
         links = HttpLinkResolver.from_httpx() if settings.resolve_links else None
@@ -134,14 +149,20 @@ def resolved_pack(run: Run, paths: DataPaths) -> ResolvedPack:
         ) from exc
 
 
-def _canvas(credentials: CredentialStore):  # noqa: ANN202 - CanvasCredentials
+def _canvas(credentials: CredentialStore, run: Run):  # noqa: ANN202 - CanvasCredentials
     try:
-        canvas = credentials.canvas()
+        canvas = credentials.canvas_for(run.starter_subject)
     except CredentialError as exc:
         raise BatchAborted(
             f"Sightline has no Canvas credentials, so no course could be acquired. {exc}",
             remedy=CANVAS_REMEDY,
         ) from exc
+    if run.starter_subject is not None and not canvas.token:
+        raise BatchAborted(
+            "The person who started this run has no Canvas API token stored, so no course could "
+            "be acquired. A run reads Canvas as the person who started it, with their own token.",
+            remedy=STARTER_TOKEN_REMEDY,
+        )
     if not canvas.complete:
         raise BatchAborted(
             "Sightline has no complete Canvas credentials, so no course could be acquired.",

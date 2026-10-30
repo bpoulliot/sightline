@@ -132,6 +132,14 @@ class Run(Base):
     owner_heartbeat_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), default=None
     )
+    #: Who started the run, in sign-in mode (roadmap item 45): the signed-in subject's stable id,
+    #: and the display name beside it for the admin's run list. The run reads Canvas with this
+    #: subject's own token, and only this subject or an admin may see it, review it or export it.
+    #: ``None`` for a run started in local mode or on the command line, and for every run recorded
+    #: before the column existed: :mod:`sightline.access` shows those to an admin only in sign-in
+    #: mode, and to the one local user in local mode.
+    starter_subject: Mapped[str | None] = mapped_column(String(255), default=None)
+    starter_name: Mapped[str | None] = mapped_column(String(128), default=None)
 
     courses: Mapped[list[RunCourse]] = relationship(
         back_populates="run",

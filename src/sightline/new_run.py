@@ -29,6 +29,10 @@ anybody presses Start and checked again when they do:
 
 **Starting a run requests a Canvas content export** when that setting is on (roadmap item 23):
 it writes to the course's export list. The Start form says so beside the button.
+
+**In sign-in mode a run is its starter's** (roadmap item 45): Start checks the starter's own
+Canvas token, the run records who started it, and a run somebody else is executing is named
+without its details.
 """
 
 from __future__ import annotations
@@ -36,6 +40,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
 
+from .access import LOCAL, Viewer
 from .batch import DEFAULT_RUBRIC_PACK
 from .batch.service import CANVAS_REMEDY
 from .credentials import CredentialError, CredentialStore
@@ -181,14 +186,47 @@ def blockers(
     credentials: CredentialStore,
     preferences: PreferenceStore,
     proposing: ProposingRegistry | None = None,
+    viewer: Viewer = LOCAL,
 ) -> list[Blocker]:
-    """Every reason a run cannot start now, in the order somebody would fix them."""
+    """Every reason a run cannot start now, in the order somebody would fix them.
+
+    ``viewer`` is who would start it (roadmap item 45). Signed in, the run reads Canvas with
+    their own token, so it is their token that is checked, and a run somebody else is executing
+    is named without the details of a run they may not see.
+    """
     found: list[Blocker] = []
     try:
-        canvas_ready = credentials.canvas().complete
+        canvas = credentials.canvas_for(viewer.subject)
     except CredentialError:
-        canvas_ready = False
-    if not canvas_ready:
+        canvas = None
+    if viewer.signed_in and canvas is not None and not canvas.complete:
+        if not canvas.base_url:
+            found.append(
+                Blocker(
+                    summary="No Canvas base URL is set, so no course could be acquired.",
+                    remedy=(
+                        "The base URL is an instance setting, which an admin sets on the Settings "
+                        "screen."
+                    ),
+                    href=SETTINGS_HREF,
+                    link="Settings",
+                )
+            )
+        if not canvas.token:
+            found.append(
+                Blocker(
+                    summary=(
+                        "You have no Canvas API token stored. A run reads Canvas as the person "
+                        "who started it, with their own token."
+                    ),
+                    remedy=(
+                        "Store your Canvas API token on the Settings screen, then start the run."
+                    ),
+                    href=SETTINGS_HREF,
+                    link="Settings",
+                )
+            )
+    elif canvas is None or not canvas.complete:
         found.append(
             Blocker(
                 summary="No Canvas credential is set, so no course could be acquired.",
@@ -228,7 +266,7 @@ def blockers(
     if busy is not None:
         found.append(proposing_blocker(busy))
     for run in active_runs(store, runner):
-        found.append(running_blocker(run))
+        found.append(running_blocker(run, visible=viewer.can_see(run)))
     return found
 
 
@@ -246,8 +284,21 @@ def proposing_blocker(state: ProposingState) -> Blocker:
     )
 
 
-def running_blocker(run: Run) -> Blocker:
-    """The refusal for one run that is already running."""
+def running_blocker(run: Run, *, visible: bool = True) -> Blocker:
+    """The refusal for one run that is already running.
+
+    A run the person may not see (roadmap item 45) is named as somebody else's, with no id, no
+    counts and no link: its page would answer 404, and its details are its starter's.
+    """
+    if not visible:
+        return Blocker(
+            summary=(
+                "Another person's run is running. One run at a time: courses are reviewed one "
+                "after another against a single model host, and a second batch would compete "
+                "with it for that host."
+            ),
+            remedy="Wait for it to finish, then start this one.",
+        )
     return Blocker(
         summary=(
             f"Run {short_id(run.id)} is running ({len(run.courses)} course(s), "
