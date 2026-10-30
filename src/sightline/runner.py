@@ -6,9 +6,14 @@ broker is the run store: a run's state is written to SQLite as it changes, so a 
 rather than loses.
 
 This module is the seam. It owns task lifecycle and the restart semantics; the *pipeline* that a
-run executes arrives with later roadmap items and is injected as ``handler``. Until then a
+run executes is injected as ``handler`` (the application wires the batch runner in, item 17). A
 :class:`BackgroundRunner` with no handler refuses to start work and says so, rather than
 appearing to run and doing nothing.
+
+A run is executed under a :class:`sightline.ownership.RunHold`: this process records itself as
+the run's owner before marking it running, beats while it works, and clears the record when it
+stops. Restart recovery and shutdown touch only runs whose owner is gone or is this process, so a
+command-line run in another process or container is never taken over while it is going (item 43).
 """
 
 from __future__ import annotations
@@ -18,6 +23,7 @@ from collections.abc import Awaitable, Callable
 
 from .logging import get_logger
 from .models import RunStatus
+from .ownership import RunHold, RunOwnedElsewhereError, owner_is_live, this_process
 from .store import RunStore
 
 log = get_logger("sightline.runner")
@@ -60,9 +66,10 @@ class BackgroundRunner:
         Called once at startup, after :meth:`recover`. A process that comes back up and leaves a
         half-finished batch sitting there has persisted its state for nothing (SPEC §04). They go
         through one task in creation order rather than one task each, because they share a model
-        host.
+        host. A run another live process has claimed — a command-line run between its claim and
+        its first status write — is that process's, and is not resumed here.
         """
-        run_ids = [run.id for run in self.store.resumable_runs()]
+        run_ids = [run.id for run in self.store.resumable_runs() if not owner_is_live(run)]
         if not run_ids:
             return []
         self._resume = asyncio.create_task(self._resume_serially(run_ids), name="sightline-resume")
@@ -101,8 +108,9 @@ class BackgroundRunner:
             except Exception as exc:  # already logged by _execute; do not mask shutdown
                 log.warning("run_failed_during_shutdown", run_id=run_id, error=str(exc))
         self._tasks.clear()
-        # Anything still marked running belongs to a process that no longer exists.
-        self.store.recover_interrupted()
+        # Anything this process still holds as running is about to have no process. Only this
+        # process's own: a run another process owns is left to it (roadmap item 43).
+        self.store.interrupt_owned(this_process())
 
     # -- submission --------------------------------------------------------------------------
 
@@ -124,6 +132,18 @@ class BackgroundRunner:
         return task
 
     async def _execute(self, run_id: str) -> None:
+        assert self.handler is not None  # guarded by submit()
+        # The claim comes before the status write, so there is no moment at which the run is
+        # ``running`` with no owner for another process's recovery to take over.
+        try:
+            with RunHold(self.store, run_id):
+                await self._execute_held(run_id)
+        except RunOwnedElsewhereError:
+            # Another live process is executing it. Running it here too is the double execution
+            # roadmap item 43 exists to prevent, so this task ends having done nothing.
+            log.warning("run_owned_elsewhere", run_id=run_id)
+
+    async def _execute_held(self, run_id: str) -> None:
         assert self.handler is not None  # guarded by submit()
         self.store.set_run_status(run_id, RunStatus.RUNNING)
         try:

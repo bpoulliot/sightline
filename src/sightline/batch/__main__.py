@@ -33,6 +33,7 @@ from ..config import Settings, get_settings
 from ..credentials import CredentialStore
 from ..llm.client import OllamaClient
 from ..logging import configure_logging
+from ..ownership import RunHold, RunOwnedElsewhereError
 from ..paths import DataPaths
 from ..preferences import PreferenceStore
 from ..rubric.effort import load_effort_model
@@ -52,6 +53,7 @@ from .runner import (
     BatchRunner,
     BatchSummary,
     BatchTooLargeError,
+    PipelineFactory,
     create_batch_run,
 )
 from .service import live_pipeline_factory
@@ -278,11 +280,30 @@ async def _start(args: argparse.Namespace, settings: Settings) -> int:
             endpoint=args.endpoint,
             model=args.model,
         )
-        summary = await BatchRunner(store, paths, factory).execute(run_id)
-        print(describe(summary))
-        return 0 if not (summary.failed or summary.aborted or summary.not_run) else 1
+        return await _execute_owned(store, paths, factory, run_id)
     finally:
         store.dispose()
+
+
+async def _execute_owned(
+    store: RunStore, paths: DataPaths, factory: PipelineFactory, run_id: str
+) -> int:
+    """Execute a run as its recorded owner (roadmap item 43), and print what it did.
+
+    The owner record is what lets the app, or another command, see that this process is executing
+    the run and leave it alone; a run another live process owns is refused here the same way.
+    """
+    try:
+        with RunHold(store, run_id):
+            summary = await BatchRunner(store, paths, factory).execute(run_id)
+    except RunOwnedElsewhereError as exc:
+        print(
+            f"{exc} `python -m sightline.batch status {run_id}` shows how far it has got.",
+            file=sys.stderr,
+        )
+        return 2
+    print(describe(summary))
+    return 0 if not (summary.failed or summary.aborted or summary.not_run) else 1
 
 
 async def _resume(args: argparse.Namespace, settings: Settings) -> int:
@@ -292,6 +313,8 @@ async def _resume(args: argparse.Namespace, settings: Settings) -> int:
         if run is None:
             print(f"No run {args.run_id!r} in the run store.", file=sys.stderr)
             return 2
+        # Takes over only runs whose owner is gone. A run another process is executing stays
+        # running, and the claim below refuses it.
         store.recover_interrupted()
         bundles = any(is_bundle_reference(course.course_ref) for course in run.courses)
         factory = _factory(
@@ -303,9 +326,7 @@ async def _resume(args: argparse.Namespace, settings: Settings) -> int:
             endpoint=args.endpoint,
             model=args.model,
         )
-        summary = await BatchRunner(store, paths, factory).execute(args.run_id)
-        print(describe(summary))
-        return 0 if not (summary.failed or summary.aborted or summary.not_run) else 1
+        return await _execute_owned(store, paths, factory, args.run_id)
     finally:
         store.dispose()
 

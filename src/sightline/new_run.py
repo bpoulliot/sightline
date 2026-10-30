@@ -19,7 +19,9 @@ anybody presses Start and checked again when they do:
 - **another run is running.** Two batches would compete for one model host, which is the reason
   :meth:`sightline.runner.BackgroundRunner.resume_all` resumes serially. A run this process is
   executing is in the runner's task list; one started by ``python -m sightline.batch run`` is
-  another process and shows only as ``running`` in the store. Both refuse a start the same way.
+  another process and shows only as ``running`` in the store, with that process as its owner.
+  Both refuse a start the same way — the store's only while its owner is live (roadmap item 43),
+  so a command-line run that crashed does not block Start for ever.
 
 **Starting a run requests a Canvas content export** when that setting is on (roadmap item 23):
 it writes to the course's export list. The Start form says so beside the button.
@@ -34,6 +36,7 @@ from .batch import DEFAULT_RUBRIC_PACK
 from .batch.service import CANVAS_REMEDY
 from .credentials import CredentialError, CredentialStore
 from .models import Run, RunStatus
+from .ownership import owner_is_live
 from .preferences import PreferenceStore
 from .rubric.shipped import PacksNotFoundError, shipped_packs
 from .runner import BackgroundRunner
@@ -90,10 +93,12 @@ def rubric_choices(selected: str | None = None) -> tuple[RubricChoice, ...]:
 
 
 def active_runs(store: RunStore, runner: BackgroundRunner | None) -> list[Run]:
-    """Runs executing now: this process's tasks, then anything else the store records as running.
+    """Runs executing now: this process's tasks, then store-``running`` runs with a live owner.
 
     A run the background runner holds is listed even in the instant before its status is written,
-    because the task exists before ``_execute`` marks it running.
+    because the task exists before ``_execute`` marks it running. A store-``running`` run whose
+    owner is gone — a command-line run that was killed, a row older than owner records — is not
+    executing, and does not refuse a start; the next recovery marks it interrupted.
     """
     found: list[Run] = []
     seen: set[str] = set()
@@ -102,7 +107,7 @@ def active_runs(store: RunStore, runner: BackgroundRunner | None) -> list[Run]:
         if run is not None:
             found.append(run)
             seen.add(run.id)
-    found.extend(run for run in store.running_runs() if run.id not in seen)
+    found.extend(run for run in store.running_runs() if run.id not in seen and owner_is_live(run))
     return found
 
 
