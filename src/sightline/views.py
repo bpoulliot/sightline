@@ -29,9 +29,10 @@ the endpoint is wrong. So the check is a button, exactly like the Canvas one, an
 progress is re-read by reloading rather than by a page that refreshes itself under whatever
 somebody is typing into the form above it.
 
-There is no CSRF token and no login. Sightline is one process on a designer's machine reviewing
-courses they already have access to; adding a session layer for a single-user local tool would be
-security theatre with a maintenance cost.
+Every form here carries a CSRF token, in both modes (roadmap item 44, :mod:`sightline.csrf`): a
+local tool listens on a port any page in the same browser can post to. There is still no login
+in the app. In sign-in mode the person signs in at a proxy in front of it
+(:mod:`sightline.signin`), and the Reviewer section of Settings gives way to the signed-in name.
 """
 
 from __future__ import annotations
@@ -76,6 +77,7 @@ from .preferences import (
     ReviewerNameError,
     ReviewModelPreference,
 )
+from .review.identity import current_reviewer
 from .rubric.accepted import BindingsError, resolve_pack
 from .runner import BackgroundRunner
 from .store import RunStore
@@ -149,6 +151,8 @@ def build_router(templates: Jinja2Templates) -> APIRouter:
         reviewer: Annotated[str, Form()] = "",
     ) -> Any:
         """Set the name a rating recorded on the review screen is recorded as (item 16, Q1)."""
+        if request.app.state.settings.signin:
+            return _reviewer_is_signed_in(request, templates)
         try:
             _preferences(request).set_reviewer(reviewer)
         except ReviewerNameError as exc:
@@ -157,6 +161,8 @@ def build_router(templates: Jinja2Templates) -> APIRouter:
 
     @router.post("/settings/reviewer/forget", include_in_schema=False)
     async def forget_reviewer(request: Request) -> Any:
+        if request.app.state.settings.signin:
+            return _reviewer_is_signed_in(request, templates)
         _preferences(request).clear_reviewer()
         return RedirectResponse("/settings?saved=reviewer_forgotten#reviewer", status_code=303)
 
@@ -750,7 +756,28 @@ def _render_settings(
             "reviewer": preferences.reviewer(),
             "reviewer_error": reviewer_error,
             "reviewer_max": REVIEWER_MAX,
+            # Sign-in mode (item 44): the Reviewer field gives way to the signed-in name.
+            "signed_in": current_reviewer(request) if settings.signin else None,
         },
+    )
+
+
+def _reviewer_is_signed_in(request: Request, templates: Jinja2Templates) -> Any:
+    """A post to the Reviewer setting in sign-in mode, where there is no such setting."""
+    return templates.TemplateResponse(
+        request=request,
+        name="review_message.html",
+        context={
+            "nav": "settings",
+            "summary": (
+                "Nothing was saved: in sign-in mode a rating is recorded as the person signed in, "
+                "and there is no Reviewer setting to change."
+            ),
+            "remedy": "Your name comes from the sign-in service; change it there.",
+            "back": "Back to Settings",
+            "back_href": "/settings",
+        },
+        status_code=409,
     )
 
 

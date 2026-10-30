@@ -25,8 +25,8 @@ exactly the checked set has been shown; a set that changed after its delta was s
 again instead of accepted. The delta is :func:`~sightline.rubric.proposals.accept`'s own, computed
 without writing anything, so what is shown is what acceptance records. Accepting calls ``accept``
 and keeps the result through :class:`sightline.rubric.accepted.BindingStore`, with the reviewer
-(:func:`sightline.review.identity.current_reviewer`), the time, the proposal numbers and the
-delta. Every form works with scripting off.
+(:func:`sightline.review.identity.reviewer_name`: the display name, no subject id), the time,
+the proposal numbers and the delta. Every form works with scripting off.
 
 **A proposal set made over another state of the pack is refused**, as part one refuses it, and the
 page says to propose again. Accepting from a set changes the pack's bindings, so a set is accepted
@@ -59,7 +59,7 @@ from .new_run import (
 from .paths import DataPaths
 from .preferences import PreferenceStore
 from .proposing import ProposingRegistry, ProposingState
-from .review.identity import current_reviewer
+from .review.identity import reviewer_name
 from .rubric.accepted import (
     BindingsError,
     BindingStore,
@@ -507,7 +507,7 @@ def build_rubric_router(templates: Jinja2Templates) -> APIRouter:
         if isinstance(resolved, _Missing):
             return _missing(request, templates, resolved)
         form = await request.form()
-        reviewer = current_reviewer(request)
+        reviewer = reviewer_name(request)
         if reviewer is None:
             return _render_rubric(request, templates, pack_id, refusals=[NO_REVIEWER], status=409)
         try:
@@ -536,7 +536,7 @@ def build_rubric_router(templates: Jinja2Templates) -> APIRouter:
             resolved=resolved,
             saved=saved,
             history=BindingStore(_paths(request)).history(pack_id),
-            reviewer=current_reviewer(request),
+            reviewer=reviewer_name(request),
         )
         return _render_confirm(request, templates, page)
 
@@ -554,7 +554,7 @@ def build_rubric_router(templates: Jinja2Templates) -> APIRouter:
         action = str(form.get("action", ""))
         names = _ints(form.getlist("proposal"))
         conflicts = _ints(form.getlist("conflict"))
-        reviewer = current_reviewer(request)
+        reviewer = reviewer_name(request)
 
         def again(change: Change | None, banners: list[Blocker], status: int) -> Any:
             page = confirm_page(
@@ -688,7 +688,7 @@ def _render_rubric(
             "blockers": refusals if refusals is not None else propose_blockers(request),
             "refused": refusals is not None,
             "model": _preferences(request).review_model().name,
-            "reviewer": current_reviewer(request),
+            "reviewer": reviewer_name(request),
             "just": just,
             # Its first sentence: the rest speaks of a file, and none exists before proposing.
             "nondeterminism": NONDETERMINISM_NOTE.split(". ")[0] + ".",

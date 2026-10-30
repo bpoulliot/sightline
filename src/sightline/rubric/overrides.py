@@ -91,9 +91,14 @@ def record_override(
     proposal: MachineProposal,
     human: Rating,
     reviewer: str,
+    reviewer_subject: str | None = None,
     note: str | None = None,
 ) -> int:
     """Append one override record: the machine proposal and the human rating, side by side.
+
+    ``reviewer`` is the name the record shows; ``reviewer_subject`` is the signed-in subject's
+    stable id, recorded beside it in sign-in mode (roadmap item 44) so a renamed person keeps
+    their history. Local mode records no id.
 
     Returns the record's id. Recording a rating equal to the proposal is allowed — a reviewer
     confirming a band on purpose is calibration data too — but nothing here writes one unasked.
@@ -112,6 +117,7 @@ def record_override(
         effort_calibrated=proposal.calibrated,
         human_rating=Rating(human).value,
         reviewer=reviewer,
+        reviewer_subject=reviewer_subject,
         note=note,
     )
 

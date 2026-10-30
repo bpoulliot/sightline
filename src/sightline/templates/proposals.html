@@ -72,6 +72,7 @@
 {% endif %}
 
 {% if page.open %}<form method="post" action="/rubrics/{{ page.pack.id }}/proposals/{{ page.saved.id }}#change" class="form confirm-form">
+{{ csrf_field() }}
 <input type="hidden" name="base" value="{{ page.base }}">
 {% endif %}
 

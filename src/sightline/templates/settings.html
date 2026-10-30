@@ -22,6 +22,7 @@
   {% endif %}
 
   <form method="post" action="/settings" class="form">
+    {{ csrf_field() }}
     <div class="field">
       <label for="canvas_base_url">Canvas base URL</label>
       <input type="url" id="canvas_base_url" name="canvas_base_url" inputmode="url"
@@ -69,6 +70,7 @@
   </div>
 
   <form method="post" action="/settings/forget" class="form form-inline">
+    {{ csrf_field() }}
     <button type="submit" class="button">Forget the stored credential</button>
     <span class="hint">Deletes what is stored here. Anything set in the environment still applies.</span>
   </form>
@@ -82,6 +84,7 @@
   </p>
 
   <form method="post" action="/settings/test" class="form">
+    {{ csrf_field() }}
     <div class="field">
       <label for="course_reference">Course to check (optional)</label>
       <input type="text" id="course_reference" name="course_reference" autocomplete="off"
@@ -128,6 +131,7 @@
   </p>
 
   <form method="post" action="/settings/export" class="form">
+    {{ csrf_field() }}
     <div class="field field-check">
       <label for="request_export">
         <input type="checkbox" id="request_export" name="request_export" value="on"
@@ -149,6 +153,18 @@
   </form>
 </section>
 
+{% if signed_in %}
+{#- Sign-in mode (roadmap item 44): the reviewer is the person signed in, so there is no field. -#}
+<section class="panel" aria-labelledby="h-reviewer" id="reviewer">
+  <h2 id="h-reviewer">{{ reviewer.title }}</h2>
+  <p class="note">
+    You are signed in as <strong>{{ signed_in.name }}</strong>. Every rating you record on the
+    review screen is recorded with that name and with your sign-in id, which stays the same if
+    the name changes. Neither is written into an exported report or workbook.
+  </p>
+  <p class="hint">The name comes from the sign-in service. Signing out, and how long a sign-in lasts, are that service's too.</p>
+</section>
+{% else %}
 <section class="panel" aria-labelledby="h-reviewer" id="reviewer">
   <h2 id="h-reviewer">{{ reviewer.title }}</h2>
   <p class="note">{{ reviewer.note }}</p>
@@ -163,6 +179,7 @@
   {% endif %}
 
   <form method="post" action="/settings/reviewer" class="form">
+    {{ csrf_field() }}
     <div class="field">
       <label for="reviewer_name">Reviewer name</label>
       <input type="text" id="reviewer_name" name="reviewer" autocomplete="name" spellcheck="false"
@@ -179,11 +196,13 @@
   </form>
   {% if reviewer.set %}
   <form method="post" action="/settings/reviewer/forget" class="form form-inline">
+    {{ csrf_field() }}
     <button type="submit" class="button">Forget the reviewer name</button>
     <p class="hint">Ratings already recorded keep the name they were recorded with.</p>
   </form>
   {% endif %}
 </section>
+{% endif %}
 
 <section class="panel" aria-labelledby="h-model-host" id="models">
   <h2 id="h-model-host">Local model host</h2>
@@ -198,6 +217,7 @@
   {% endif %}
 
   <form method="post" action="/settings/model-host" class="form">
+    {{ csrf_field() }}
     <div class="field">
       <label for="model_host_endpoint">Endpoint</label>
       <input type="url" id="model_host_endpoint" name="model_host_endpoint" inputmode="url"
@@ -215,6 +235,7 @@
   </form>
 
   <form method="post" action="/settings/model-host/check" class="form form-inline">
+    {{ csrf_field() }}
     <button type="submit" class="button">Check the model host</button>
     <span class="hint">
       Reports which host answered, its Ollama version, and which installed models can do review
@@ -223,6 +244,7 @@
   </form>
 
   <form method="post" action="/settings/model-host/forget" class="form form-inline">
+    {{ csrf_field() }}
     <button type="submit" class="button">Forget the stored endpoint</button>
     <span class="hint">Deletes what is stored here. Anything set in the environment still applies.</span>
   </form>
@@ -284,6 +306,7 @@
 
   {% if host_report and host_report.usable %}
   <form method="post" action="/settings/model" class="form">
+    {{ csrf_field() }}
     <fieldset class="field">
       <legend>Usable models on {{ host_report.host }}</legend>
       {% for card in host_report.usable %}
@@ -388,6 +411,7 @@
               <span class="state state-on">installed</span>
             {% else %}
             <form method="post" action="/settings/model/install" class="form form-inline">
+              {{ csrf_field() }}
               <input type="hidden" name="model" value="{{ row.entry.name }}">
               <button type="submit" class="button">Install</button>
             </form>

@@ -5,6 +5,11 @@ Two things are secret in this project and both are easy to leak by accident:
 * the Canvas API token, and
 * the Canvas base URL, because it identifies the institution.
 
+Sign-in mode (roadmap item 44) adds two more: the shared secret the auth proxy sends, registered
+by value like the token, and the identity headers it forwards, registered by **name** with
+:func:`register_header` — a header line or a header mapping keeps the name and loses the value,
+because the value is a person's identity and differs on every request.
+
 Redaction is therefore not a logging nicety. It runs over log events, over rendered error
 messages, and over anything else that could reach a terminal, an HTTP response or a file. The
 registry below is populated by :class:`sightline.config.Settings` at construction time, so a value
@@ -45,6 +50,7 @@ _PATTERNS: tuple[re.Pattern[str], ...] = (
 )
 
 _registry: set[str] = set()
+_header_patterns: dict[str, re.Pattern[str]] = {}
 _registry_lock = Lock()
 
 # Registering a short string would blank out ordinary words, so there is a floor.
@@ -66,6 +72,31 @@ def register_secret(value: str | None) -> None:
         _registry.add(text)
 
 
+def register_header(name: str | None) -> None:
+    """Scrub the value of the header ``name`` wherever it is written beside its name.
+
+    Covers the shapes a header reaches a string in: ``Name: value`` (a raw header line),
+    ``'name': 'value'`` and ``"name": "value"`` (a mapping's repr or JSON), ``(b'name', b'value')``
+    (a request scope's repr) and ``name=value``.
+    Case-insensitive, as header names are. The name survives, so a line still says *which* header
+    was there.
+    """
+    if not name or not name.strip():
+        return
+    key = name.strip().lower()
+    quoted = re.escape(key)
+    pattern = re.compile(
+        # The name, bare (``Name: v``, ``name=v``) or quoted, bytes included — a request scope
+        # holds its headers as ``(b'name', b'value')`` pairs, so a quoted name may also be
+        # followed by a comma.
+        rf"(?i)(?P<head>b?(?P<q>[\"']){quoted}(?P=q)\s*[:=,]\s*|\b{quoted}\s*[:=]\s*)"
+        # The value: a quoted string with its escapes, or a bare run up to a delimiter.
+        rf"(?:b?(?P<vq>[\"'])(?:\\.|(?!(?P=vq)).)*(?P=vq)|[^\s,;&}}\]\)]+)"
+    )
+    with _registry_lock:
+        _header_patterns[key] = pattern
+
+
 def registered_secrets() -> frozenset[str]:
     """The current registry. Exposed for tests; callers should not need it."""
     with _registry_lock:
@@ -76,6 +107,7 @@ def clear_registry() -> None:
     """Empty the registry. Used by tests to keep cases independent."""
     with _registry_lock:
         _registry.clear()
+        _header_patterns.clear()
 
 
 def scrub(text: str) -> str:
@@ -87,17 +119,39 @@ def scrub(text: str) -> str:
     for secret in sorted(registered_secrets(), key=len, reverse=True):
         if secret in result:
             result = result.replace(secret, REDACTED)
+    with _registry_lock:
+        headers = tuple(_header_patterns.values())
+    for header in headers:
+        result = header.sub(lambda match: match.group("head") + REDACTED, result)
     for pattern in _PATTERNS:
         result = pattern.sub(REDACTED, result)
     return result
 
 
+def _is_registered_header(key: object) -> bool:
+    """Whether a mapping key names a header registered with :func:`register_header`."""
+    if isinstance(key, bytes):
+        key = key.decode("latin-1", "replace")
+    if not isinstance(key, str):
+        return False
+    with _registry_lock:
+        return key.strip().lower() in _header_patterns
+
+
 def scrub_object(value: object) -> object:
-    """Recursively scrub strings inside dicts, lists, tuples and sets."""
+    """Recursively scrub strings inside dicts, lists, tuples and sets.
+
+    A mapping entry whose key is a registered header name loses its whole value, whatever its
+    shape — a structured log field ``headers={...}`` puts the name and the value in separate
+    strings, where :func:`register_header`'s pattern cannot see them together.
+    """
     if isinstance(value, str):
         return scrub(value)
     if isinstance(value, dict):
-        return {key: scrub_object(item) for key, item in value.items()}
+        return {
+            key: REDACTED if _is_registered_header(key) else scrub_object(item)
+            for key, item in value.items()
+        }
     if isinstance(value, list):
         return [scrub_object(item) for item in value]
     if isinstance(value, tuple):

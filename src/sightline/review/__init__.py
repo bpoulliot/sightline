@@ -7,12 +7,13 @@
 
 from __future__ import annotations
 
-from .identity import current_reviewer
+from .identity import Reviewer, current_reviewer
 from .routes import build_review_router
 from .screen import ReviewCategory, ReviewIndex, ReviewScreen, ReviewScreenError, View
 
 __all__ = [
     "ReviewCategory",
+    "Reviewer",
     "ReviewIndex",
     "ReviewScreen",
     "ReviewScreenError",
