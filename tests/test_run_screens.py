@@ -28,6 +28,7 @@ from fastapi.testclient import TestClient
 
 import ollama_recordings as recordings
 from canvas_recordings import EXAMPLE_BASE_URL, FAKE_TOKEN, Recording, load
+from run_owners import OTHER_HOST, STALE, dead_pid, live_process, set_owner, this_host
 from sightline import views
 from sightline.app import create_app
 from sightline.batch import (
@@ -322,17 +323,49 @@ def test_a_second_start_is_refused_while_one_is_active(client: TestClient) -> No
 
 
 def test_a_run_another_process_is_running_refuses_a_start_too(client: TestClient) -> None:
-    """``python -m sightline.batch run`` is another process: it shows only in the store."""
+    """``python -m sightline.batch run`` is another process: it shows only in the store.
+
+    In another container, as the trap in roadmap item 43 has it, so its host name is not this one
+    and its heartbeat is the whole test of whether it is still going. While it beats, Start is
+    refused; once it has been silent past the stale limit, Start goes ahead.
+    """
     configure_everything(client)
+    use_pipeline(client, SavedReviewPipeline())
     store = store_of(client)
     elsewhere = store.create_run(["4410"], rubric_pack=DEFAULT_RUBRIC_PACK)
-    store.set_run_status(elsewhere, RunStatus.RUNNING)
+    set_owner(store, elsewhere, host=OTHER_HOST, pid=7)
     assert client.app.state.runner.active_run_ids == []  # type: ignore[attr-defined]
 
     response = start(client, COURSE)
     assert response.status_code == 409
     assert f"Run {elsewhere[:8]} is running" in text_of(response.text)
     assert len(store.list_runs()) == 1
+
+    set_owner(store, elsewhere, host=OTHER_HOST, pid=7, heartbeat_age=STALE)
+    started = run_id_of(start(client, COURSE))
+    assert wait_for(client, started)["status"] == "succeeded"
+
+
+def test_a_run_whose_process_on_this_host_is_live_refuses_a_start(client: TestClient) -> None:
+    configure_everything(client)
+    use_pipeline(client, SavedReviewPipeline())
+    store = store_of(client)
+    elsewhere = store.create_run(["4410"], rubric_pack=DEFAULT_RUBRIC_PACK)
+    with live_process() as pid:
+        set_owner(store, elsewhere, host=this_host(), pid=pid)
+        assert start(client, COURSE).status_code == 409
+    set_owner(store, elsewhere, host=this_host(), pid=dead_pid())
+    assert wait_for(client, run_id_of(start(client, COURSE)))["status"] == "succeeded"
+
+
+def test_a_running_row_with_no_owner_does_not_block_start(client: TestClient) -> None:
+    """A row left by a process that recorded no owner — a crash before item 43 — is orphaned."""
+    configure_everything(client)
+    use_pipeline(client, SavedReviewPipeline())
+    store = store_of(client)
+    orphaned = store.create_run(["4410"], rubric_pack=DEFAULT_RUBRIC_PACK)
+    store.set_run_status(orphaned, RunStatus.RUNNING)
+    assert wait_for(client, run_id_of(start(client, COURSE)))["status"] == "succeeded"
 
 
 # -- a run started from the screen, against recorded Canvas and model responses -------------------
