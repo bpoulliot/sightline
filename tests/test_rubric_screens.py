@@ -993,7 +993,9 @@ def test_the_confidence_scan_fires_on_a_planted_word(client: TestClient) -> None
     ]
 
 
-_TEXT_TAGS = {"p", "h1", "h2", "h3", "dt", "dd", "li", "a", "span", "button", "label", "q", "summary"}
+_TEXT_TAGS = {"p", "h1", "h2", "h3", "dt", "dd", "li", "a", "span", "button", "label", "q"} | {
+    "summary"
+}
 
 
 def verbatim(client: TestClient) -> list[str]:
