@@ -675,8 +675,12 @@ deployment footprint is a priority. All colour comes from `docs/tokens.css`.
   rubric, never per course. Decided 2026-09-08. Roadmap item 04 built the format and the three
   coverage states; item 22 built the proposals with a command-line review
   (`python -m sightline.rubric propose` / `review` / `accept`); the confirmation screen attaches
-  to the New run screen's rubric picker, which item 36 built, and needs its own specification
-  pass. Item 19 is superseded.
+  to the New run screen's rubric picker, which item 36 built. Item 19 is superseded.
+- **Binding proposals are made, confirmed and reverted on a screen.** The screen runs the
+  proposals in the background; accepting applies the bindings to the app's copy of the pack
+  (never the shipped file), recorded with who and when, and revertible; a run may start with
+  proposals unconfirmed and uses only confirmed bindings, with the picker saying so. A run
+  records which bindings it ran with. Decided 2026-10-30; roadmap item 22 part 2.
 - **The review screen groups by rubric category, in the instrument's own order.** Severity is a
   sort and a filter within a category, never a second grouping. Decided 2026-09-08; roadmap
   item 16.
@@ -684,8 +688,8 @@ deployment footprint is a priority. All colour comes from `docs/tokens.css`.
   2026-09-08; roadmap item 20.
 
 - **An override records the *Reviewer* setting.** It is set once on the Settings screen, and the
-  override form refuses until it is. Decided 2026-10-29; roadmap item 16. Sign-in (item 40) would
-  replace it with the signed-in identity.
+  override form refuses until it is. Decided 2026-10-29; roadmap item 16. In sign-in mode the
+  signed-in identity replaces it (item 44).
 - **Exports carry the reviewer's rating where one was recorded**, labelled as the reviewer's,
   beside the unchanged machine proposal and its effort figures. A row with no override carries the
   proposal, labelled as proposed. Decided 2026-10-29; roadmap item 16.
@@ -723,10 +727,23 @@ going and reloads when it changes. One wording choice: the stored stage name `sc
 shown — every stage is shown by its title (`Roll up effort and order the action plan`), because
 §11 keeps "score" out of the vocabulary.
 
-### Open for discussion
+### Sign-in and multiple users (decided 2026-10-30, roadmap item 40)
 
-- **Sign-in and multiple users.** Everything above assumes one local user with no login. Roadmap
-  item 40 holds the questions.
+Everything above describes the local single-user mode, which stays the default. In sign-in mode:
+
+- **Sign-in happens in front of the app.** A self-hosted identity provider federates the
+  institution's SSO; an auth proxy passes a verified identity; the app refuses any request that
+  did not come through the proxy. Three containers, one process each. Item 44, item 47.
+- **The reviewer is the signed-in subject**, recorded by its stable id with the display name
+  beside it. Item 44.
+- **Every form post carries a CSRF token**, in both modes. Item 44.
+- **Users see their own runs; an admin sees every run** and alone changes instance settings.
+  Admin is an identity-provider group. Item 45.
+- **Each user's own Canvas token**, encrypted at rest; a run reads and exports as its starter.
+  Item 45.
+- **A run started while another is active waits in a first-in-first-out queue**, showing its
+  position, cancellable by its starter or an admin. Item 46.
+- **Sessions last 8 hours and end when the browser closes**, held by the proxy. Item 47.
 
 ---
 

@@ -6,8 +6,8 @@ Labels: **READY** · **NEEDS DISCUSSION** · **NEEDS MEASUREMENT** · **BLOCKED*
 Nothing unready enters the queue. One item per conversation, one PR per item.
 
 Queue lives at `~/docker/overnight/projects/sightline/` (moved from `~/docker/overnight-sightline/`
-on 2026-09-22). Next free item number: **44** (41 is claimed by open PR #40; 42 and 43 were filed
-by item 36's session, PR #43).
+on 2026-09-22). Next free item number: **48** (41 is claimed by open PR #40; 42 and 43 were filed
+by item 36's session, PR #43; 44–47 split from item 40 on 2026-10-30).
 
 ---
 
@@ -37,7 +37,7 @@ by item 36's session, PR #43).
 | 19 | Uploaded-rubric mapping screen | 3 | **SUPERSEDED by 22** | — |
 | 20 | Multi-course comparison view | 3 | **DECIDED — not building it** | see 25 |
 | 21 | Detector integrity guard | 0 | READY | **DONE** — PR #8 |
-| 22 | Model-proposed bindings, human-confirmed | 3 | part 2 **NEEDS SPECIFICATION** — item 36's rubric picker is DONE (PR #43) | **PART 1 DONE** — PR #32 (proposal engine + command-line review). The confirmation **screen** is the remainder, ready for its specification pass (operator decision 2026-09-25) |
+| 22 | Model-proposed bindings, human-confirmed | 3 | part 2 **READY** — specified 2026-10-30 (operator) | **PART 1 DONE** — PR #32 (proposal engine + command-line review). Part 2, the confirmation **screen**, is specified under *Notes carried forward* |
 | 23 | Canvas-requested content export | 1 | READY | **DONE** — PR #6 |
 | 24 | Agreement and near-boundary transparency | 2 | READY | **DONE** — PR #29 (data, guard, docs) and PR #45 (the statement and the marker in the PDF and on the review screen) |
 | 25 | Returned-review ingestion | 3 | **BLOCKED** — needs reviews delivered and returned | — |
@@ -55,9 +55,13 @@ by item 36's session, PR #43).
 | 37 | Host `__pycache__` ships in locally built images, carrying the developer's home path | 1 | READY | **DONE** — PR #34. 177 → 0 files in the dev image, 94 → 0 in runtime |
 | 38 | A bound Tier D row is counted in two coverage buckets, and `coverage` exits 1 calling it a bug | 1 | READY | **DONE** — PR #35. Tier first; 42 → 41 of 68, exit 1 → 0 |
 | 39 | Every other bare pattern in `.dockerignore` is root-only too | 3 | READY | **DONE** — PR #41. Planted nested files 19 → 0 in the dev image, 15 → 0 in runtime |
-| 40 | Sign-in (SSO) and multiple users | 3 | **NEEDS DISCUSSION** — filed 2026-10-29 | — |
+| 40 | Sign-in (SSO) and multiple users | 3 | **DECIDED** 2026-10-30 — split into 44–47 | Nothing to build under this number; the decisions are its entry |
 | 42 | A run that completed with failures records no finish time | 1 | READY — filed 2026-10-29 by item 36 | **DONE** — PR #44. Every terminal status stamps `finished_at`; `interrupted` stays unset |
-| 43 | The app's restart recovery takes over a run another process is executing | 1 | **NEEDS DISCUSSION** — filed 2026-10-29 by item 36 | — |
+| 43 | The app's restart recovery takes over a run another process is executing | 1 | **READY** — (a) an owner record, decided 2026-10-30 | — |
+| 44 | Signed-in identity behind a trusted proxy | 3 | **READY** — split from 40, 2026-10-30 | — |
+| 45 | Runs per user, an admin role, and per-user Canvas tokens | 3 | **BLOCKED** — on 44 | — |
+| 46 | Queue a run behind the active one | 3 | **BLOCKED** — on 43 and 45 | — |
+| 47 | Reference deployment: identity provider, proxy and app | 3 | **BLOCKED** — on 44; Authentik decided 2026-10-30 | — |
 
 ---
 
@@ -148,6 +152,10 @@ not queued: 36 is DONE (PR #43), so part 2 is ready for its own specification pa
 before any queue entry. `99ra-` (item 42, filed by item 36's session) sorted before `99s-` because
 it is silent wrongness: a finished run with no finish time. It ran DONE — PR #44. `99s-` (item 24's
 re-run) ran DONE — PR #45.
+
+**Wave 4 — composed 2026-10-30, not released.** In order: `99u-` item 43 (the bug first),
+`99v-` item 22 part 2, `99w-` item 44, `99x-` item 45, `99y-` item 46. Each gates on its
+predecessors being DONE on `main`, then `99z-` item 47 (decided the same day: Authentik).
 
 ---
 
@@ -416,6 +424,12 @@ image on every PR; a Dockerfile that is never built in CI rots within a month.
 There is no production deployment and no cutover — `docker compose up` on a developer machine is the
 entire story until that changes.
 
+**Item 40 (decided 2026-10-30) changes the story without changing the rule.** A shared instance
+is three containers — a self-hosted identity provider, an auth proxy and the app — one process
+each. Item 47 writes a reference compose file and a runbook for it, host-agnostic; where it runs
+and who operates it is undecided, and a session never deploys it. Without the proxy the app keeps
+today's single-user local mode.
+
 **The compose network subnet is pinned**, and later items should not unpin it. Sightline has to
 reach a model host on the LAN, and host firewalls commonly allow container egress by source range —
 typically the whole of `172.16.0.0/12`. Docker's default pool hands out `172.17`–`172.31` as /16s
@@ -449,6 +463,41 @@ built the New run screen's rubric picker. It is the Start form on `/courses`, an
 confirmation screen attaches there: for example a per-choice state ("bindings proposed, not
 confirmed") and a link from the choice, without rebuilding the picker. The specification pass
 decides the rest. Part 2 is not queued until that pass makes it READY.
+
+*Part 2 specified 2026-10-30 (operator, interactive). READY.* Three decisions:
+1. **The screen makes the proposals.** A *Propose bindings* action on a rubric runs `propose()`
+   in the background with the review model chosen in Settings, through item 09's client at
+   concurrency 1. It is refused while a review run is active, and a review run is refused while
+   it is going — both name the other, as item 36's start check does. Progress is rows asked and
+   rows failed, never a percentage. The command line keeps working unchanged.
+2. **Accepting applies to the app's copy of the pack.** `accept()`'s mapping is written under the
+   data root, beside the pack id, and every run the app or `python -m sightline.batch` starts
+   against that pack uses the shipped pack with the accepted bindings applied. The shipped YAML
+   in the repository never changes. Each acceptance is recorded with the reviewer (item 16's
+   `current_reviewer`, item 44's identity once it lands), the time, the accepted proposal
+   numbers and the coverage before and after, and the latest acceptance can be reverted, which
+   restores the bindings before it. History is kept, never rewritten.
+3. **A run may start while proposals are unconfirmed.** Bindings are an accelerator, not a
+   prerequisite (§09). The picker shows *bindings proposed, not confirmed* beside the choice, with
+   a link to the confirmation screen, and the run uses only confirmed bindings.
+
+The screen's contract is the 2026-09-08 decisions above and what part 1 shipped: every box starts
+unchecked; check-all and accept-checked exist; each proposal shows what (the tag and the
+detectors behind it), why (the verified span, or *no supporting span*) and how (`consequence()`);
+the coverage delta of the checked set is shown before it is accepted; conflicts are listed apart,
+are never covered by check-all, and each needs its own box; Tier D rows read *not asked* with the
+reason; a failed row reads as a failure, never as none proposed. No confidence signal, ranking or
+model order anywhere, and the vocabulary scan from part 1 covers the screen.
+
+*A trap the decisions create.* A run records its rubric by pack id, and the report loader reloads
+the pack by id. Once bindings can change after a run, an old run's report must still render
+against the bindings that run used: each accepted state is stored immutably under its digest, the
+run records the digest it ran with, and the loader resolves by it. A run recorded before this item
+has no digest and reads the shipped pack, which is what it ran with.
+
+*Left as it is:* the context window for the proposal call (part 1 measured `gpt-oss:20b`
+running out of it on 3 of 18 RSI rows). Those rows show as failures; widening the window is a
+measurement for later, not part of this screen.
 
 *Operator decision, 2026-09-25 (bitmap, interactive):* **build the proposal engine with a
 COMMAND-LINE review now; the confirmation SCREEN comes later.** Why it had to be decided: this entry
@@ -1015,6 +1064,19 @@ a stale `running` row from blocking Start forever after a CLI crash.
 
 *Shares the cause:* none. It is a defect in sightline's own run ownership, not a process gap.
 
+*Decided 2026-10-30 (operator, interactive): (a), an owner record. READY.* A run that is executing
+records its owner — host name and process id — and a heartbeat time the owner refreshes while it
+works. Recovery, at app start, at app shutdown and in `batch resume`, takes over only a run whose
+owner is gone: on the same host, a process id that is not alive; on any host, a heartbeat older
+than the stale limit. The app's shutdown marks interrupted only the runs it owns. Item 36's start
+check counts a `running` run as busy only while its owner is live, so a command-line crash no
+longer blocks Start forever. A `running` row with no owner was written before this item and is
+treated as orphaned, as today.
+
+*Trap.* The app container and a command-line run in another container can share the data volume
+but not a process namespace, and the host name is the container's. A process id means something
+only when the host name matches; across hosts the heartbeat is the whole test.
+
 **42 · DONE 2026-10-29 — PR #44.** Filed 2026-10-29 by item 36's session (PR #43). **A run that
 completed with failures records no finish time.**
 
@@ -1068,6 +1130,77 @@ change each of those. Questions to settle before it is READY:
    already refuses a second active run).
 
 *Depends on:* item 16's reviewer lookup (Q1), which this item replaces. *Blocks:* nothing queued.
+
+*Decided 2026-10-30 (operator, interactive). Split into items 44–47; nothing is built under 40.*
+1. **Identity provider and protocol:** a self-hosted identity provider federates the
+   institution's SSO over OIDC, and an auth proxy in front of the app passes a verified identity.
+   **Reviewer name:** the stable subject id is the identity; the display name is shown beside it,
+   so a renamed person keeps their history.
+2. **Where it runs:** undecided. Build host-agnostic, with a reference compose file (item 47). A
+   person deploys; a session never does. One process per container holds: the identity
+   provider, the proxy and the app are three containers.
+3. **In the app or in front:** in front. The app trusts the identity headers only from the proxy
+   and refuses any request that did not come through it.
+4. **Canvas credentials:** each user's own token, encrypted at rest with the existing
+   `sightline.credentials` mechanism. Reads and content-export POSTs happen as the person who
+   started the run. The Canvas base URL stays an instance setting.
+5. **Whose data:** users see, review and export their own runs; an admin sees every run.
+   Opening a review — what satisfies the export gate — needs access to that run.
+6. **Settings scope:** an admin role, granted by membership in an identity-provider group, may
+   change instance settings (model host, model, Canvas base URL). Everyone else has per-user
+   settings only.
+7. **With a login:** a Start while another run is active is queued first-in-first-out, shows its
+   position, and its owner (or an admin) can cancel it while it waits. Sessions last 8 hours and
+   end when the browser closes; the proxy holds the session, so this is the proxy's
+   configuration (item 47). Every form post carries a CSRF token (item 44).
+
+*A reading taken here, stated so it can be reversed:* signing in is a mode, off by default. With
+no proxy configured the app is today's single-user local tool, unchanged, and the Reviewer
+setting still names the reviewer.
+
+**44 · FILED 2026-10-30 (split from 40). READY. Signed-in identity behind a trusted proxy.**
+A sign-in mode, off by default. When on, every request must carry the proxy's identity headers
+(subject, display name, groups; names configurable) and a shared secret the proxy adds, or it is
+refused with 401 before any route runs — a request that did not come through the proxy is not
+served. `current_reviewer` returns the signed-in identity, and an override records the subject id
+beside the display name (a new column; old records keep their name and no id). Every form post
+carries and checks a CSRF token, in both modes. The Settings screen's Reviewer field is hidden in
+sign-in mode. Session lifetime is the proxy's (item 47), not the app's. Header names are
+configuration, with defaults that match Authentik's proxy outpost, and nothing else is
+provider-specific: oauth2-proxy in front of Entra ID must work by changing configuration alone. *Does not* scope data by
+user, add roles or touch Canvas tokens: that is 45.
+
+**45 · FILED 2026-10-30 (split from 40). BLOCKED on 44. Runs per user, an admin role, and
+per-user Canvas tokens.** A run records the subject who started it. The run list, run pages,
+reviews and exports show a user only their own runs, and anything else answers 404, not 403.
+Admin is membership in a configured identity-provider group, read from 44's groups header; an
+admin sees every run and alone may change instance settings. Each user stores their own Canvas
+token, encrypted with `sightline.credentials`; a run uses its starter's token, including when it
+resumes after a restart, and a run whose starter has no token fails with that remedy. In
+local mode there is one implicit user who is admin, so nothing changes.
+
+**46 · FILED 2026-10-30 (split from 40). BLOCKED on 43 and 45. Queue a run behind the active
+one.** Start while a run is active accepts the run as queued instead of refusing it. Queued runs
+execute one at a time in the order they were started; the run page reads *queued, N ahead*; the
+starter or an admin can cancel a queued run. A command-line run with a live owner (43) counts as
+the active run. No priority, no reordering, no estimate of when it starts.
+
+**47 · FILED 2026-10-30 (split from 40). NEEDS DECISION: which identity provider and which
+proxy.** A reference compose file — identity provider, auth proxy, app; three containers — and a
+runbook: federating the institution's SSO, the admin group, the 8-hour browser-session cookie,
+the shared secret 44 checks, and keeping the app unreachable except through the proxy. Host-
+agnostic, with `canvas.example.edu` and fake values only; no session deploys it. The one open
+question is the products (for example Authentik with its own outpost, or Keycloak with
+oauth2-proxy). Depends on 44.
+
+*Decided 2026-10-30 (operator): Authentik, and nothing Authentik-only in the app.* The reference
+deployment uses Authentik and its proxy outpost; the operator already runs an Authentik instance,
+so the compose file attaches to an existing one rather than requiring a new one, and says how to run
+one where none exists. The app must stay compatible with other providers, Microsoft Entra ID
+(Active Directory) named: the runbook carries a second worked example, oauth2-proxy in front of
+Entra ID, and item 44's header names and the admin group are configuration, never Authentik
+constants. *Entra's trap:* its group claim carries group object ids, not names, so the admin group
+is configured as whatever string the proxy forwards, and the runbook says so.
 
 **39 · FILED 2026-09-29 by item 37's session (PR #34). READY, queued 2026-10-29: latent, nothing
 matches today. Every other bare pattern in `.dockerignore` excludes at the context root only.**
@@ -2235,6 +2368,11 @@ to this.**
   something credential-shaped" rather than dropped.
 
 ## Corrections log
+
+**2026-10-30 — decisions recorded (operator, interactive).** Item 43: (a), an owner record;
+READY. Item 22 part 2 specified; READY. Item 40 decided and split into 44 (READY), 45 and 46
+(BLOCKED on their predecessors) and 47 (Authentik, compatible with others including Entra ID;
+BLOCKED on 44). SPEC §09's open question is replaced by the decisions.
 
 **2026-10-29 — process docs describe the Claude runner.** `AGENTS.md` and `docs/DEVELOPMENT.md`
 dropped the retired Codex queue engine: HEADs begin `<!-- model: opus[1m] -->`, attribution
