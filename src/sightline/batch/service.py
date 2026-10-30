@@ -32,8 +32,8 @@ from ..logging import get_logger
 from ..models import Run
 from ..paths import DataPaths
 from ..preferences import PreferenceStore
-from ..rubric.effort import load_effort_model
 from ..rubric.accepted import BindingsError, ResolvedPack, resolve_pack
+from ..rubric.effort import load_effort_model
 from ..rubric.shipped import PacksNotFoundError
 from .pipeline import CanvasSource, CoursePipeline, ReviewPipeline
 from .runner import PipelineFactory

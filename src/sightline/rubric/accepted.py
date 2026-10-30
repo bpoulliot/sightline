@@ -125,9 +125,7 @@ class BindingState:
         return "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest()
 
     def to_json(self) -> str:
-        return json.dumps(
-            {**self.material(), "digest": self.digest}, indent=2, ensure_ascii=False
-        )
+        return json.dumps({**self.material(), "digest": self.digest}, indent=2, ensure_ascii=False)
 
     @classmethod
     def from_json(cls, text: str, *, origin: str) -> BindingState:
@@ -148,7 +146,9 @@ class BindingState:
         except (KeyError, TypeError, ValueError, AttributeError) as exc:
             if isinstance(exc, BindingsError):
                 raise
-            raise BindingsError(f"{origin}: a state file with a missing or malformed field") from exc
+            raise BindingsError(
+                f"{origin}: a state file with a missing or malformed field"
+            ) from exc
         if payload.get("digest") != state.digest:
             raise BindingsError(
                 f"{origin}: the bindings in the file do not match the digest it is named by, so "
