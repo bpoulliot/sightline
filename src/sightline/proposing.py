@@ -11,8 +11,9 @@ are counted before the first call (every row but Tier D), so the page can say ho
 how long each takes depends on the model, which is why no bar or estimate is drawn from them.
 
 **One thing at a time against the model host.** Proposing is refused while a review run is
-executing, and a run is refused while proposals are being made (:mod:`sightline.new_run`); each
-refusal names the other. Proposals are only kept once every row has been asked: a task that stops
+executing or runs are queued (roadmap item 46), and a run is refused while proposals are being
+made (:mod:`sightline.new_run`); each refusal names the other, and the run queue waits for a
+proposer. Proposals are only kept once every row has been asked: a task that stops
 part-way — the host went away, the app shut down — keeps nothing and says why, and proposing again
 starts over.
 """

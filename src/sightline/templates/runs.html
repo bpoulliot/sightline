@@ -26,7 +26,7 @@
         {% for row in rows %}
         <tr data-run="{{ row.run.id }}">
           <th scope="row"><a href="/runs/{{ row.run.id }}"><code>{{ row.short_id }}</code></a></th>
-          <td data-label="Status"><span class="state {{ row.state_class }}">{{ row.run.status_label }}</span></td>
+          <td data-label="Status"><span class="state {{ row.state_class }}">{{ row.status_label }}</span></td>
           <td data-label="Courses" class="num">{{ row.run.courses | length }}</td>
           <td data-label="Reviewed" class="num">{{ row.reviewed }}</td>
           <td data-label="Failed" class="num">{{ row.failed }}</td>

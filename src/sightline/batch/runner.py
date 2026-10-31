@@ -95,6 +95,7 @@ def create_batch_run(
     note: str | None = None,
     starter_subject: str | None = None,
     starter_name: str | None = None,
+    queued: bool = False,
 ) -> str:
     """Record a batch, refusing one that is over the cap. Returns the run id.
 
@@ -105,7 +106,8 @@ def create_batch_run(
     ``bindings_digest`` is the accepted bindings the run uses, from
     :func:`sightline.rubric.accepted.resolve_pack` at the moment it is started; ``None`` is the
     shipped pack's own. ``starter_subject`` and ``starter_name`` are who started it in sign-in
-    mode (roadmap item 45): the run reads Canvas with that person's token.
+    mode (roadmap item 45): the run reads Canvas with that person's token. ``queued`` records it as
+    waiting behind the active run (roadmap item 46).
     """
     cleaned = [reference.strip() for reference in references if reference.strip()]
     if not cleaned:
@@ -119,6 +121,7 @@ def create_batch_run(
         note=note,
         starter_subject=starter_subject,
         starter_name=starter_name,
+        queued=queued,
     )
 
 

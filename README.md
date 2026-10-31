@@ -101,10 +101,13 @@ starting asks Canvas to build an export of each course, which appears in that co
 list; the form says so beside the button. Bundles are reviewed from the command line.
 
 A run is not started, and the form says why and where to fix it, when there is no Canvas credential,
-no model host, or no model chosen — the extract stage would stop the run — or **while another run is
-running**. One run at a time: courses share one model host. A run started by `python -m
-sightline.batch run` is another process and is seen through the run store, so it refuses a start the
-same way.
+no model host, or no model chosen — the extract stage would stop the run — or while bindings are
+being proposed. A run started **while another run is active is queued**: one run at a time, because
+courses share one model host, and queued runs start on their own in the order they were started.
+The form says so before Start is pressed, and a queued run's page and the run list read *Queued, N
+ahead* — a count, never an estimate of when it starts. Its starter (or an admin) can cancel it from
+its page while it waits. A run started by `python -m sightline.batch run` is another process and is
+seen through the run store, so a run started in the app queues behind it the same way.
 
 A run's page shows every course, stage by stage: what each stage examined and the statement it
 made, never a percentage or a bar. A failed stage shows what it said and what to change; a failure

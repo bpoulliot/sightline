@@ -72,8 +72,14 @@ class RunStatus(enum.StrEnum):
     and it exists because the alternatives both lie. ``succeeded`` over a batch with a failed
     course is the silent half of SPEC §11 — a glance at the run list would say the work is done.
     ``failed`` over the same batch throws away two finished reviews. Roadmap item 17.
+
+    ``queued`` is a run started while another was active (roadmap item 46). It waits, first in
+    first out, and the application's background runner moves it to ``pending`` when its turn
+    comes. It is neither resumable nor terminal: a restart keeps it queued, and only its starter or
+    an admin ends it early, as ``cancelled``.
     """
 
+    QUEUED = "queued"
     PENDING = "pending"
     RUNNING = "running"
     INTERRUPTED = "interrupted"
@@ -94,6 +100,7 @@ TERMINAL_STATUSES: frozenset[RunStatus] = frozenset(
 #: What each status is called on a screen. A mapping rather than a string transformation, because
 #: "Partial" is not what a person needs to read about a batch that reviewed two courses of three.
 STATUS_LABELS: dict[RunStatus, str] = {
+    RunStatus.QUEUED: "Queued",
     RunStatus.PENDING: "Pending",
     RunStatus.RUNNING: "Running",
     RunStatus.INTERRUPTED: "Interrupted",
@@ -140,6 +147,11 @@ class Run(Base):
     #: mode, and to the one local user in local mode.
     starter_subject: Mapped[str | None] = mapped_column(String(255), default=None)
     starter_name: Mapped[str | None] = mapped_column(String(128), default=None)
+    #: Who cancelled the run while it was queued (roadmap item 46): the signed-in subject and the
+    #: name beside it, or in local mode the Reviewer setting's name and no subject. Kept on the run
+    #: rather than in its log, as the starter is: the log says what happened, not who.
+    cancelled_by_subject: Mapped[str | None] = mapped_column(String(255), default=None)
+    cancelled_by_name: Mapped[str | None] = mapped_column(String(128), default=None)
 
     courses: Mapped[list[RunCourse]] = relationship(
         back_populates="run",

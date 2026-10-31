@@ -33,6 +33,7 @@ from ..config import Settings, get_settings
 from ..credentials import CredentialStore
 from ..llm.client import OllamaClient
 from ..logging import configure_logging
+from ..models import RunStatus
 from ..ownership import RunHold, RunOwnedElsewhereError
 from ..paths import DataPaths
 from ..preferences import PreferenceStore
@@ -329,6 +330,16 @@ async def _resume(args: argparse.Namespace, settings: Settings) -> int:
         run = store.get_run(args.run_id)
         if run is None:
             print(f"No run {args.run_id!r} in the run store.", file=sys.stderr)
+            return 2
+        if RunStatus(run.status) is RunStatus.QUEUED:
+            # Roadmap item 46: a queued run waits its turn in the app's queue. Executing it here
+            # would overtake every run started before it.
+            print(
+                f"Run {args.run_id} is queued in the app, behind the runs started before it, and "
+                "starts there when its turn comes. Its page in the app shows how many runs are "
+                "ahead, and cancels it.",
+                file=sys.stderr,
+            )
             return 2
         # Takes over only runs whose owner is gone. A run another process is executing stays
         # running, and the claim below refuses it.

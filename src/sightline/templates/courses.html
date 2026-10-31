@@ -161,6 +161,13 @@
   </div>
   {% endif %}
 
+  {% if start.queue %}
+  <div class="banner" role="status" id="queue-notice">
+    <p class="banner-head">A run started now is queued.</p>
+    <p class="banner-remedy">{{ start.queue.summary }} It starts on its own when every run ahead of it has ended; there is no estimate of when that will be, and it can be cancelled from its page while it waits.{% if start.queue.href %} <a href="{{ start.queue.href }}">{{ start.queue.link }}</a>{% endif %}</p>
+  </div>
+  {% endif %}
+
   <form method="post" action="/runs" class="form">
     {{ csrf_field() }}
     {% if start.courses %}
