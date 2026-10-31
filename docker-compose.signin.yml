@@ -1,0 +1,87 @@
+# Sign-in mode, the reference deployment (roadmap item 47; runbook: docs/SIGN-IN.md).
+#
+# Two containers, one process each: the app and an Authentik proxy outpost. The outpost attaches to
+# an Authentik instance that ALREADY EXISTS, by URL and token. This file does not run Authentik;
+# the runbook links to Authentik's own instructions for where there is none.
+#
+#   docker compose -f docker-compose.signin.yml up -d --build
+#
+# The app publishes no port. It shares one network with the outpost, and that network is
+# `internal`, so nothing but the outpost can reach it. A request that reaches the app some other way
+# is refused anyway (SIGHTLINE_SIGNIN_SECRET, item 44), but the network is the first wall.
+#
+# Every secret comes from the environment; this file holds none (tests/test_signin_compose.py):
+#   .env          the app's settings, as in local mode, plus SIGHTLINE_SIGNIN_SECRET
+#   .env.outpost  AUTHENTIK_HOST and AUTHENTIK_TOKEN, read by the outpost only
+# Two files, so the app never holds the outpost's token and the outpost never holds a Canvas token.
+# Both are gitignored by `.env.*`. AUTHENTIK_TAG and the port settings are read from .env or the
+# shell when compose interpolates this file.
+#
+# The default docker-compose.yml is the single-user local tool and is unchanged by this file.
+name: sightline-signin
+
+services:
+  sightline:
+    build:
+      context: .
+      target: runtime
+    image: sightline:local
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      SIGHTLINE_DATA_DIR: /data
+      SIGHTLINE_SIGNIN: "true"
+      # Refused at config time rather than at the app's start, so a missing secret names itself.
+      SIGHTLINE_SIGNIN_SECRET: ${SIGHTLINE_SIGNIN_SECRET:?set SIGHTLINE_SIGNIN_SECRET in .env (docs/SIGN-IN.md)}
+    # No `ports:`. The outpost reaches the app at http://sightline:8000 over `proxy`.
+    networks:
+      - proxy
+      - egress
+    volumes:
+      - sightline-data:/data
+
+  authentik-outpost:
+    # The outpost's version must match the Authentik server's, so the tag is configuration.
+    image: ghcr.io/goauthentik/proxy:${AUTHENTIK_TAG:?set AUTHENTIK_TAG to your Authentik server's version}
+    restart: unless-stopped
+    # AUTHENTIK_HOST, AUTHENTIK_TOKEN and AUTHENTIK_INSECURE come from this file alone. Deliberately
+    # no `environment:` block: a key there overrides the env_file, and an empty interpolation
+    # would blank the token the file holds.
+    env_file:
+      - path: .env.outpost
+        required: true
+    ports:
+      # Plain HTTP on the loopback by default: put the TLS terminator you already run in front of
+      # it. Set SIGHTLINE_SIGNIN_BIND only if the outpost itself should face the network.
+      - "${SIGHTLINE_SIGNIN_BIND:-127.0.0.1}:${SIGHTLINE_SIGNIN_PORT:-9000}:9000"
+    networks:
+      - proxy
+      - edge
+    depends_on:
+      - sightline
+
+networks:
+  # The app and the outpost, and nothing else. `internal`: no route out, and no port published.
+  proxy:
+    internal: true
+    ipam:
+      config:
+        - subnet: ${SIGHTLINE_PROXY_SUBNET:-172.16.245.0/24}
+  # The app's way out, to the model host and Canvas. Pinned, as in docker-compose.yml and for the
+  # same reason (ROADMAP *Deployment*): host firewalls allow container egress by source range, and
+  # Docker's fallback pool lands outside it. Same variable and default as the local compose file,
+  # so running both on one host needs SIGHTLINE_SUBNET overridden for one of them.
+  egress:
+    ipam:
+      config:
+        - subnet: ${SIGHTLINE_SUBNET:-172.16.240.0/24}
+  # The outpost's way out, to Authentik, and where its port is published. Pinned for the same reason.
+  edge:
+    ipam:
+      config:
+        - subnet: ${SIGHTLINE_EDGE_SUBNET:-172.16.244.0/24}
+
+volumes:
+  sightline-data:
