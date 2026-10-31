@@ -60,7 +60,7 @@ by item 36's session, PR #43; 44–47 split from item 40 on 2026-10-30).
 | 43 | The app's restart recovery takes over a run another process is executing | 1 | **READY** — (a) an owner record, decided 2026-10-30 | **DONE** — PR #48. Runs record host, pid and a heartbeat; recovery, shutdown and Start read them |
 | 44 | Signed-in identity behind a trusted proxy | 3 | READY | **DONE** — PR #50 (sign-in mode behind a proxy secret, the subject on overrides, CSRF on every form post) |
 | 45 | Runs per user, an admin role, and per-user Canvas tokens | 3 | READY | **DONE** — PR #51 (a run is its starter's, 404 to anyone else; admin group alone changes instance settings; each person's own Canvas token) |
-| 46 | Queue a run behind the active one | 3 | READY | **DONE** — PR #NN (a Start while a run is active is queued FIFO; *Queued, N ahead*; starter or admin cancels, recorded; survives a restart; waits behind a live command-line run) |
+| 46 | Queue a run behind the active one | 3 | READY | **DONE** — PR #52 (a Start while a run is active is queued FIFO; *Queued, N ahead*; starter or admin cancels, recorded; survives a restart; waits behind a live command-line run) |
 | 47 | Reference deployment: identity provider, proxy and app | 3 | **BLOCKED** — on 44 (DONE, PR #50); Authentik decided 2026-10-30 | — |
 
 ---
@@ -157,7 +157,7 @@ re-run) ran DONE — PR #45.
 `99v-` item 22 part 2, `99w-` item 44, `99x-` item 45, `99y-` item 46. Each gates on its
 predecessors being DONE on `main`, then `99z-` item 47 (decided the same day: Authentik). `99u-`
 (item 43) ran DONE — PR #48. `99v-` (item 22 part 2) ran DONE — PR #49. `99w-` (item 44) ran
-DONE — PR #50. `99x-` (item 45) ran DONE — PR #51. `99y-` (item 46) ran DONE — PR #NN.
+DONE — PR #50. `99x-` (item 45) ran DONE — PR #51. `99y-` (item 46) ran DONE — PR #52.
 
 ---
 
@@ -1254,7 +1254,7 @@ names the model host, the model and the Canvas base URL as instance settings, an
 the export preference. Accepted bindings apply to every later run, so whether they are an instance
 setting too is a decision, not a reading.
 
-**46 · DONE 2026-10-30 — PR #NN.** Filed 2026-10-30 (split from 40). **Queue a
+**46 · DONE 2026-10-30 — PR #52.** Filed 2026-10-30 (split from 40). **Queue a
 run behind the active one.** Start while a run is active accepts the run as queued instead of refusing it. Queued runs
 execute one at a time in the order they were started; the run page reads *queued, N ahead*; the
 starter or an admin can cancel a queued run. A command-line run with a live owner (43) counts as
@@ -1265,7 +1265,7 @@ owner", and `sightline.new_run.active_runs` already applies it. The dependency o
 `viewer(request).can_see(run)` (`sightline.access`) is "its starter or an admin", the test for
 who may cancel a queued run.*
 
-*As built (PR #NN).* SPEC §04 *Runtime* and §09 *As built (item 46)* are the description. A new
+*As built (PR #52).* SPEC §04 *Runtime* and §09 *As built (item 46)* are the description. A new
 status `queued`; `BackgroundRunner` holds the one queue task (`ahead_of_queue`, `must_queue`,
 `queue_positions`, `start_queue`); `RunStore.queued_runs`, `take_queued` and `cancel_queued` are the
 store's side, the last two compare-and-sets on the status. `POST /runs/{id}/cancel` in
@@ -2465,7 +2465,7 @@ to this.**
 
 ## Corrections log
 
-**2026-10-30 — item 46 built (PR #NN).** SPEC §04 *Runtime* says one run executes at a time and the
+**2026-10-30 — item 46 built (PR #52).** SPEC §04 *Runtime* says one run executes at a time and the
 rest queue; §09's *As built (item 36)* no longer says a start is refused while another run is
 running, and §09 gains *As built (item 46)*. The README's New run passage says a start is queued,
 not refused. Item 46 is DONE.
