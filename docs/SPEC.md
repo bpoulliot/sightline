@@ -236,6 +236,11 @@ containers sharing the data volume. A restart therefore takes over only a run wh
 a dead process id on the same host, or a stale heartbeat on any host. A process id means nothing
 across hosts. Roadmap item 43; the rule is `sightline.ownership`.
 
+One run executes at a time. A run started in the app while another is active is recorded
+`queued`, and one asyncio task in the background runner starts the oldest queued run when nothing
+is ahead of it. The queue is the store's `queued` rows in creation order, so it survives a restart.
+Roadmap item 46.
+
 ### Nothing institution-specific is compiled in
 
 Sightline is intended to be reusable and open source. Every deployment-specific value is
@@ -721,9 +726,10 @@ ticked where its content can be read, and a rubric picker over the shipped packs
 `uccs-oscqr-3-1-3` selected. `POST /runs` records the batch with `create_batch_run` (the cap and
 its message are the batch runner's) and submits it to the background runner. A run is not started,
 and the form says why and names Settings, without a Canvas credential, a model host or a chosen
-model, or **while another run is running** — this process's tasks, or a run the store records as
+model. Item 36 also refused a start **while another run was running**; item 46 replaced that refusal
+with a queue (below). What counts as running is this process's tasks, or a run the store records as
 `running` whose owner is live, which is how a command-line run in another process shows (item 43:
-a `running` row whose owner is gone does not block Start). Bundles stay on the command
+a `running` row whose owner is gone holds nothing up). Bundles stay on the command
 line. *Run progress* is `/runs` (the recent runs) and `/runs/{id}`: per course and per stage, what
 each stage examined and its statement, never a percentage; a failed stage's summary and remedy; the
 run's own failures from its log; the run log itself; for each course with a result a link to its
@@ -834,6 +840,35 @@ Four readings taken here:
   model host, the model and the Canvas base URL as instance settings, and the item adds the export
   preference. Bindings are recorded per pack with who accepted them, and they apply to every
   later run. Whether they are an instance setting is open: roadmap item 45's entry says so.
+
+**As built (item 46).** A Start while a run is active, or while runs are queued, records the run
+with status `queued` (`RunStatus.QUEUED`, label *Queued*; neither resumable nor terminal) instead of
+refusing it; the other blockers — no credential, no model host, no model, bindings being proposed —
+still refuse. `BackgroundRunner` owns the queue: one task that starts the oldest queued run
+(`RunStore.queued_runs`, by creation time) when `ahead_of_queue()` is empty — this process's tasks,
+the runs a restart has still to resume, and a store-`running` run whose owner is live. It is woken
+when one of this process's runs ends and looks again every five seconds for what it cannot be woken
+by, a command-line run finishing. It also waits while bindings are proposed (`held_by`), and
+proposing is refused while runs are queued, so a queued run is never held up behind a proposer it
+was not told about. Taking a run (`take_queued`, queued → pending) and cancelling it
+(`cancel_queued`, queued → cancelled) are compare-and-sets on the status, so exactly one lands. A
+restart resumes what it was executing first, then carries on with the queue in its order; shutdown
+leaves queued runs queued. The Start form shows a notice — not a refusal — naming the run that is
+executing (when the person may see it) and how many runs are ahead. A queued run's page and the run
+list read *Queued, N ahead*; `GET /api/runs/{id}` carries `queue_ahead`, so the page's script
+reloads when the run moves up. *Cancel this run* (`POST /runs/{id}/cancel`) answers the starter or
+an admin (`viewer(request).can_see(run)`) and 404 to anybody else, as every other run route does;
+only a queued run can be cancelled (409 otherwise, saying which state it is in). The run records
+who cancelled it (`cancelled_by_subject`, `cancelled_by_name`, added columns; in local mode the
+Reviewer setting's name and no subject); its log says *Cancelled while queued* and not who. There
+is no priority, no reordering and no estimate of when a run starts. Three readings taken here:
+- **The run page names the canceller as its reader is entitled to see it:** *you* to whoever did
+  it, the recorded name to an admin, and *an admin* to a starter whose run an admin cancelled.
+- **`python -m sightline.batch resume` refuses a queued run** (exit 2): executing it there would
+  overtake every run started before it. `python -m sightline.batch run` is unchanged and starts at
+  once in its own process; the app's queue then waits behind it.
+- **Proposing bindings is refused while runs are queued**, not only while one runs: a queued run
+  starts as soon as the host is free, and a proposer started in that moment would hold it up.
 
 ---
 
