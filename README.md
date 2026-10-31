@@ -1276,6 +1276,7 @@ repository is a bug, and `tests/test_config.py` fails the build over one.
 | `SIGHTLINE_ESCALATION_API_KEY` | Key for the above. |
 | `SIGHTLINE_TOKENS_CSS` | Override the location of `docs/tokens.css`. |
 | `SIGHTLINE_PORT` | Host port for the compose service. Default `8099`. |
+| `SIGHTLINE_SIGNIN_BIND` / `SIGHTLINE_SIGNIN_PORT` | Where `docker-compose.signin.yml` publishes the sign-in proxy. Defaults `127.0.0.1` and `9000`. See [docs/SIGN-IN.md](docs/SIGN-IN.md). |
 | `SIGHTLINE_LOG_LEVEL` / `SIGHTLINE_LOG_FORMAT` | `INFO` and `json` by default; `console` is easier to read locally. |
 | `SIGHTLINE_SIGNIN` | Sign-in mode. Default `false`. See *Sign-in behind a proxy*. |
 | `SIGHTLINE_SIGNIN_SECRET` | The secret the auth proxy adds to every request it forwards. Required in sign-in mode, at least 32 characters. Environment only. |
@@ -1342,24 +1343,23 @@ with a remedy naming Settings; no other token is borrowed, so the instance token
 admin, and the one stored credential is theirs.
 
 Header names are configuration and nothing in the app is provider-specific. The defaults are
-Authentik's proxy outpost headers; Authentik is told to add the secret with a property mapping. For
-oauth2-proxy in front of Entra ID with `--pass-user-headers`:
+Authentik's proxy outpost headers. **[docs/SIGN-IN.md](docs/SIGN-IN.md) is the deployment runbook**
+(item 47): `docker-compose.signin.yml` runs the app behind an Authentik proxy outpost attached to an
+existing Authentik, with no app port published, and the runbook covers federating the institution's
+sign-on, the admin group, the 8-hour browser session and the shared secret. Its second worked
+example is oauth2-proxy in front of Entra ID, whose header settings are:
 
 ```
-SIGHTLINE_SIGNIN=true
-SIGHTLINE_SIGNIN_SECRET=<43 characters from: python -c "import secrets; print(secrets.token_urlsafe(32))">
-SIGHTLINE_SIGNIN_SECRET_HEADER=X-Proxy-Shared-Secret
 SIGHTLINE_SIGNIN_SUBJECT_HEADER=X-Forwarded-User
 SIGHTLINE_SIGNIN_NAME_HEADER=X-Forwarded-Preferred-Username
 SIGHTLINE_SIGNIN_GROUPS_HEADER=X-Forwarded-Groups
 SIGHTLINE_SIGNIN_GROUPS_SEPARATOR=,
 ```
 
-with the proxy (or the server in front of it) adding `X-Proxy-Shared-Secret`. Two things the app
-cannot check for you: the proxy must **replace**, not append to, an identity header a client sends
-(the app refuses a header that arrives twice, which catches an appending proxy), and the app's port
-must be reachable only through the proxy. Entra's groups header carries group object ids, not
-names.
+Two things the app cannot check for you: the proxy must **replace**, not append to, an identity
+header a client sends (the app refuses a header that arrives twice, which catches an appending
+proxy), and the app's port must be reachable only through the proxy. Entra's groups header carries
+group object ids, not names, so the admin group is configured as an object id.
 
 The secret is registered with `sightline.redaction` by value and the identity headers by name, so
 a header line, a request scope or a logged header mapping keeps the header's name and loses its

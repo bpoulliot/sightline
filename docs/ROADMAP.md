@@ -61,7 +61,7 @@ by item 36's session, PR #43; 44–47 split from item 40 on 2026-10-30).
 | 44 | Signed-in identity behind a trusted proxy | 3 | READY | **DONE** — PR #50 (sign-in mode behind a proxy secret, the subject on overrides, CSRF on every form post) |
 | 45 | Runs per user, an admin role, and per-user Canvas tokens | 3 | READY | **DONE** — PR #51 (a run is its starter's, 404 to anyone else; admin group alone changes instance settings; each person's own Canvas token) |
 | 46 | Queue a run behind the active one | 3 | READY | **DONE** — PR #52 (a Start while a run is active is queued FIFO; *Queued, N ahead*; starter or admin cancels, recorded; survives a restart; waits behind a live command-line run) |
-| 47 | Reference deployment: identity provider, proxy and app | 3 | **BLOCKED** — on 44 (DONE, PR #50); Authentik decided 2026-10-30 | — |
+| 47 | Reference deployment: identity provider, proxy and app | 3 | READY — 44 DONE (PR #50); Authentik decided 2026-10-30 | **DONE** — PR #53 (`docker-compose.signin.yml`: the app behind an Authentik outpost, no app port, an internal network; `docs/SIGN-IN.md`, with oauth2-proxy + Entra ID as a second example) |
 
 ---
 
@@ -157,7 +157,8 @@ re-run) ran DONE — PR #45.
 `99v-` item 22 part 2, `99w-` item 44, `99x-` item 45, `99y-` item 46. Each gates on its
 predecessors being DONE on `main`, then `99z-` item 47 (decided the same day: Authentik). `99u-`
 (item 43) ran DONE — PR #48. `99v-` (item 22 part 2) ran DONE — PR #49. `99w-` (item 44) ran
-DONE — PR #50. `99x-` (item 45) ran DONE — PR #51. `99y-` (item 46) ran DONE — PR #52.
+DONE — PR #50. `99x-` (item 45) ran DONE — PR #51. `99y-` (item 46) ran DONE — PR #52. `99z-`
+(item 47) ran DONE — PR #53.
 
 ---
 
@@ -428,8 +429,9 @@ entire story until that changes.
 
 **Item 40 (decided 2026-10-30) changes the story without changing the rule.** A shared instance
 is three containers — a self-hosted identity provider, an auth proxy and the app — one process
-each. Item 47 writes a reference compose file and a runbook for it, host-agnostic; where it runs
-and who operates it is undecided, and a session never deploys it. Without the proxy the app keeps
+each. Item 47 wrote the reference compose file (`docker-compose.signin.yml`: the app and an
+Authentik proxy outpost, attached to an existing Authentik) and its runbook (`docs/SIGN-IN.md`),
+host-agnostic; where it runs and who operates it is undecided, and a session never deploys it. Without the proxy the app keeps
 today's single-user local mode.
 
 **The compose network subnet is pinned**, and later items should not unpin it. Sightline has to
@@ -1281,8 +1283,8 @@ cancel without the access check) fails at least one of them. Screenshot QA at 14
 queued run, the run list, a cancelled run and the Start form's notice, `scrollWidth == innerWidth`
 on all eight.
 
-**47 · FILED 2026-10-30 (split from 40). NEEDS DECISION: which identity provider and which
-proxy.** A reference compose file — identity provider, auth proxy, app; three containers — and a
+**47 · DONE 2026-10-30 — PR #53.** Filed 2026-10-30 (split from 40). READY once 44 landed and the
+products were decided. **Reference deployment: identity provider, proxy and app.** A reference compose file — identity provider, auth proxy, app; three containers — and a
 runbook: federating the institution's SSO, the admin group, the 8-hour browser-session cookie,
 the shared secret 44 checks, and keeping the app unreachable except through the proxy. Host-
 agnostic, with `canvas.example.edu` and fake values only; no session deploys it. The one open
@@ -1297,6 +1299,20 @@ one where none exists. The app must stay compatible with other providers, Micros
 Entra ID, and item 44's header names and the admin group are configuration, never Authentik
 constants. *Entra's trap:* its group claim carries group object ids, not names, so the admin group
 is configured as whatever string the proxy forwards, and the runbook says so.
+
+*As built (PR #53).* SPEC §09 *As built (item 47)* is the description, with three readings taken.
+`docker-compose.signin.yml` is two containers, the app and an Authentik proxy outpost, because the
+decision attaches to an existing Authentik; the runbook links to Authentik's own installation for
+where none exists. The app publishes no port, shares only an `internal` network with the outpost,
+and keeps the pinned subnet on its egress network. Secrets come from `.env` (the app) and
+`.env.outpost` (the outpost), never from the file. `docs/SIGN-IN.md` covers federation, the admin
+group, the session, the scope mapping that adds the shared secret, the provider and outpost, and the
+checks to run after deploying; its second example is oauth2-proxy v7.13.0 in front of Entra ID, its
+configuration started offline (no identity provider contacted). `tests/test_signin_compose.py`
+checks the file in CI, with every check fired against a broken copy; its `docker compose config`
+half skips where there is no compose CLI, which is CI's test job. *Open, for whoever deploys it:*
+oauth2-proxy can bound the session at 8 hours or end it at browser close, not both, and whether
+Authentik's outpost cookie ends at browser close was not determined without a live instance.
 
 **39 · FILED 2026-09-29 by item 37's session (PR #34). READY, queued 2026-10-29: latent, nothing
 matches today. Every other bare pattern in `.dockerignore` excludes at the context root only.**
