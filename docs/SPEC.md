@@ -786,7 +786,8 @@ Everything above describes the local single-user mode, which stays the default. 
   Item 45.
 - **A run started while another is active waits in a first-in-first-out queue**, showing its
   position, cancellable by its starter or an admin. Item 46.
-- **Sessions last 8 hours and end when the browser closes**, held by the proxy. Item 47.
+- **Sessions last 8 hours and end when the browser closes**, held by the proxy. Item 47; the
+  reference deployment is `docker-compose.signin.yml` and `docs/SIGN-IN.md`.
 
 **As built (item 44).** `sightline.signin` and `sightline.csrf`, two pure ASGI middlewares that run
 before any route. With `SIGHTLINE_SIGNIN` on, a request is refused with 401 and a body that names no
@@ -869,6 +870,35 @@ is no priority, no reordering and no estimate of when a run starts. Three readin
   once in its own process; the app's queue then waits behind it.
 - **Proposing bindings is refused while runs are queued**, not only while one runs: a queued run
   starts as soon as the host is free, and a proposer started in that moment would hold it up.
+
+**As built (item 47).** `docker-compose.signin.yml` and `docs/SIGN-IN.md`. Two containers, not
+three: the operator's decision attaches the deployment to an Authentik that already exists, so the
+file runs the app and an Authentik proxy outpost (`ghcr.io/goauthentik/proxy`, tagged
+`AUTHENTIK_TAG` to match the server), and the runbook links to Authentik's own installation
+instructions where there is none. The app publishes no port and joins two networks: `proxy`,
+`internal`, shared with the outpost alone, and `egress`, its way to the model host and Canvas, on
+the pinned `SIGHTLINE_SUBNET`. The outpost publishes on the loopback by default, for a TLS
+terminator in front. Secrets come from two environment files, `.env` for the app (with
+`SIGHTLINE_SIGNIN_SECRET`, required at config time) and `.env.outpost` for the outpost's URL and
+token, so neither container holds the other's credential; the outpost has no `environment:` block,
+because one would override its env file. Authentik adds the shared secret through a scope mapping
+(`ak_proxy` → `additionalHeaders`), and the session is the User Login stage's *Session duration*
+`seconds=0` with the provider's *Token validity* `hours=8`. The second worked example is
+oauth2-proxy v7.13.0 in front of Entra ID, through its alpha configuration, the only way it injects
+a static header; the subject is the Entra object id (`userIDClaim: oid`), and the admin group is a
+group object id. `tests/test_signin_compose.py` checks that the file parses, that the app publishes
+no port and shares a network only with the outpost, that the shared one is internal, that the
+egress subnet is the local file's, and that no secret-shaped value is a literal; each check is also
+fired against a broken copy. Three readings taken here:
+- **oauth2-proxy cannot give both halves of the session decision.** `--cookie-expire` is a duration
+  (survives a closed browser) or `0` (a session cookie with no age limit). The example takes `8h`
+  and says so.
+- **Whether Authentik's outpost cookie is itself a session cookie was not determined** without a
+  live instance. The runbook gives both settings and a check to run after deploying, and names the
+  8-hour token validity as the bound to rely on.
+- **oauth2-proxy's documentation shows header values nested under `claimSource:` and
+  `secretSource:`; v7.13.0 refuses that** and takes the flat form, which is what the runbook shows.
+  Checked by starting that version with no network.
 
 ---
 

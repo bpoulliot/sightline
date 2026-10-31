@@ -103,8 +103,7 @@ def app_exposure_problems(doc: dict[str, Any]) -> list[str]:
 def _environment(service: dict[str, Any]) -> dict[str, str]:
     env = service.get("environment") or {}
     if isinstance(env, list):
-        pairs = (item.split("=", 1) if "=" in item else (item, "") for item in env)
-        return {key: value for key, value in pairs}
+        return dict(item.split("=", 1) if "=" in item else (item, "") for item in env)
     return {key: "" if value is None else str(value) for key, value in env.items()}
 
 
@@ -157,9 +156,7 @@ def test_the_egress_subnet_stays_pinned_as_in_the_local_compose_file(
         for net in _networks(compose["services"][APP])
         if not compose["networks"][net].get("internal")
     ]
-    assert [compose["networks"][n]["ipam"]["config"][0]["subnet"] for n in egress] == [
-        local_subnet
-    ]
+    assert [compose["networks"][n]["ipam"]["config"][0]["subnet"] for n in egress] == [local_subnet]
 
 
 @pytest.mark.parametrize(
@@ -171,9 +168,7 @@ def test_the_egress_subnet_stays_pinned_as_in_the_local_compose_file(
         "host networking",
     ],
 )
-def test_the_exposure_check_fires_on_a_broken_file(
-    compose: dict[str, Any], breakage: str
-) -> None:
+def test_the_exposure_check_fires_on_a_broken_file(compose: dict[str, Any], breakage: str) -> None:
     broken = copy.deepcopy(compose)
     app = broken["services"][APP]
     if breakage == "publish the app's port":
