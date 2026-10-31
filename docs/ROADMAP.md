@@ -61,7 +61,7 @@ by item 36's session, PR #43; 44–47 split from item 40 on 2026-10-30).
 | 44 | Signed-in identity behind a trusted proxy | 3 | READY | **DONE** — PR #50 (sign-in mode behind a proxy secret, the subject on overrides, CSRF on every form post) |
 | 45 | Runs per user, an admin role, and per-user Canvas tokens | 3 | READY | **DONE** — PR #51 (a run is its starter's, 404 to anyone else; admin group alone changes instance settings; each person's own Canvas token) |
 | 46 | Queue a run behind the active one | 3 | READY | **DONE** — PR #52 (a Start while a run is active is queued FIFO; *Queued, N ahead*; starter or admin cancels, recorded; survives a restart; waits behind a live command-line run) |
-| 47 | Reference deployment: identity provider, proxy and app | 3 | READY — 44 DONE (PR #50); Authentik decided 2026-10-30 | **DONE** — PR #PRNUM (`docker-compose.signin.yml`: the app behind an Authentik outpost, no app port, an internal network; `docs/SIGN-IN.md`, with oauth2-proxy + Entra ID as a second example) |
+| 47 | Reference deployment: identity provider, proxy and app | 3 | READY — 44 DONE (PR #50); Authentik decided 2026-10-30 | **DONE** — PR #53 (`docker-compose.signin.yml`: the app behind an Authentik outpost, no app port, an internal network; `docs/SIGN-IN.md`, with oauth2-proxy + Entra ID as a second example) |
 
 ---
 
@@ -158,7 +158,7 @@ re-run) ran DONE — PR #45.
 predecessors being DONE on `main`, then `99z-` item 47 (decided the same day: Authentik). `99u-`
 (item 43) ran DONE — PR #48. `99v-` (item 22 part 2) ran DONE — PR #49. `99w-` (item 44) ran
 DONE — PR #50. `99x-` (item 45) ran DONE — PR #51. `99y-` (item 46) ran DONE — PR #52. `99z-`
-(item 47) ran DONE — PR #PRNUM.
+(item 47) ran DONE — PR #53.
 
 ---
 
@@ -1283,7 +1283,7 @@ cancel without the access check) fails at least one of them. Screenshot QA at 14
 queued run, the run list, a cancelled run and the Start form's notice, `scrollWidth == innerWidth`
 on all eight.
 
-**47 · DONE 2026-10-30 — PR #PRNUM.** Filed 2026-10-30 (split from 40). READY once 44 landed and the
+**47 · DONE 2026-10-30 — PR #53.** Filed 2026-10-30 (split from 40). READY once 44 landed and the
 products were decided. **Reference deployment: identity provider, proxy and app.** A reference compose file — identity provider, auth proxy, app; three containers — and a
 runbook: federating the institution's SSO, the admin group, the 8-hour browser-session cookie,
 the shared secret 44 checks, and keeping the app unreachable except through the proxy. Host-
@@ -1300,7 +1300,7 @@ Entra ID, and item 44's header names and the admin group are configuration, neve
 constants. *Entra's trap:* its group claim carries group object ids, not names, so the admin group
 is configured as whatever string the proxy forwards, and the runbook says so.
 
-*As built (PR #PRNUM).* SPEC §09 *As built (item 47)* is the description, with three readings taken.
+*As built (PR #53).* SPEC §09 *As built (item 47)* is the description, with three readings taken.
 `docker-compose.signin.yml` is two containers, the app and an Authentik proxy outpost, because the
 decision attaches to an existing Authentik; the runbook links to Authentik's own installation for
 where none exists. The app publishes no port, shares only an `internal` network with the outpost,
