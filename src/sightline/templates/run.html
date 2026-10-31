@@ -16,6 +16,9 @@
   <dl class="pairs">
     <div><dt>Run id</dt><dd><code>{{ progress.run_id }}</code></dd></div>
     <div><dt>Rubric</dt><dd><code>{{ progress.rubric_pack }}</code></dd></div>
+    {%- if starter %}
+    <div><dt>Started by</dt><dd>{{ starter }}</dd></div>
+    {%- endif %}
     <div><dt>Recorded</dt><dd>{{ progress.created_at.strftime('%Y-%m-%d %H:%M:%S UTC') }}</dd></div>
     <div><dt>Started</dt><dd>{{ progress.started_at.strftime('%Y-%m-%d %H:%M:%S UTC') if progress.started_at else 'Not yet' }}</dd></div>
     <div><dt>Finished</dt><dd>{% if progress.finished_at %}{{ progress.finished_at.strftime('%Y-%m-%d %H:%M:%S UTC') }}{% elif page.finished %}Not recorded{% else %}Not yet{% endif %}</dd></div>

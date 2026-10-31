@@ -45,6 +45,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
+from .access import viewer
 from .config import Settings
 from .detect.base import detectors
 from .llm.client import OllamaClient
@@ -403,7 +404,20 @@ def propose_blockers(request: Request) -> list[Blocker]:
                 link=busy.pack_name,
             )
         )
+    who = viewer(request)
     for run in active_runs(_store(request), _runner(request)):
+        if not who.can_see(run):
+            # Somebody else's run (roadmap item 45): named as theirs, with no id and no link.
+            found.append(
+                Blocker(
+                    summary=(
+                        "Another person's run is running. It is asking the model host, and the "
+                        "proposer would compete with it for that host."
+                    ),
+                    remedy="Wait for the run to finish, then propose.",
+                )
+            )
+            continue
         found.append(
             Blocker(
                 summary=(

@@ -30,6 +30,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from . import __version__
+from .access import viewer
 from .assets import TokensNotFoundError, resolve_tokens_css
 from .batch import BatchRunner, live_pipeline_factory
 from .config import Settings, get_settings
@@ -252,7 +253,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @application.get("/", include_in_schema=False)
     async def index(request: Request) -> Any:
         store: RunStore | None = getattr(request.app.state, "store", None)
-        runs = store.list_runs(limit=10) if store is not None else []
+        # The person's own runs in sign-in mode, every run for an admin (roadmap item 45).
+        who = viewer(request)
+        runs = (
+            store.list_runs(limit=10, starter_subject=who.runs_filter) if store is not None else []
+        )
         paths = getattr(request.app.state, "paths", resolved.paths)
         return templates.TemplateResponse(
             request=request,

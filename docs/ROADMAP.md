@@ -59,8 +59,8 @@ by item 36's session, PR #43; 44–47 split from item 40 on 2026-10-30).
 | 42 | A run that completed with failures records no finish time | 1 | READY — filed 2026-10-29 by item 36 | **DONE** — PR #44. Every terminal status stamps `finished_at`; `interrupted` stays unset |
 | 43 | The app's restart recovery takes over a run another process is executing | 1 | **READY** — (a) an owner record, decided 2026-10-30 | **DONE** — PR #48. Runs record host, pid and a heartbeat; recovery, shutdown and Start read them |
 | 44 | Signed-in identity behind a trusted proxy | 3 | READY | **DONE** — PR #50 (sign-in mode behind a proxy secret, the subject on overrides, CSRF on every form post) |
-| 45 | Runs per user, an admin role, and per-user Canvas tokens | 3 | **READY** — 44 is DONE (PR #50) | — |
-| 46 | Queue a run behind the active one | 3 | **BLOCKED** — on 45 (43 is DONE, PR #48) | — |
+| 45 | Runs per user, an admin role, and per-user Canvas tokens | 3 | READY | **DONE** — PR #51 (a run is its starter's, 404 to anyone else; admin group alone changes instance settings; each person's own Canvas token) |
+| 46 | Queue a run behind the active one | 3 | **READY** — 43 (PR #48) and 45 (PR #51) are DONE | — |
 | 47 | Reference deployment: identity provider, proxy and app | 3 | **BLOCKED** — on 44 (DONE, PR #50); Authentik decided 2026-10-30 | — |
 
 ---
@@ -157,7 +157,7 @@ re-run) ran DONE — PR #45.
 `99v-` item 22 part 2, `99w-` item 44, `99x-` item 45, `99y-` item 46. Each gates on its
 predecessors being DONE on `main`, then `99z-` item 47 (decided the same day: Authentik). `99u-`
 (item 43) ran DONE — PR #48. `99v-` (item 22 part 2) ran DONE — PR #49. `99w-` (item 44) ran
-DONE — PR #50.
+DONE — PR #50. `99x-` (item 45) ran DONE — PR #51.
 
 ---
 
@@ -1235,7 +1235,7 @@ groups), read through `sightline.review.identity.current_reviewer`; groups are p
 unauthenticated path. The rubric screens' acceptance history still records the display name only
 — if 45 wants the subject there too, it is a small change in `sightline.rubric.accepted`.
 
-**45 · FILED 2026-10-30 (split from 40). READY — 44 is DONE (PR #50). Runs per user, an admin
+**45 · DONE 2026-10-30 — PR #51.** Filed 2026-10-30 (split from 40). **Runs per user, an admin
 role, and per-user Canvas tokens.** A run records the subject who started it. The run list, run pages,
 reviews and exports show a user only their own runs, and anything else answers 404, not 403.
 Admin is membership in a configured identity-provider group, read from 44's groups header; an
@@ -1244,13 +1244,26 @@ token, encrypted with `sightline.credentials`; a run uses its starter's token, i
 resumes after a restart, and a run whose starter has no token fails with that remedy. In
 local mode there is one implicit user who is admin, so nothing changes.
 
-**46 · FILED 2026-10-30 (split from 40). BLOCKED on 43 and 45. Queue a run behind the active
-one.** Start while a run is active accepts the run as queued instead of refusing it. Queued runs
+*As built (PR #51).* `sightline.access` (`viewer`, `visible_run`, `visible_course`) is the one
+lookup; SPEC §09 *As built (item 45)* has the detail and four readings taken. What 46 starts from:
+a run's starter is `Run.starter_subject` (`None` for command-line and older runs), the test for
+"its owner (or an admin)" is `viewer(request).can_see(run)`, and Start's refusal for somebody
+else's active run already names it as another person's run without its id. *Open, for the
+operator:* proposing, accepting and reverting rubric bindings is not admin-only. The decision
+names the model host, the model and the Canvas base URL as instance settings, and this item adds
+the export preference. Accepted bindings apply to every later run, so whether they are an instance
+setting too is a decision, not a reading.
+
+**46 · FILED 2026-10-30 (split from 40). READY — 43 (PR #48) and 45 (PR #51) are DONE. Queue a
+run behind the active one.** Start while a run is active accepts the run as queued instead of refusing it. Queued runs
 execute one at a time in the order they were started; the run page reads *queued, N ahead*; the
 starter or an admin can cancel a queued run. A command-line run with a live owner (43) counts as
 the active run. No priority, no reordering, no estimate of when it starts. *The dependency on 43
 is met (DONE 2026-10-30, PR #48): `sightline.ownership.owner_is_live` is the test for "a live
-owner", and `sightline.new_run.active_runs` already applies it. 46 still waits on 45.*
+owner", and `sightline.new_run.active_runs` already applies it. The dependency on 45 is met too (DONE
+2026-10-30, PR #51): a run's starter is `Run.starter_subject`, and
+`viewer(request).can_see(run)` (`sightline.access`) is "its starter or an admin", the test for
+who may cancel a queued run.*
 
 **47 · FILED 2026-10-30 (split from 40). NEEDS DECISION: which identity provider and which
 proxy.** A reference compose file — identity provider, auth proxy, app; three containers — and a
@@ -2435,6 +2448,11 @@ to this.**
   something credential-shaped" rather than dropped.
 
 ## Corrections log
+
+**2026-10-30 — item 45 built (PR #51).** SPEC §09 gains *As built (item 45)*. The README's
+*Sign-in behind a proxy* no longer says runs are not scoped by user, and it describes the admin
+group and per-user tokens. `.env.example` and the README variable table carry
+`SIGHTLINE_SIGNIN_ADMIN_GROUP`. Item 45 is DONE and item 46 is READY.
 
 **2026-10-30 — item 44 built (PR #50).** SPEC §09 gains *As built (item 44)*; the README gains
 *Sign-in behind a proxy* and the sign-in variables; `.env.example` carries them. Item 44 is DONE

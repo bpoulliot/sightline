@@ -316,7 +316,9 @@ async def test_the_live_factory_hands_the_pipeline_the_data_root(
             credentials=credentials,
             preferences=PreferenceStore(store),
         )
-        run = SimpleNamespace(rubric_pack="uccs-oscqr-rsi", bindings_digest=None)
+        run = SimpleNamespace(
+            rubric_pack="uccs-oscqr-rsi", bindings_digest=None, starter_subject=None
+        )
         async with factory(run) as pipeline:
             assert isinstance(pipeline, ReviewPipeline)
             assert pipeline.data_paths == paths

@@ -1279,6 +1279,7 @@ repository is a bug, and `tests/test_config.py` fails the build over one.
 | `SIGHTLINE_SIGNIN_SECRET_HEADER` | The header the secret arrives in. Default `X-Sightline-Proxy-Secret`. |
 | `SIGHTLINE_SIGNIN_SUBJECT_HEADER` / `_NAME_HEADER` / `_GROUPS_HEADER` | The identity headers. Defaults `X-authentik-uid`, `X-authentik-name`, `X-authentik-groups` (Authentik's proxy outpost). |
 | `SIGHTLINE_SIGNIN_GROUPS_SEPARATOR` | What separates groups in the groups header. Default `\|`. |
+| `SIGHTLINE_SIGNIN_ADMIN_GROUP` | The group whose members are admins in sign-in mode, matched exactly against what the groups header carries. Unset: nobody signed in is an admin. |
 
 `CANVAS_BASE_URL` and `CANVAS_API_TOKEN` are the **fallback**. Normally both are entered on the
 settings screen and held encrypted in the run store; the environment is what a container uses when
@@ -1317,8 +1318,25 @@ status and nothing else.
 The reviewer is then the signed-in person: an override records the subject's stable id beside the
 display name, so a renamed person keeps their history, and the Reviewer field on Settings gives way
 to *You are signed in as …*. Sessions — how long, and signing out — are the proxy's (item 47).
-Sign-in mode does not yet scope runs by user, add an admin role or per-user Canvas tokens; that is
-item 45.
+
+**Each person's runs are their own** (item 45). A run records who started it. The run list shows a
+person the runs they started; a run's page, `GET /api/runs/{id}`, its review pages, a rating posted
+to it and its exports answer anybody else with 404, the same answer as a run that does not exist.
+Opening a review is what the export gate waits for, so this is enforced on every route, not by
+hiding links. Runs recorded before item 45, and runs started on the command line, record no
+starter: an admin sees them, nobody else does.
+
+**An admin** is a member of the group `SIGHTLINE_SIGNIN_ADMIN_GROUP` names. An admin sees every run,
+with who started it, and alone changes the instance settings: the Canvas base URL, the export
+preference, the model host and the model, and installing a model. Anybody else sees their state on
+Settings and no form. With the setting unset there is no admin.
+
+**Each person stores their own Canvas token** on Settings, encrypted as the single token is in
+local mode. A run reads Canvas, and requests its content export, with its starter's token, and
+still does when a restart resumes it. A starter with no token stops the run before any Canvas call,
+with a remedy naming Settings; no other token is borrowed, so the instance token and
+`CANVAS_API_TOKEN` are not used for anyone signed in. Local mode is unchanged: its one user is the
+admin, and the one stored credential is theirs.
 
 Header names are configuration and nothing in the app is provider-specific. The defaults are
 Authentik's proxy outpost headers; Authentik is told to add the secret with a property mapping. For

@@ -33,6 +33,12 @@ Every form here carries a CSRF token, in both modes (roadmap item 44, :mod:`sigh
 local tool listens on a port any page in the same browser can post to. There is still no login
 in the app. In sign-in mode the person signs in at a proxy in front of it
 (:mod:`sightline.signin`), and the Reviewer section of Settings gives way to the signed-in name.
+
+In sign-in mode each person's Canvas token is their own (roadmap item 45, :mod:`sightline.access`):
+the token field on Settings stores the signed-in person's, the course lookup, the connection test
+and Start use it, and a run records who started it. The instance settings — the Canvas base URL,
+the export preference, the model host and the model, and installing a model on that host — are
+changed by an admin only; anybody else sees their state and no form, and a post is refused.
 """
 
 from __future__ import annotations
@@ -43,6 +49,7 @@ from fastapi import APIRouter, Form, Request, UploadFile
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
+from .access import ADMIN_ONLY_SUMMARY, Viewer, admin_only_remedy, viewer, visible_run
 from .batch import BatchTooLargeError, create_batch_run, progress_of
 from .canvas import (
     REQUIRED_PERMISSIONS,
@@ -112,10 +119,14 @@ def build_router(templates: Jinja2Templates) -> APIRouter:
     @router.post("/settings", include_in_schema=False)
     async def save_settings(
         request: Request,
-        canvas_base_url: Annotated[str, Form()] = "",
+        canvas_base_url: Annotated[str | None, Form()] = None,
         canvas_token: Annotated[str, Form()] = "",
     ) -> Any:
         store = _credentials(request)
+        who = viewer(request)
+        if who.signed_in:
+            return _save_signed_in(request, templates, who, canvas_base_url, canvas_token)
+        canvas_base_url = canvas_base_url or ""
         try:
             # A blank token field means "leave the stored token alone", not "erase it". Erasing
             # is the separate Forget action, because a form that wipes a working token whenever
@@ -139,6 +150,8 @@ def build_router(templates: Jinja2Templates) -> APIRouter:
         form post. That is why this is its own action rather than a field on the credential form:
         a checkbox merged into that form would read as "off" every time somebody saved a token.
         """
+        if (refused := _admin_only(request, templates)) is not None:
+            return refused
         enabled = bool(request_export)
         _preferences(request).set_request_content_export(enabled)
         return RedirectResponse(
@@ -168,6 +181,13 @@ def build_router(templates: Jinja2Templates) -> APIRouter:
 
     @router.post("/settings/forget", include_in_schema=False)
     async def forget_settings(request: Request) -> Any:
+        who = viewer(request)
+        if who.signed_in:
+            # Signed in, the stored credential this forgets is the person's own token; the base
+            # URL is the instance's, which an admin clears by saving the field empty.
+            assert who.subject is not None  # noqa: S101 - a signed-in viewer has a subject
+            _credentials(request).clear_user_token(who.subject)
+            return RedirectResponse("/settings?saved=token_forgotten", status_code=303)
         _credentials(request).clear_canvas()
         return RedirectResponse("/settings?saved=forgotten", status_code=303)
 
@@ -198,6 +218,8 @@ def build_router(templates: Jinja2Templates) -> APIRouter:
         request: Request,
         model_host_endpoint: Annotated[str, Form()] = "",
     ) -> Any:
+        if (refused := _admin_only(request, templates)) is not None:
+            return refused
         try:
             _preferences(request).set_model_host(model_host_endpoint)
         except ModelHostError as exc:
@@ -206,6 +228,8 @@ def build_router(templates: Jinja2Templates) -> APIRouter:
 
     @router.post("/settings/model-host/forget", include_in_schema=False)
     async def forget_model_host(request: Request) -> Any:
+        if (refused := _admin_only(request, templates)) is not None:
+            return refused
         _preferences(request).clear_model_host()
         return RedirectResponse("/settings?saved=model_host_forgotten", status_code=303)
 
@@ -219,6 +243,8 @@ def build_router(templates: Jinja2Templates) -> APIRouter:
         request: Request,
         model: Annotated[str, Form()] = "",
     ) -> Any:
+        if (refused := _admin_only(request, templates)) is not None:
+            return refused
         try:
             _preferences(request).set_review_model(model)
         except ModelHostError as exc:
@@ -235,7 +261,11 @@ def build_router(templates: Jinja2Templates) -> APIRouter:
         The response does not wait for the download. A request that waited would be a request
         that times out on a 9 GB model, and the task outliving the request is the whole reason
         :class:`sightline.llm.PullRegistry` exists.
+
+        An admin's action in sign-in mode: an install changes what the shared model host holds.
         """
+        if (refused := _admin_only(request, templates)) is not None:
+            return refused
         try:
             endpoint = _model_endpoint(request)
         except ModelHostError as exc:
@@ -288,9 +318,13 @@ def build_router(templates: Jinja2Templates) -> APIRouter:
         roadmap item 36), which renders it server-side and whose optional script polls this to
         know when to re-read the page. ``python -m sightline.batch status`` prints the same. All
         three report what each stage examined rather than a percentage nobody can check.
+
+        In sign-in mode a run somebody else started answers exactly as a run that does not exist
+        (roadmap item 45).
         """
         store: RunStore | None = getattr(request.app.state, "store", None)
-        progress = progress_of(store, run_id) if store is not None else None
+        visible = store is not None and visible_run(request, store, run_id) is not None
+        progress = progress_of(store, run_id) if store is not None and visible else None
         if progress is None:
             return JSONResponse({"error": f"no run {run_id!r} in this run store"}, status_code=404)
         return JSONResponse(progress.to_dict())
@@ -307,7 +341,7 @@ def build_router(templates: Jinja2Templates) -> APIRouter:
         references: Annotated[str, Form()] = "",
         upload: UploadFile | None = None,
     ) -> Any:
-        credentials = _credentials(request).canvas()
+        credentials = _canvas(request)
         host = credentials.host
         batches: list[tuple[str, RefBatch]] = []
 
@@ -374,12 +408,17 @@ def build_router(templates: Jinja2Templates) -> APIRouter:
             # The bindings in force for the rubric now (roadmap item 22, part two): only
             # confirmed ones, and the run records which, so its reports read them back.
             digest = resolve_pack(rubric, _paths(request)).digest
+            who = viewer(request)
             run_id = create_batch_run(
                 _store(request),
                 courses,
                 rubric_pack=rubric,
                 bindings_digest=digest,
                 cap=request.app.state.settings.batch_cap,
+                # Whose run it is (roadmap item 45): it reads Canvas with their token, and only
+                # they or an admin see it. Nobody in local mode.
+                starter_subject=who.subject,
+                starter_name=who.name,
             )
         except BindingsError as exc:
             return _render_courses(
@@ -446,6 +485,7 @@ def _start_blockers(request: Request) -> list[Blocker]:
         credentials=_credentials(request),
         preferences=_preferences(request),
         proposing=getattr(request.app.state, "proposing", None),
+        viewer=viewer(request),
     )
 
 
@@ -461,7 +501,7 @@ def _start_refusals(request: Request, courses: list[str], rubric: str) -> list[B
         )
     else:
         try:
-            host = _credentials(request).canvas().host
+            host = _canvas(request).host
         except CredentialError:
             host = None  # reported below as a blocker; the ids still parse without a host
         parsed = parse_course_refs("\n".join(courses), expected_host=host)
@@ -529,6 +569,65 @@ def _credentials(request: Request) -> CredentialStore:
     return store
 
 
+def _canvas(request: Request) -> CanvasCredentials:
+    """The Canvas credential this request acts with: the signed-in person's own token (item 45).
+
+    Local mode has one user, whose credential is the one stored credential, as before.
+    """
+    return _credentials(request).canvas_for(viewer(request).subject)
+
+
+def _admin_only(request: Request, templates: Jinja2Templates) -> Any:
+    """A refusal page when this request may not change an instance setting; ``None`` when it may.
+
+    403, not 404: the setting exists and its state is on the page; what is refused is the change.
+    """
+    if viewer(request).admin:
+        return None
+    return templates.TemplateResponse(
+        request=request,
+        name="review_message.html",
+        context={
+            "nav": "settings",
+            "summary": ADMIN_ONLY_SUMMARY,
+            "remedy": admin_only_remedy(request.app.state.settings.signin_admin_group),
+            "back": "Back to Settings",
+            "back_href": "/settings",
+        },
+        status_code=403,
+    )
+
+
+def _save_signed_in(
+    request: Request,
+    templates: Jinja2Templates,
+    who: Viewer,
+    base_url: str | None,
+    token: str,
+) -> Any:
+    """The Canvas form in sign-in mode: the base URL is the instance's, the token the person's.
+
+    The base URL field is on an admin's form only. A post that carries it from anybody else is
+    refused whole, before the token is touched, so a refused post changes nothing.
+    """
+    store = _credentials(request)
+    assert who.subject is not None  # noqa: S101 - a signed-in viewer has a subject
+    if base_url is not None and (refused := _admin_only(request, templates)) is not None:
+        return refused
+    normalized: str | None = None
+    try:
+        if base_url is not None:
+            normalized = store.save_canvas(base_url=base_url)
+    except CredentialError as exc:
+        return _render_settings(request, templates, credential_error=exc, status=400)
+    if token.strip():
+        store.save_user_token(who.subject, token)
+    if base_url is None and not token.strip():
+        return RedirectResponse("/settings", status_code=303)
+    saved = "normalized" if normalized and normalized != (base_url or "").strip() else "yes"
+    return RedirectResponse(f"/settings?saved={saved}", status_code=303)
+
+
 def _preferences(request: Request) -> PreferenceStore:
     store: PreferenceStore | None = getattr(request.app.state, "preferences", None)
     if store is None:  # pragma: no cover - only reachable without the app lifespan
@@ -540,7 +639,7 @@ async def _run_connection_test(
     request: Request, course_reference: str
 ) -> tuple[ConnectionReport | None, CredentialError | None]:
     try:
-        credentials = _credentials(request).canvas()
+        credentials = _canvas(request)
     except CredentialError as exc:
         return None, exc
     try:
@@ -671,6 +770,10 @@ _SAVED_MESSAGES = {
         "The stored Canvas credential has been deleted. Any value in the environment still "
         "applies."
     ),
+    "token_forgotten": (
+        "Your stored Canvas token has been deleted. A run you start cannot read Canvas until you "
+        "store one again, and neither can a run of yours that resumes after a restart."
+    ),
     "export_on": (
         "Saved. Sightline will ask Canvas to build a fresh export of each course it reviews. The "
         "export appears in that course's export list; no course content is changed."
@@ -710,11 +813,12 @@ def _render_settings(
     host_report: HostReport | None = None,
     model_error: ModelHostError | None = None,
     reviewer_error: ReviewerNameError | None = None,
+    status: int = 200,
 ) -> Any:
     credentials: CanvasCredentials | None = None
     error = credential_error
     try:
-        credentials = _credentials(request).canvas()
+        credentials = _canvas(request)
     except CredentialError as exc:
         error = error or exc
     preferences = _preferences(request)
@@ -758,7 +862,11 @@ def _render_settings(
             "reviewer_max": REVIEWER_MAX,
             # Sign-in mode (item 44): the Reviewer field gives way to the signed-in name.
             "signed_in": current_reviewer(request) if settings.signin else None,
+            # Item 45: who may change the instance settings. Always true in local mode.
+            "admin": viewer(request).admin,
+            "admin_remedy": admin_only_remedy(settings.signin_admin_group),
         },
+        status_code=status,
     )
 
 
@@ -795,7 +903,7 @@ def _render_courses(
 ) -> Any:
     credentials: CanvasCredentials | None = None
     try:
-        credentials = _credentials(request).canvas()
+        credentials = _canvas(request)
     except CredentialError:
         credentials = None
     start = _start_panel(request, lookups or [], chosen=chosen, rubric=rubric, refusals=refusals)

@@ -58,6 +58,10 @@ ADDED_COLUMNS: dict[str, dict[str, str]] = {
         # Roadmap item 22, part two: the accepted bindings a run uses. Null on every run a
         # previous version recorded, which reads as the shipped pack — what those runs ran with.
         "bindings_digest": "VARCHAR(80)",
+        # Roadmap item 45: who started the run. Null on every run a previous version recorded,
+        # which sign-in mode shows to an admin only and local mode to the local user.
+        "starter_subject": "VARCHAR(255)",
+        "starter_name": "VARCHAR(128)",
     },
     # Roadmap item 44: the signed-in subject beside the reviewer's display name. Null on every
     # override a previous version recorded, and on every one recorded in local mode — those keep
@@ -146,12 +150,25 @@ class RunStore:
         rubric_pack: str,
         bindings_digest: str | None = None,
         note: str | None = None,
+        starter_subject: str | None = None,
+        starter_name: str | None = None,
     ) -> str:
-        """Record a new batch. Returns the run id."""
+        """Record a new batch. Returns the run id.
+
+        ``starter_subject`` and ``starter_name`` are the signed-in person who started it (roadmap
+        item 45), and ``None`` in local mode and on the command line. Neither goes into the run
+        event: the run log is shown to whoever may see the run, and says what happened, not who.
+        """
         if not course_refs:
             raise ValueError("a run needs at least one course reference")
         with self.session() as session:
-            run = Run(rubric_pack=rubric_pack, bindings_digest=bindings_digest, note=note)
+            run = Run(
+                rubric_pack=rubric_pack,
+                bindings_digest=bindings_digest,
+                note=note,
+                starter_subject=(starter_subject or "").strip() or None,
+                starter_name=(starter_name or "").strip() or None,
+            )
             run.courses = [
                 RunCourse(ordinal=index, course_ref=ref) for index, ref in enumerate(course_refs)
             ]
@@ -374,9 +391,17 @@ class RunStore:
         with self.session() as session:
             return session.get(RunCourse, course_id)
 
-    def list_runs(self, *, limit: int = 25) -> list[Run]:
+    def list_runs(self, *, limit: int = 25, starter_subject: str | None = None) -> list[Run]:
+        """The most recent runs, newest first; only ``starter_subject``'s when one is given.
+
+        Filtered in the query rather than after it, so a person whose runs are older than the
+        latest ``limit`` of everybody's still sees their own (roadmap item 45). Who may see what
+        is :mod:`sightline.access`'s question; this is the read it asks for.
+        """
         with self.session() as session:
             statement = select(Run).order_by(Run.created_at.desc()).limit(limit)
+            if starter_subject is not None:
+                statement = statement.where(Run.starter_subject == starter_subject)
             return list(session.scalars(statement))
 
     def running_runs(self) -> list[Run]:

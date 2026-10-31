@@ -93,6 +93,8 @@ def create_batch_run(
     bindings_digest: str | None = None,
     cap: int = DEFAULT_BATCH_CAP,
     note: str | None = None,
+    starter_subject: str | None = None,
+    starter_name: str | None = None,
 ) -> str:
     """Record a batch, refusing one that is over the cap. Returns the run id.
 
@@ -102,7 +104,8 @@ def create_batch_run(
 
     ``bindings_digest`` is the accepted bindings the run uses, from
     :func:`sightline.rubric.accepted.resolve_pack` at the moment it is started; ``None`` is the
-    shipped pack's own.
+    shipped pack's own. ``starter_subject`` and ``starter_name`` are who started it in sign-in
+    mode (roadmap item 45): the run reads Canvas with that person's token.
     """
     cleaned = [reference.strip() for reference in references if reference.strip()]
     if not cleaned:
@@ -110,7 +113,12 @@ def create_batch_run(
     if len(cleaned) > cap:
         raise BatchTooLargeError(len(cleaned), cap)
     return store.create_run(
-        cleaned, rubric_pack=rubric_pack, bindings_digest=bindings_digest, note=note
+        cleaned,
+        rubric_pack=rubric_pack,
+        bindings_digest=bindings_digest,
+        note=note,
+        starter_subject=starter_subject,
+        starter_name=starter_name,
     )
 
 

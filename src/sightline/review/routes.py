@@ -17,6 +17,11 @@ review itself, and refuses an unopened course with the gate's own message.
 signed-in identity, recorded by subject id with the display name beside it (item 44) — and both go
 to item 12a's append-only record. There is no route that records more than one row, by design
 (SPEC §09: no bulk-accept).
+
+**Only the run's starter or an admin reaches a course** (roadmap item 45, :mod:`sightline.access`).
+Every route here asks :func:`_known` first, which answers a course of somebody else's run exactly
+as a course that does not exist — so nobody else can open the review, and opening is what the
+export gate waits for.
 """
 
 from __future__ import annotations
@@ -29,6 +34,7 @@ from fastapi import APIRouter, Form, Request
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
+from ..access import visible_course
 from ..batch.gate import ExportGate, ReviewNotOpenedError
 from ..detect.base import Tier
 from ..logging import get_logger
@@ -260,7 +266,13 @@ def _gate(request: Request) -> ExportGate:
 
 
 def _known(request: Request, course_id: str) -> None:
-    if _store(request).get_course(course_id) is None:
+    """Refuse, as unknown, a course that is not in the store *or* not this person's to see.
+
+    Every route here calls this first (roadmap item 45). In sign-in mode a course of a run
+    somebody else started answers exactly as a course that does not exist: 404, the same words.
+    Opening is what satisfies the export gate, so the refusal comes before anything is read.
+    """
+    if visible_course(request, _store(request), course_id) is None:
         voice = Voice()
         _, summary = voice.label("review_unknown_course")
         raise _Refused(404, summary.text)
