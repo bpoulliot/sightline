@@ -20,12 +20,15 @@ anybody presses Start and checked again when they do:
 - no model host, or no model chosen, because the extract stage aborts a run without them;
 - **bindings are being proposed** on a rubric's page (item 22, part two): the proposer uses the
   same model host, so the two would compete for it as two runs would;
-- **another run is running.** Two batches would compete for one model host, which is the reason
-  :meth:`sightline.runner.BackgroundRunner.resume_all` resumes serially. A run this process is
-  executing is in the runner's task list; one started by ``python -m sightline.batch run`` is
-  another process and shows only as ``running`` in the store, with that process as its owner.
-  Both refuse a start the same way — the store's only while its owner is live (roadmap item 43),
-  so a command-line run that crashed does not block Start for ever.
+
+**Another run being active is not a reason** (roadmap item 46). Two batches would compete for one
+model host, so a run started then is recorded *queued* and waits its turn, first in first out
+(:class:`sightline.runner.BackgroundRunner`'s queue). What is ahead of it is
+:meth:`~sightline.runner.BackgroundRunner.ahead_of_queue`: this process's runs, and a run started
+by ``python -m sightline.batch run`` in another process while its owner is live (roadmap item 43).
+The screen says so before Start is pressed (:func:`queue_notice`), with how many runs are ahead
+and no estimate of when this one starts. Bindings being proposed still refuses: the proposer is
+not a run, and does not queue.
 
 **Starting a run requests a Canvas content export** when that setting is on (roadmap item 23):
 it writes to the course's export list. The Start form says so beside the button.
@@ -77,6 +80,17 @@ class RubricChoice:
     accepted: str | None = None
     #: The rubric's page, where bindings are proposed, confirmed and reverted.
     href: str = ""
+
+
+@dataclass(frozen=True, kw_only=True, slots=True)
+class QueueNotice:
+    """Not a refusal: a run started now waits behind ``ahead`` others (roadmap item 46)."""
+
+    ahead: int
+    summary: str
+    #: The run executing now, when the person may see it; ``None`` for somebody else's.
+    href: str | None = None
+    link: str | None = None
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)
@@ -265,9 +279,39 @@ def blockers(
     busy = proposing.running if proposing is not None else None
     if busy is not None:
         found.append(proposing_blocker(busy))
-    for run in active_runs(store, runner):
-        found.append(running_blocker(run, visible=viewer.can_see(run)))
     return found
+
+
+def queue_notice(
+    store: RunStore, runner: BackgroundRunner | None, *, viewer: Viewer = LOCAL
+) -> QueueNotice | None:
+    """What the Start form says when a run started now would be queued; ``None`` when it starts.
+
+    Counts the runs ahead — executing, about to resume, and already queued — and names the one
+    executing when the person may see it. Never when it will start: that depends on courses and a
+    model host nobody here can time.
+    """
+    if runner is None or not runner.must_queue():
+        return None
+    ahead = len(runner.ahead_of_queue()) + len(store.queued_runs())
+    executing = active_runs(store, runner)
+    first = executing[0] if executing else None
+    if first is not None and viewer.can_see(first):
+        summary = (
+            f"Run {short_id(first.id)} is running, so a run started now is queued behind it: "
+            f"{ahead} ahead. Runs start one at a time, in the order they were started, because "
+            "they share one model host."
+        )
+        return QueueNotice(
+            ahead=ahead, summary=summary, href=f"/runs/{first.id}", link=f"Run {short_id(first.id)}"
+        )
+    return QueueNotice(
+        ahead=ahead,
+        summary=(
+            f"Another run is going, so a run started now is queued: {ahead} ahead. Runs start one "
+            "at a time, in the order they were started, because they share one model host."
+        ),
+    )
 
 
 def proposing_blocker(state: ProposingState) -> Blocker:
@@ -284,33 +328,6 @@ def proposing_blocker(state: ProposingState) -> Blocker:
     )
 
 
-def running_blocker(run: Run, *, visible: bool = True) -> Blocker:
-    """The refusal for one run that is already running.
-
-    A run the person may not see (roadmap item 45) is named as somebody else's, with no id, no
-    counts and no link: its page would answer 404, and its details are its starter's.
-    """
-    if not visible:
-        return Blocker(
-            summary=(
-                "Another person's run is running. One run at a time: courses are reviewed one "
-                "after another against a single model host, and a second batch would compete "
-                "with it for that host."
-            ),
-            remedy="Wait for it to finish, then start this one.",
-        )
-    return Blocker(
-        summary=(
-            f"Run {short_id(run.id)} is running ({len(run.courses)} course(s), "
-            f"{run.rubric_pack}). One run at a time: courses are reviewed one after another "
-            "against a single model host, and a second batch would compete with it for that host."
-        ),
-        remedy="Wait for it to finish, then start this one. Its page shows how far it has got.",
-        href=f"/runs/{run.id}",
-        link=f"Run {short_id(run.id)}",
-    )
-
-
 def short_id(run_id: str) -> str:
     """The first eight characters of a run id, as the status page and the run list show it."""
     return run_id[:8]
@@ -318,6 +335,10 @@ def short_id(run_id: str) -> str:
 
 def is_running(status: str | RunStatus) -> bool:
     return RunStatus(status) in {RunStatus.RUNNING, RunStatus.PENDING}
+
+
+def is_queued(status: str | RunStatus) -> bool:
+    return RunStatus(status) is RunStatus.QUEUED
 
 
 def chosen_courses(values: Sequence[str]) -> list[str]:
@@ -334,15 +355,17 @@ def chosen_courses(values: Sequence[str]) -> list[str]:
 
 __all__ = [
     "Blocker",
+    "QueueNotice",
     "RubricChoice",
     "active_runs",
     "blockers",
     "chosen_courses",
+    "is_queued",
     "is_running",
     "proposing_blocker",
+    "queue_notice",
     "rubric_choices",
     "rubric_href",
-    "running_blocker",
     "short_id",
     "unconfirmed_sets",
 ]

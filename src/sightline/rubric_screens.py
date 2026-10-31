@@ -431,6 +431,19 @@ def propose_blockers(request: Request) -> list[Blocker]:
                 link=f"Run {short_id(run.id)}",
             )
         )
+    waiting = len(_store(request).queued_runs())
+    if waiting:
+        # Roadmap item 46: queued runs start as soon as the host is free, and proposing does not
+        # queue. Starting it now would make every one of them wait behind it.
+        found.append(
+            Blocker(
+                summary=(
+                    f"{waiting} run(s) are queued to use the model host. Proposing does not queue, "
+                    "and would hold them up."
+                ),
+                remedy="Wait for the queued runs to finish, then propose.",
+            )
+        )
     return found
 
 

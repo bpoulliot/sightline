@@ -140,6 +140,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         # A restart continues the batch it was in the middle of (SPEC §04). One task, in creation
         # order: the courses are reviewed sequentially against one model host either way.
         resumed = runner.resume_all()
+        # Runs queued behind an active one (roadmap item 46) wait while bindings are proposed,
+        # as a Start would be refused, and carry on in their order behind what was resumed.
+        runner.held_by = lambda: proposing.running is not None
+        runner.start_queue()
         log.info(
             "startup",
             version=__version__,

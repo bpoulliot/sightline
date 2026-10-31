@@ -389,6 +389,9 @@ td.num { font-family: var(--f-mono); }
 .banner p { margin: 0; }
 .banner-head { font-weight: 600; }
 .banner-remedy { margin-top: .3rem; }
+/* A queued run's cancel (roadmap item 46): the button, and beside it what cancelling means. */
+.queue-cancel { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; margin-top: .7rem; }
+.queue-cancel .hint { margin: 0; }
 
 /* ---- connection report -------------------------------------------------------------------- */
 

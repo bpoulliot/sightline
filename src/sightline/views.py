@@ -74,7 +74,7 @@ from .llm import (
     load_manifest,
 )
 from .logging import get_logger
-from .new_run import Blocker, blockers, chosen_courses, rubric_choices
+from .new_run import Blocker, blockers, chosen_courses, is_queued, queue_notice, rubric_choices
 from .paths import DataPaths
 from .preferences import (
     REVIEWER_MAX,
@@ -86,6 +86,7 @@ from .preferences import (
 )
 from .review.identity import current_reviewer
 from .rubric.accepted import BindingsError, resolve_pack
+from .run_screens import payload_of, queue_positions
 from .runner import BackgroundRunner
 from .store import RunStore
 
@@ -327,7 +328,10 @@ def build_router(templates: Jinja2Templates) -> APIRouter:
         progress = progress_of(store, run_id) if store is not None and visible else None
         if progress is None:
             return JSONResponse({"error": f"no run {run_id!r} in this run store"}, status_code=404)
-        return JSONResponse(progress.to_dict())
+        # A queued run carries how many runs are ahead of it (roadmap item 46), so the page that
+        # polls this reloads when it moves up.
+        ahead = queue_positions(request).get(run_id) if is_queued(progress.status) else None
+        return JSONResponse(payload_of(progress.to_dict(), ahead))
 
     # -- courses -----------------------------------------------------------------------------
 
@@ -387,6 +391,9 @@ def build_router(templates: Jinja2Templates) -> APIRouter:
         Every check the Start form showed is made again here, because a page rendered a minute ago
         is not evidence about now — another run may have started since. Nothing between the checks
         and :meth:`BackgroundRunner.submit` awaits, so no other request can start one in between.
+
+        A run started while another is active, or while others wait, is recorded queued and left
+        to the runner's queue (roadmap item 46); it starts when every run ahead of it has ended.
         """
         form = await request.form()
         courses = chosen_courses([str(value) for value in form.getlist("course")])
@@ -409,6 +416,7 @@ def build_router(templates: Jinja2Templates) -> APIRouter:
             # confirmed ones, and the run records which, so its reports read them back.
             digest = resolve_pack(rubric, _paths(request)).digest
             who = viewer(request)
+            queued = _runner(request).must_queue()
             run_id = create_batch_run(
                 _store(request),
                 courses,
@@ -419,6 +427,7 @@ def build_router(templates: Jinja2Templates) -> APIRouter:
                 # they or an admin see it. Nobody in local mode.
                 starter_subject=who.subject,
                 starter_name=who.name,
+                queued=queued,
             )
         except BindingsError as exc:
             return _render_courses(
@@ -445,8 +454,17 @@ def build_router(templates: Jinja2Templates) -> APIRouter:
                 refusals=[Blocker(summary=exc.summary, remedy=exc.remedy)],
                 status=409,
             )
-        _runner(request).submit(run_id)
-        log.info("run_started_from_screen", run_id=run_id, courses=len(courses), rubric=rubric)
+        if queued:
+            _runner(request).start_queue()
+        else:
+            _runner(request).submit(run_id)
+        log.info(
+            "run_started_from_screen",
+            run_id=run_id,
+            courses=len(courses),
+            rubric=rubric,
+            queued=queued,
+        )
         return RedirectResponse(f"/runs/{run_id}", status_code=303)
 
     return router
@@ -964,6 +982,8 @@ def _start_panel(
         "rubrics": rubric_choices(rubric, paths=_paths(request)),
         "blockers": blocked,
         "refused": refusals is not None,
+        # Roadmap item 46: not a refusal. A run started now waits behind the ones ahead.
+        "queue": queue_notice(_store(request), _runner(request), viewer=viewer(request)),
         "cap": request.app.state.settings.batch_cap,
         "requests_export": _preferences(request).request_content_export().enabled,
     }

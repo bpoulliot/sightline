@@ -128,7 +128,7 @@ def wait_for(client: TestClient, run_id: str, *, settled: bool = True) -> dict[s
     deadline = time.monotonic() + WAIT_SECONDS
     while True:
         payload = client.get(f"/api/runs/{run_id}").json()
-        if settled and payload["status"] not in {"pending", "running"}:
+        if settled and payload["status"] not in {"queued", "pending", "running"}:
             return payload
         if not settled and payload["status"] == "running":
             return payload
@@ -294,7 +294,8 @@ def test_the_cap_is_the_batch_runners_and_its_message_is_shown(settings: Setting
         assert store_of(capped_client).list_runs() == []
 
 
-def test_a_second_start_is_refused_while_one_is_active(client: TestClient) -> None:
+def test_a_second_start_while_one_is_active_is_queued_not_refused(client: TestClient) -> None:
+    """Roadmap item 46 replaced item 36's refusal: the second run waits, and then runs."""
     configure_everything(client)
     gate = threading.Event()
     use_pipeline(client, SavedReviewPipeline(gate=gate))
@@ -303,59 +304,62 @@ def test_a_second_start_is_refused_while_one_is_active(client: TestClient) -> No
         wait_for(client, first, settled=False)
         assert client.app.state.runner.active_run_ids == [first]  # type: ignore[attr-defined]
 
-        response = start(client, "4410")
-        assert response.status_code == 409
-        body = text_of(response.text)
-        assert f"Run {first[:8]} is running" in body
-        assert f'href="/runs/{first}"' in response.text
-        assert len(store_of(client).list_runs()) == 1
+        second = run_id_of(start(client, "4410"))
+        assert client.get(f"/api/runs/{second}").json()["status"] == "queued"
+        assert client.app.state.runner.active_run_ids == [first]  # type: ignore[attr-defined]
 
-        # The run page says it is going, and carries the optional script.
+        # The running run's page says it is going, and carries the optional script.
         page = client.get(f"/runs/{first}").text
         assert f'data-run-poll="/api/runs/{first}"' in page
         assert "/static/run-progress.js" in page
     finally:
         gate.set()
     assert wait_for(client, first)["status"] == "succeeded"
-    # Once it has finished, a start goes ahead.
-    second = run_id_of(start(client, "4410"))
     assert wait_for(client, second)["status"] == "succeeded"
 
 
-def test_a_run_another_process_is_running_refuses_a_start_too(client: TestClient) -> None:
+def queue_quickly(client: TestClient) -> None:
+    """Have the app's queue look again every 50 ms, not every five seconds."""
+    client.app.state.runner.poll_seconds = 0.05  # type: ignore[attr-defined]
+
+
+def test_a_run_another_process_is_running_queues_a_start_too(client: TestClient) -> None:
     """``python -m sightline.batch run`` is another process: it shows only in the store.
 
     In another container, as the trap in roadmap item 43 has it, so its host name is not this one
-    and its heartbeat is the whole test of whether it is still going. While it beats, Start is
-    refused; once it has been silent past the stale limit, Start goes ahead.
+    and its heartbeat is the whole test of whether it is still going. While it beats, a start is
+    queued behind it (item 46); once it has been silent past the stale limit, the queued run goes.
     """
     configure_everything(client)
     use_pipeline(client, SavedReviewPipeline())
+    queue_quickly(client)
     store = store_of(client)
     elsewhere = store.create_run(["4410"], rubric_pack=DEFAULT_RUBRIC_PACK)
     set_owner(store, elsewhere, host=OTHER_HOST, pid=7)
     assert client.app.state.runner.active_run_ids == []  # type: ignore[attr-defined]
 
-    response = start(client, COURSE)
-    assert response.status_code == 409
-    assert f"Run {elsewhere[:8]} is running" in text_of(response.text)
-    assert len(store.list_runs()) == 1
+    queued = run_id_of(start(client, COURSE))
+    time.sleep(0.3)
+    payload = client.get(f"/api/runs/{queued}").json()
+    assert (payload["status"], payload["queue_ahead"]) == ("queued", 1)
 
     set_owner(store, elsewhere, host=OTHER_HOST, pid=7, heartbeat_age=STALE)
-    started = run_id_of(start(client, COURSE))
-    assert wait_for(client, started)["status"] == "succeeded"
+    assert wait_for(client, queued)["status"] == "succeeded"
 
 
-def test_a_run_whose_process_on_this_host_is_live_refuses_a_start(client: TestClient) -> None:
+def test_a_run_whose_process_on_this_host_is_live_queues_a_start(client: TestClient) -> None:
     configure_everything(client)
     use_pipeline(client, SavedReviewPipeline())
+    queue_quickly(client)
     store = store_of(client)
     elsewhere = store.create_run(["4410"], rubric_pack=DEFAULT_RUBRIC_PACK)
     with live_process() as pid:
         set_owner(store, elsewhere, host=this_host(), pid=pid)
-        assert start(client, COURSE).status_code == 409
-    set_owner(store, elsewhere, host=this_host(), pid=dead_pid())
-    assert wait_for(client, run_id_of(start(client, COURSE)))["status"] == "succeeded"
+        queued = run_id_of(start(client, COURSE))
+        time.sleep(0.3)
+        assert client.get(f"/api/runs/{queued}").json()["status"] == "queued"
+    # The process has exited and been reaped: its run holds nothing up.
+    assert wait_for(client, queued)["status"] == "succeeded"
 
 
 def test_a_running_row_with_no_owner_does_not_block_start(client: TestClient) -> None:

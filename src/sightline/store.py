@@ -62,6 +62,10 @@ ADDED_COLUMNS: dict[str, dict[str, str]] = {
         # which sign-in mode shows to an admin only and local mode to the local user.
         "starter_subject": "VARCHAR(255)",
         "starter_name": "VARCHAR(128)",
+        # Roadmap item 46: who cancelled a queued run. Null on every run a previous version
+        # recorded, none of which was ever queued.
+        "cancelled_by_subject": "VARCHAR(255)",
+        "cancelled_by_name": "VARCHAR(128)",
     },
     # Roadmap item 44: the signed-in subject beside the reviewer's display name. Null on every
     # override a previous version recorded, and on every one recorded in local mode — those keep
@@ -152,17 +156,22 @@ class RunStore:
         note: str | None = None,
         starter_subject: str | None = None,
         starter_name: str | None = None,
+        queued: bool = False,
     ) -> str:
         """Record a new batch. Returns the run id.
 
         ``starter_subject`` and ``starter_name`` are the signed-in person who started it (roadmap
         item 45), and ``None`` in local mode and on the command line. Neither goes into the run
         event: the run log is shown to whoever may see the run, and says what happened, not who.
+
+        ``queued`` records it as waiting behind the active run (roadmap item 46) rather than
+        ``pending``; its place in the queue is its creation time.
         """
         if not course_refs:
             raise ValueError("a run needs at least one course reference")
         with self.session() as session:
             run = Run(
+                status=RunStatus.QUEUED if queued else RunStatus.PENDING,
                 rubric_pack=rubric_pack,
                 bindings_digest=bindings_digest,
                 note=note,
@@ -183,6 +192,7 @@ class RunStore:
                         "courses": len(course_refs),
                         "rubric_pack": rubric_pack,
                         "bindings": bindings_digest,
+                        "queued": queued,
                     },
                 )
             )
@@ -666,6 +676,77 @@ class RunStore:
                 .execution_options(synchronize_session=False)
             )
             return result.rowcount == 1
+
+    # -- the queue (roadmap item 46) ---------------------------------------------------------
+    #
+    # A queued run leaves the queue by exactly one of two compare-and-sets on its status: the
+    # background runner taking it (queued -> pending) or a person cancelling it (queued ->
+    # cancelled). Whichever lands first wins, and the other is told no.
+
+    def queued_runs(self) -> list[Run]:
+        """Every queued run, in the order it was started: the order the queue executes them."""
+        with self.session() as session:
+            statement = (
+                select(Run).where(Run.status == RunStatus.QUEUED).order_by(Run.created_at, Run.id)
+            )
+            return list(session.scalars(statement))
+
+    def take_queued(self, run_id: str) -> bool:
+        """Move ``run_id`` from the queue to ``pending``, its turn having come. False if it left."""
+        with self.session() as session:
+            result = session.execute(
+                update(Run)
+                .where(Run.id == run_id, Run.status == RunStatus.QUEUED)
+                .values(status=RunStatus.PENDING)
+                .execution_options(synchronize_session=False)
+            )
+            if result.rowcount != 1:
+                return False
+            session.add(
+                RunEvent(run_id=run_id, event="run_dequeued", data={"status": "pending"})
+            )
+        log.info("run_dequeued", run_id=run_id)
+        return True
+
+    def cancel_queued(
+        self, run_id: str, *, subject: str | None = None, name: str | None = None
+    ) -> bool:
+        """Cancel ``run_id`` while it waits, recording who did. False if it is not queued.
+
+        Who may cancel it is :mod:`sightline.access`'s question, asked before this is called.
+        ``subject`` and ``name`` go on the run and not into its log, as its starter does.
+        """
+        with self.session() as session:
+            result = session.execute(
+                update(Run)
+                .where(Run.id == run_id, Run.status == RunStatus.QUEUED)
+                .values(
+                    status=RunStatus.CANCELLED,
+                    finished_at=utcnow(),
+                    cancelled_by_subject=(subject or "").strip() or None,
+                    cancelled_by_name=(name or "").strip() or None,
+                )
+                .execution_options(synchronize_session=False)
+            )
+            if result.rowcount != 1:
+                return False
+            session.add(
+                RunEvent(
+                    run_id=run_id,
+                    event="run_cancelled",
+                    level="warning",
+                    data={"status": RunStatus.CANCELLED.value, "reason": "Cancelled while queued."},
+                )
+            )
+            # Its courses never started; they are cancelled with it rather than left pending.
+            session.execute(
+                update(RunCourse)
+                .where(RunCourse.run_id == run_id)
+                .values(status=RunStatus.CANCELLED)
+                .execution_options(synchronize_session=False)
+            )
+        log.info("run_cancelled_while_queued", run_id=run_id)
+        return True
 
     def resumable_runs(self) -> list[Run]:
         with self.session() as session:

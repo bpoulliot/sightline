@@ -10,7 +10,7 @@
   <p class="review-nav"><a href="/runs">All runs</a><a href="/courses">New run</a></p>
   <h1 id="h-run">Run <code>{{ page.short_id }}</code></h1>
   <p class="run-status">
-    <span class="state {{ state_class(progress.status) }}">{{ progress.status_label }}</span>
+    <span class="state {{ state_class(progress.status) }}">{{ page.status_label }}</span>
     <span class="run-statement">{{ progress.statement() }}</span>
   </p>
   <dl class="pairs">
@@ -22,6 +22,9 @@
     <div><dt>Recorded</dt><dd>{{ progress.created_at.strftime('%Y-%m-%d %H:%M:%S UTC') }}</dd></div>
     <div><dt>Started</dt><dd>{{ progress.started_at.strftime('%Y-%m-%d %H:%M:%S UTC') if progress.started_at else 'Not yet' }}</dd></div>
     <div><dt>Finished</dt><dd>{% if progress.finished_at %}{{ progress.finished_at.strftime('%Y-%m-%d %H:%M:%S UTC') }}{% elif page.finished %}Not recorded{% else %}Not yet{% endif %}</dd></div>
+    {%- if page.cancelled_by %}
+    <div><dt>Cancelled by</dt><dd>{{ page.cancelled_by }}, while it was queued</dd></div>
+    {%- endif %}
     {%- if page.note %}
     <div><dt>Note</dt><dd>{{ page.note }}</dd></div>
     {%- endif %}
@@ -33,6 +36,22 @@
     see the latest<span class="poll-note" hidden>, or leave it open: it re-reads itself when
     something changes</span>.
   </p>
+  {% endif %}
+
+  {% if page.queued %}
+  <div class="banner" role="status" data-run-poll="/api/runs/{{ progress.run_id }}" data-poll-ms="{{ poll_ms }}">
+    <p class="banner-head">Queued, {{ page.ahead }} ahead. This run starts on its own when every run ahead of it has ended.</p>
+    <p class="banner-remedy">
+      Runs start one at a time, in the order they were started, because they share one model
+      host. There is no estimate of when this one will start: the runs ahead take as long as their
+      courses do<span class="poll-note" hidden>. This page re-reads itself when its place changes</span>.
+    </p>
+    <form method="post" action="/runs/{{ progress.run_id }}/cancel" class="queue-cancel">
+      {{ csrf_field() }}
+      <button type="submit" class="button">Cancel this run</button>
+      <span class="hint">Only a run still waiting can be cancelled. Nothing has been read from Canvas for it yet.</span>
+    </form>
+  </div>
   {% endif %}
 
   {% if page.interrupted %}
@@ -151,7 +170,7 @@
   {% endif %}
 </section>
 
-{% if page.live %}
+{% if page.live or page.queued %}
 <script type="application/json" id="run-progress-data">{{ payload | tojson }}</script>
 <script src="/static/run-progress.js" defer></script>
 {% endif %}
