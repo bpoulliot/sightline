@@ -57,9 +57,9 @@ from .batch import (
     StageState,
     progress_of,
 )
+from .logging import get_logger
 from .models import STATUS_LABELS, TERMINAL_STATUSES, Run, RunEvent, RunStatus, as_utc
 from .new_run import is_queued, is_running, short_id
-from .logging import get_logger
 from .paths import DataPaths
 from .review.identity import current_reviewer
 from .review.screen import index_href
@@ -388,9 +388,7 @@ def build_page(
         note=run.note if run is not None else None,
         ahead=ahead if is_queued(progress.status) else None,
         cancelled_by=(
-            cancelled_by(run, reader or LOCAL)
-            if run is not None and was_cancelled_queued
-            else None
+            cancelled_by(run, reader or LOCAL) if run is not None and was_cancelled_queued else None
         ),
     )
 

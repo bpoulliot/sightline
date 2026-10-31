@@ -702,9 +702,7 @@ class RunStore:
             )
             if result.rowcount != 1:
                 return False
-            session.add(
-                RunEvent(run_id=run_id, event="run_dequeued", data={"status": "pending"})
-            )
+            session.add(RunEvent(run_id=run_id, event="run_dequeued", data={"status": "pending"}))
         log.info("run_dequeued", run_id=run_id)
         return True
 

@@ -32,7 +32,6 @@ from sightline import app as app_module
 from sightline.app import create_app
 from sightline.batch import (
     DEFAULT_RUBRIC_PACK,
-    BatchRunner,
     CourseWork,
     Stage,
     StageOutcome,
@@ -99,7 +98,9 @@ def status(store: RunStore, run_id: str) -> RunStatus:
 
 def queue(store: RunStore, count: int) -> list[str]:
     """``count`` runs recorded queued, oldest first."""
-    return [store.create_run([f"44{index}"], rubric_pack=PACK, queued=True) for index in range(count)]
+    return [
+        store.create_run([f"44{index}"], rubric_pack=PACK, queued=True) for index in range(count)
+    ]
 
 
 def test_queued_runs_execute_one_at_a_time_in_the_order_they_were_started(paths: DataPaths) -> None:
@@ -452,7 +453,9 @@ def test_the_start_form_reports_the_queue_before_anything_is_started(
     assert response.status_code == 409
     notice = text_of(response.text)
     assert "A run started now is queued." in notice
-    assert f"Run {first[:8]} is running, so a run started now is queued behind it: 2 ahead." in notice
+    assert f"Run {first[:8]} is running, so a run started now is queued behind it: 2 ahead." in (
+        notice
+    )
     assert "no estimate" in notice
 
 

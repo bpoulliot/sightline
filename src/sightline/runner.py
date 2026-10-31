@@ -32,6 +32,7 @@ the runs ahead of it take as long as their courses and the model host take.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 from collections.abc import Awaitable, Callable
 from enum import Enum
 
@@ -140,10 +141,8 @@ class BackgroundRunner:
         if self._queue is not None:
             # First, so that nothing is taken from the queue while the runs ahead are cancelled.
             self._queue.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._queue
-            except asyncio.CancelledError:
-                pass
             self._queue = None
         self._resume_waiting = []
         if self._resume is not None:
@@ -239,10 +238,8 @@ class BackgroundRunner:
             if turn is _Turn.EMPTY:
                 await self._wake.wait()
                 continue
-            try:
+            with contextlib.suppress(TimeoutError):
                 await asyncio.wait_for(self._wake.wait(), self.poll_seconds)
-            except TimeoutError:
-                pass
 
     def _next_turn(self) -> _Turn:
         """Start the oldest queued run if nothing is ahead of it."""
