@@ -6,7 +6,7 @@ Labels: **READY** · **NEEDS DISCUSSION** · **NEEDS MEASUREMENT** · **BLOCKED*
 Nothing unready enters the queue. One item per conversation, one PR per item.
 
 Queue lives at `~/docker/overnight/projects/sightline/` (moved from `~/docker/overnight-sightline/`
-on 2026-09-22). Next free item number: **48** (41 was filed by PR #40; 42 and 43 were filed
+on 2026-09-22). Next free item number: **51** (48–50 filed 2026-11-02; 41 was filed by PR #40; 42 and 43 were filed
 by item 36's session, PR #43; 44–47 split from item 40 on 2026-10-30).
 
 ---
@@ -63,6 +63,9 @@ by item 36's session, PR #43; 44–47 split from item 40 on 2026-10-30).
 | 45 | Runs per user, an admin role, and per-user Canvas tokens | 3 | READY | **DONE** — PR #51 (a run is its starter's, 404 to anyone else; admin group alone changes instance settings; each person's own Canvas token) |
 | 46 | Queue a run behind the active one | 3 | READY | **DONE** — PR #52 (a Start while a run is active is queued FIFO; *Queued, N ahead*; starter or admin cancels, recorded; survives a restart; waits behind a live command-line run) |
 | 47 | Reference deployment: identity provider, proxy and app | 3 | READY — 44 DONE (PR #50); Authentik decided 2026-10-30 | **DONE** — PR #53 (`docker-compose.signin.yml`: the app behind an Authentik outpost, no app port, an internal network; `docs/SIGN-IN.md`, with oauth2-proxy + Entra ID as a second example) |
+| 48 | Rubric bindings belong to the person who accepts them | 3 | **READY** — decided 2026-11-02 (operator) | — |
+| 49 | A pushed version tag builds the image and publishes it to the Gitea registry | 3 | **NEEDS MEASUREMENT** — whether the job token can push (`~/docker` I59) | — |
+| 50 | Pilot readiness: the master key from the environment, a state backup, and a pilot runbook | 3 | **READY** — decided 2026-11-02 (operator) | — |
 
 ---
 
@@ -428,11 +431,18 @@ image on every PR; a Dockerfile that is never built in CI rots within a month.
 There is no production deployment and no cutover — `docker compose up` on a developer machine is the
 entire story until that changes.
 
+**Decided 2026-11-02 (operator): the pilot runs on the operator's own host**, behind the SWAG and
+Authentik instances already running there, in sign-in mode. The host-specific compose and SWAG
+configuration live in that host's own repository, not here; this repository keeps the reference
+file and runbook item 47 wrote, host-agnostic. The operator deploys; a session never does. Item 50
+is what the pilot needs from this repository first. Releases are cut by the operator pushing a
+`vMAJOR.MINOR.PATCH` tag, never by a merge; item 49 makes that tag build and publish the image.
+
 **Item 40 (decided 2026-10-30) changes the story without changing the rule.** A shared instance
 is three containers — a self-hosted identity provider, an auth proxy and the app — one process
 each. Item 47 wrote the reference compose file (`docker-compose.signin.yml`: the app and an
 Authentik proxy outpost, attached to an existing Authentik) and its runbook (`docs/SIGN-IN.md`),
-host-agnostic; where it runs and who operates it is undecided, and a session never deploys it. Without the proxy the app keeps
+host-agnostic; the pilot runs on the operator's host (decided 2026-11-02, above), and a session never deploys it. Without the proxy the app keeps
 today's single-user local mode.
 
 **The compose network subnet is pinned**, and later items should not unpin it. Sightline has to
@@ -1067,6 +1077,112 @@ The near-boundary marker and `agreement.brief()` belong to item 24's re-run, not
 - Screenshot QA is done at 1400 px and 390 px on every screen built, with the CDP target closed
   afterwards.
 - The full suite is green, ruff and black exit codes are read separately, and all CI jobs are green.
+
+**48 · FILED 2026-11-02 (operator, interactive). READY. Rubric bindings belong to the person who
+accepts them.** Item 45 left open whether proposing, accepting and reverting bindings is an
+instance setting (admin only). *Decided 2026-11-02 (operator): neither — each user has their own
+bindings, stored per user.* One person's accepted bindings never change another person's runs.
+
+*Scope.* Accepted states, their history and proposal sets are keyed by the subject id of the person
+who made them (`Run.starter_subject`'s identity, item 45), under the existing
+`rubrics/<pack>/` store. `resolve_pack` takes the starter: a run uses its starter's accepted
+bindings for that pack, or the shipped pack when they have none, and records the digest exactly as
+today (`runs.bindings_digest`), so a resumed or re-exported run keeps what it ran with. The Rubrics
+screens and the New run picker show the signed-in person's own bindings and proposals. Proposing
+stays serialized against runs as items 22 and 46 built it (one model host), whoever proposes.
+
+*Readings taken here, stated so they can be reversed.* (a) **No sharing in this item**: copying
+another person's bindings, or an admin publishing a default set, is a later item if the pilot asks
+for it. (b) **An admin sees** every person's history read-only (as with runs) and changes none of
+it. (c) **Local mode** is one implicit user, as item 45 made it; bindings accepted before this item
+belong to that user, so a local install behaves exactly as now. (d) **A run with no starter**
+(command-line and older runs) keeps reading the bindings it recorded; a new command-line run reads
+the shipped pack unless `--bindings <digest>` names an accepted state.
+
+*Traps.* The subject id is the key, never the display name (item 40, decision 1). The digest
+recorded on a run must still resolve after its starter's bindings change, which the immutable
+per-digest store already guarantees; do not key the lookup by person alone. Moving item 22's
+store must not orphan an accepted state a recorded run names.
+
+*Acceptance.* Two signed-in people accept different bindings for one pack; each one's run uses
+their own digest, and neither sees the other's proposals or accepted state on the Rubrics
+screens. An admin sees both histories and cannot accept or revert on another person's behalf. A
+run recorded before the change re-exports with its original bindings. Local mode's existing
+tests pass unchanged. SPEC §09's *open* bullet under *Sign-in and multiple users* is replaced by
+an *As built (item 48)* paragraph. Screens checked at 1400 and 390 px. Suite, ruff and black
+green, each exit code read separately.
+
+**49 · FILED 2026-11-02 (operator, interactive). NEEDS MEASUREMENT. A pushed version tag builds the
+image and publishes it to the Gitea registry.** Today CI builds the image on every PR and throws
+it away; no workflow publishes one (`~/docker` TODO I59 lists Sightline as building nothing).
+
+*Decided 2026-11-02 (operator).* Semantic versions: a patch release (`x.y.N`) for fixes, a minor
+(`x.N.0`) for backward-compatible features, a major (`N.0.0`) for breaking changes. **The operator
+cuts a release by pushing a `vX.Y.Z` tag; a merge never publishes one**, so unattended queue merges
+stay unable to publish, and AGENTS.md's rule stands. CI may *suggest* the next number from the
+Conventional Commits since the last tag (`fix` → patch, `feat` → minor, `!`/`BREAKING CHANGE` →
+major) but never tags.
+
+*What is known* (xenotag's I59 measurement, 2026-10-10, and I59 itself): the registry is Gitea's
+own packages store; a job must push to `gitea:3000` over the job network, plain HTTP, so the DinD
+daemon needs it as an insecure registry; **never through `git.bitmapserv.org`**, which is behind
+Cloudflare and caps a request at 100 MB. Gitea 1.27.3 serves no anonymous pulls, so the host pulls
+with a `read:package` token. There are no cleanup rules yet.
+
+*The measurement, first and alone.* Whether Gitea 1.27.3's automatic job token may push a package
+(1.25.5 refused it): one throwaway `workflow_dispatch` push of a tiny image to a scratch package
+name, then delete the package. If it is refused, the outcome is a request for the operator to
+create a `write:package` secret, not a workaround. Commit the harness under
+`measurements/49-registry-push/`, record the result and relabel.
+
+*The build, once READY.* A workflow on `v*` tags: refuse a tag whose version differs from
+`pyproject.toml`'s; build the `runtime` target; run the existing health check against it; push
+`:X.Y.Z` and `:X.Y`, and `:latest` only for the highest version. A release note listing the
+Conventional Commits since the previous tag. A retention rule (for example the last five patch
+versions of each minor) is the operator's to set in Gitea; the item documents it rather than
+setting it.
+
+**50 · FILED 2026-11-02 (operator, interactive). READY. Pilot readiness: the master key from the
+environment, a state backup, and a pilot runbook.** What the pilot on the operator's host (see
+*Deployment*) needs from this repository before a first live run.
+
+*Decided 2026-11-02 (operator).*
+1. **Keys.** Each person enters their own Canvas token and it is encrypted at rest — item 45
+   built that. The **master key** that encrypts the tokens comes from `SIGHTLINE_SECRET_KEY` in
+   the host's secret environment, never from a file in the data volume: in sign-in mode the app
+   refuses to start without it, saying which variable to set and how to generate one. Local mode
+   keeps the key file. A per-person passphrase was considered and declined: a queued or resumed
+   run must reach Canvas while its starter is away.
+2. **Backups are of Sightline's state, not of Canvas exports.** Kept: the run store (runs,
+   recorded ratings and overrides, encrypted tokens, preferences), the review files under
+   `runs/`, accepted bindings under `rubrics/`, and the delivered artifacts under `reports/`.
+   Left out: `exports/` and `cache/`, which can be fetched again and hold course content that
+   should not travel off the host. The master key is backed up separately, through the host's
+   secrets handling, never beside the data.
+3. **A pilot runbook**, `docs/PILOT.md`, for the operator's first live runs.
+
+*Scope.* (1) the startup refusal and its test, the README and `.env.example` lines, and SIGN-IN.md
+saying so. A key change is a re-entry of every token, and the runbook says so; key rotation is not
+built. (2) `python -m sightline.backup <dest>`: a consistent snapshot of the SQLite store through
+its online backup API (the store runs in WAL mode, so a file copy of a live store is not a backup),
+plus the kept directories, into a dated directory, and a `--check` that opens a snapshot read-only
+and reports what it holds. Restoring is documented, not automated. (3) `PILOT.md`: deploying on a
+host with SWAG and Authentik by pointing at SIGN-IN.md; then a checklist the operator runs, in
+order, recording what each step showed — Test connection; the content-export request on one course
+and the Canvas permission it needed (item 23 left that unnamed, to be confirmed live); Check the
+model host; Propose bindings on a live host; one course with known human ratings through Start,
+review and export; the Authentik session cookie at browser close (item 47 could not determine it).
+Each check names what to send back to the roadmap, as aggregates, never a course, person or the
+institution.
+
+*Traps.* No session runs the checklist: it contacts live Canvas, which the rules forbid. The backup
+command must refuse a destination inside the data root. Nothing in PILOT.md names the institution
+or its Canvas host.
+
+*Acceptance.* The app in sign-in mode exits non-zero with the message when `SIGHTLINE_SECRET_KEY`
+is unset, and starts when it is set. A backup taken while a run is writing opens and lists the run;
+`exports/` and `cache/` are absent from it; a destination inside the data root is refused. Suite,
+ruff and black green, each exit code read separately.
 
 **41 · FILED 2026-10-29 from `~/docker` TODO I267 (operator, interactive). READY, Tier 0. A cancelled
 `image` job leaves its sample-report container running on the runner's shared DinD daemon.**
@@ -2512,6 +2628,10 @@ to this.**
   something credential-shaped" rather than dropped.
 
 ## Corrections log
+
+**2026-11-02 — decisions recorded (operator).** *Deployment* names the pilot's host (the operator's,
+behind its SWAG and Authentik) and says releases are cut by a pushed tag. SPEC §09's open question
+on bindings is answered: per user, item 48. Items 48–50 filed.
 
 **2026-10-30 — item 46 built (PR #52).** SPEC §04 *Runtime* says one run executes at a time and the
 rest queue; §09's *As built (item 36)* no longer says a start is refused while another run is

@@ -839,8 +839,10 @@ Four readings taken here:
   is named as another person's run, with no id and no link.
 - **Proposing, accepting and reverting rubric bindings is not admin-only.** The decision names the
   model host, the model and the Canvas base URL as instance settings, and the item adds the export
-  preference. Bindings are recorded per pack with who accepted them, and they apply to every
-  later run. Whether they are an instance setting is open: roadmap item 45's entry says so.
+  preference. As item 45 built it, bindings are recorded per pack with who accepted them, and they
+  apply to every later run. *Decided 2026-11-02 (operator): bindings are per user*, neither an
+  instance setting nor admin-only, so that last clause changes: each person's accepted bindings
+  apply to their own runs only. Roadmap item 48 builds it.
 
 **As built (item 46).** A Start while a run is active, or while runs are queued, records the run
 with status `queued` (`RunStatus.QUEUED`, label *Queued*; neither resumable nor terminal) instead of
