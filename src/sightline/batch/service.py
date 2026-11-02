@@ -5,6 +5,15 @@ per run and because what it should be built from is only known once the run exis
 pack is recorded on the run, and the credentials are whatever is in force at the moment the run
 starts rather than when the process booted.
 
+**A run reads Canvas as the person who started it** (roadmap item 45). A run recorded in sign-in
+mode carries its starter's subject, and every Canvas call it makes — reads, and the content-export
+request, which writes to the course's export list — carries that person's own token, from
+:meth:`sightline.credentials.CredentialStore.canvas_for`. The factory reads the subject off the run
+each time it builds, so a run resumed after a restart is still its starter's. A starter with no
+token stops the run before any course is touched, with a remedy naming Settings; no other token is
+borrowed. A run with no starter (local mode, the command line, a run older than the column) uses
+the instance credential, as every run did before.
+
 **Everything missing fails as a stated condition of the run, not as a stack trace.** No Canvas
 credentials, no model host, a pack id nothing on disk answers to: each raises
 :class:`~sightline.batch.stages.BatchAborted` carrying what to do about it, which the runner
@@ -32,8 +41,9 @@ from ..logging import get_logger
 from ..models import Run
 from ..paths import DataPaths
 from ..preferences import PreferenceStore
+from ..rubric.accepted import BindingsError, ResolvedPack, resolve_pack
 from ..rubric.effort import load_effort_model
-from ..rubric.shipped import PacksNotFoundError, shipped_pack
+from ..rubric.shipped import PacksNotFoundError
 from .pipeline import CanvasSource, CoursePipeline, ReviewPipeline
 from .runner import PipelineFactory
 from .stages import BatchAborted
@@ -44,6 +54,12 @@ log = get_logger("sightline.batch.service")
 #: that say it are two ways of being unconfigured and not two different problems.
 CANVAS_REMEDY = (
     "Enter the Canvas URL and an API token on the Settings screen, then start the run again."
+)
+
+#: Said when the person who started a run has no Canvas token of their own (roadmap item 45).
+STARTER_TOKEN_REMEDY = (
+    "The person who started this run stores their own Canvas API token on the Settings screen, "
+    "then starts the run again."
 )
 
 
@@ -65,8 +81,8 @@ def live_pipeline_factory(
 
     @asynccontextmanager
     async def build(run: Run) -> AsyncIterator[CoursePipeline]:
-        pack = _pack(run.rubric_pack)
-        canvas = _canvas(credentials)
+        resolved = resolved_pack(run, paths)
+        canvas = _canvas(credentials, run)
         endpoint = model_endpoint or preferences.model_host().endpoint
         model = model_name or preferences.review_model().name
         links = HttpLinkResolver.from_httpx() if settings.resolve_links else None
@@ -91,7 +107,8 @@ def live_pipeline_factory(
                             request_export=export_preference.enabled,
                         )
                     ),
-                    pack=pack,
+                    pack=resolved.pack,
+                    bindings=resolved.digest,
                     client=model_client,
                     model=model,
                     # Each course's bytes come from the export its own acquisition recorded.
@@ -106,27 +123,46 @@ def live_pipeline_factory(
     return build
 
 
-def _pack(pack_id: str):  # noqa: ANN202 - the return type is RubricPack; imported lazily below
+def resolved_pack(run: Run, paths: DataPaths) -> ResolvedPack:
+    """The pack ``run`` uses: the shipped pack with the bindings the run recorded (item 22).
+
+    By the run's recorded digest, never the bindings in force now, so a run resumed after somebody
+    accepted or reverted bindings carries on with the ones it started with.
+    """
     try:
-        return shipped_pack(pack_id)
+        return resolve_pack(run.rubric_pack, paths, digest=run.bindings_digest)
     except (KeyError, PacksNotFoundError) as exc:
         raise BatchAborted(
-            f"This run was recorded against rubric pack {pack_id!r}, which is not on disk. {exc}",
+            f"This run was recorded against rubric pack {run.rubric_pack!r}, which is not on "
+            f"disk. {exc}",
             remedy=(
                 "Start the run again against a rubric this build ships, or point "
                 "SIGHTLINE_RUBRIC_PACKS_DIR at the directory holding the packs."
             ),
         ) from exc
+    except BindingsError as exc:
+        raise BatchAborted(
+            f"This run was recorded with accepted bindings that cannot be read back: {exc}.",
+            remedy=(
+                "Start the run again; a new run uses the bindings in force on the rubric's page."
+            ),
+        ) from exc
 
 
-def _canvas(credentials: CredentialStore):  # noqa: ANN202 - CanvasCredentials
+def _canvas(credentials: CredentialStore, run: Run):  # noqa: ANN202 - CanvasCredentials
     try:
-        canvas = credentials.canvas()
+        canvas = credentials.canvas_for(run.starter_subject)
     except CredentialError as exc:
         raise BatchAborted(
             f"Sightline has no Canvas credentials, so no course could be acquired. {exc}",
             remedy=CANVAS_REMEDY,
         ) from exc
+    if run.starter_subject is not None and not canvas.token:
+        raise BatchAborted(
+            "The person who started this run has no Canvas API token stored, so no course could "
+            "be acquired. A run reads Canvas as the person who started it, with their own token.",
+            remedy=STARTER_TOKEN_REMEDY,
+        )
     if not canvas.complete:
         raise BatchAborted(
             "Sightline has no complete Canvas credentials, so no course could be acquired.",
@@ -135,4 +171,4 @@ def _canvas(credentials: CredentialStore):  # noqa: ANN202 - CanvasCredentials
     return canvas
 
 
-__all__ = ["live_pipeline_factory"]
+__all__ = ["live_pipeline_factory", "resolved_pack"]

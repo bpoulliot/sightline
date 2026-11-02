@@ -24,10 +24,20 @@ who then types a different value on the settings screen is not silently overridd
 **Redaction.** Every value that passes through here is registered with
 :mod:`sightline.redaction`, base URL and derived hostname included, so it is scrubbed out of log
 events, stored run events and error text without any call site opting in.
+
+**Per-user tokens, in sign-in mode** (roadmap item 45). The Canvas base URL stays an instance
+setting, in the row above. Each signed-in person stores their own token, encrypted with the same
+key in its own ``app_secrets`` row, named by a digest of their subject id
+(:func:`user_secret_name`) so the table names nobody. :meth:`CredentialStore.canvas_for` is the
+credential a run or a request uses: the instance base URL with that person's token, and never the
+instance token or the environment's — a person with no token of their own reads nothing. With no
+subject (local mode, the command line, a run recorded before item 45) it is :meth:`canvas`, the one
+credential local mode has always had.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 from dataclasses import dataclass
 from datetime import datetime
@@ -47,6 +57,15 @@ log = get_logger("sightline.credentials")
 #: Row name in ``app_secrets``. One row holds the whole Canvas credential, because base URL and
 #: token are only meaningful together.
 CANVAS_SECRET_NAME = "canvas"
+
+#: Prefix of a per-user token row (roadmap item 45). The rest is a digest of the subject.
+USER_TOKEN_PREFIX = "canvas-user:"
+
+
+def user_secret_name(subject: str) -> str:
+    """The ``app_secrets`` row for ``subject``'s token: a digest, so it fits and names nobody."""
+    digest = hashlib.blake2b(subject.encode("utf-8"), digest_size=24).hexdigest()
+    return f"{USER_TOKEN_PREFIX}{digest}"
 
 
 class CredentialSource(StrEnum):
@@ -76,6 +95,8 @@ class CanvasCredentials:
     base_url_source: CredentialSource
     token_source: CredentialSource
     stored_at: datetime | None = None
+    #: True when the token is one signed-in person's own (roadmap item 45), not the instance's.
+    personal: bool = False
 
     @property
     def complete(self) -> bool:
@@ -99,7 +120,7 @@ class CanvasCredentials:
                 "source": self.base_url_source.value,
             },
             {
-                "name": "Canvas API token",
+                "name": "Your Canvas API token" if self.personal else "Canvas API token",
                 "state": "stored" if self.token else "not stored",
                 "source": self.token_source.value,
             },
@@ -167,8 +188,29 @@ class CredentialStore:
             stored_at=self._store.secret_updated_at(CANVAS_SECRET_NAME),
         )
 
-    def _read_stored(self) -> dict[str, Any]:
-        blob = self._store.get_secret_blob(CANVAS_SECRET_NAME)
+    def canvas_for(self, subject: str | None) -> CanvasCredentials:
+        """The credential a run started by ``subject`` uses, or a request ``subject`` makes.
+
+        ``None`` is local mode's one user, and a run with no recorded starter: :meth:`canvas`.
+        Otherwise the instance base URL with ``subject``'s own token, which is the only token it
+        ever carries — not the instance's, not the environment's.
+        """
+        if subject is None:
+            return self.canvas()
+        instance = self.canvas()
+        token = self._read_stored(user_secret_name(subject)).get("token") or None
+        register_secret(token)
+        return CanvasCredentials(
+            base_url=instance.base_url,
+            token=token,
+            base_url_source=instance.base_url_source,
+            token_source=CredentialSource.STORED if token else CredentialSource.UNSET,
+            stored_at=self._store.secret_updated_at(user_secret_name(subject)),
+            personal=True,
+        )
+
+    def _read_stored(self, name: str = CANVAS_SECRET_NAME) -> dict[str, Any]:
+        blob = self._store.get_secret_blob(name)
         if blob is None:
             return {}
         try:
@@ -245,6 +287,30 @@ class CredentialStore:
         """Forget the stored credential entirely. The environment fallback still applies."""
         removed = self._store.delete_secret_blob(CANVAS_SECRET_NAME)
         log.info("canvas_credential_cleared", had_stored_value=removed)
+        return removed
+
+    # -- per-user tokens (roadmap item 45) ---------------------------------------------------
+
+    def save_user_token(self, subject: str, token: str) -> None:
+        """Store ``subject``'s own token, replacing theirs. A blank token is refused, not stored.
+
+        Logged without the subject or the token: which person stored a token is not something
+        the process log needs, and the subject is an identity.
+        """
+        cleaned = token.strip()
+        if not cleaned:
+            raise ValueError("a token is needed; forgetting one is clear_user_token")
+        register_secret(cleaned)
+        self._store.put_secret_blob(
+            user_secret_name(subject),
+            self._cipher().encrypt(json.dumps({"token": cleaned}).encode()),
+        )
+        log.info("canvas_user_token_saved")
+
+    def clear_user_token(self, subject: str) -> bool:
+        """Forget ``subject``'s own token. Returns whether there was one."""
+        removed = self._store.delete_secret_blob(user_secret_name(subject))
+        log.info("canvas_user_token_cleared", had_stored_value=removed)
         return removed
 
 

@@ -16,9 +16,9 @@ from collections.abc import Iterator
 
 import httpx
 import pytest
-from fastapi.testclient import TestClient
 
 import ollama_recordings as recordings
+from form_clients import FormClient as TestClient
 from sightline import views
 from sightline.app import create_app
 from sightline.config import Settings

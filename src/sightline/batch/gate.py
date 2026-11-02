@@ -13,11 +13,11 @@ same reason. The XLSX writer (roadmap item 13) and the PDF report (item 14) both
 :meth:`ExportGate.save`, called by ``python -m sightline.report export``; the guard is what catches
 a writer reaching for ``paths.resolve("reports", …)`` directly.
 
-**What "a human opened the review" means here.** A timestamp set by an action a person took: the
-review screen (roadmap item 16) when it lands, and ``python -m sightline.batch open-review`` until
-then. The batch runner cannot set it — it has no method that does — and that is the whole design.
-A completed batch therefore leaves reviewable results in the run store and on disk, and leaves the
-``reports/`` directory empty.
+**What "a human opened the review" means here.** A timestamp set by an action a person took:
+loading any page of the review screen (:mod:`sightline.review`, roadmap item 16), or ``python -m
+sightline.batch open-review``. The batch runner cannot set it — it has no method that does — and
+that is the whole design. A completed batch therefore leaves reviewable results in the run store
+and on disk, and leaves the ``reports/`` directory empty.
 
 **It is not access control.** Sightline is one process on a designer's machine with no login
 (:mod:`sightline.views` explains why), and anyone who can call this can call

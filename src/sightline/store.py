@@ -13,11 +13,12 @@ from contextlib import contextmanager
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Engine, create_engine, event, select
+from sqlalchemy import ColumnElement, Engine, create_engine, event, select, update
 from sqlalchemy.orm import Session, sessionmaker
 
 from .logging import get_logger
 from .models import (
+    TERMINAL_STATUSES,
     AppSecret,
     AppSetting,
     Base,
@@ -29,6 +30,7 @@ from .models import (
     as_utc,
     utcnow,
 )
+from .ownership import RunOwner, orphan_reason
 from .paths import DataPaths
 from .redaction import scrub, scrub_object
 from .rubric.states import Rating
@@ -47,6 +49,28 @@ ADDED_COLUMNS: dict[str, dict[str, str]] = {
     # Roadmap item 17: the export gate. Null for every course a previous version recorded, which
     # is the correct reading — nobody opened their review.
     "run_courses": {"review_opened_at": "DATETIME"},
+    # Roadmap item 43: the owner record. Null on every run a previous version recorded, which
+    # recovery reads as "no owner" — the same orphaned run it always took over.
+    "runs": {
+        "owner_host": "VARCHAR(255)",
+        "owner_pid": "INTEGER",
+        "owner_heartbeat_at": "DATETIME",
+        # Roadmap item 22, part two: the accepted bindings a run uses. Null on every run a
+        # previous version recorded, which reads as the shipped pack — what those runs ran with.
+        "bindings_digest": "VARCHAR(80)",
+        # Roadmap item 45: who started the run. Null on every run a previous version recorded,
+        # which sign-in mode shows to an admin only and local mode to the local user.
+        "starter_subject": "VARCHAR(255)",
+        "starter_name": "VARCHAR(128)",
+        # Roadmap item 46: who cancelled a queued run. Null on every run a previous version
+        # recorded, none of which was ever queued.
+        "cancelled_by_subject": "VARCHAR(255)",
+        "cancelled_by_name": "VARCHAR(128)",
+    },
+    # Roadmap item 44: the signed-in subject beside the reviewer's display name. Null on every
+    # override a previous version recorded, and on every one recorded in local mode — those keep
+    # their name and have no id.
+    "rating_overrides": {"reviewer_subject": "VARCHAR(255)"},
 }
 
 
@@ -128,13 +152,32 @@ class RunStore:
         course_refs: Sequence[str],
         *,
         rubric_pack: str,
+        bindings_digest: str | None = None,
         note: str | None = None,
+        starter_subject: str | None = None,
+        starter_name: str | None = None,
+        queued: bool = False,
     ) -> str:
-        """Record a new batch. Returns the run id."""
+        """Record a new batch. Returns the run id.
+
+        ``starter_subject`` and ``starter_name`` are the signed-in person who started it (roadmap
+        item 45), and ``None`` in local mode and on the command line. Neither goes into the run
+        event: the run log is shown to whoever may see the run, and says what happened, not who.
+
+        ``queued`` records it as waiting behind the active run (roadmap item 46) rather than
+        ``pending``; its place in the queue is its creation time.
+        """
         if not course_refs:
             raise ValueError("a run needs at least one course reference")
         with self.session() as session:
-            run = Run(rubric_pack=rubric_pack, note=note)
+            run = Run(
+                status=RunStatus.QUEUED if queued else RunStatus.PENDING,
+                rubric_pack=rubric_pack,
+                bindings_digest=bindings_digest,
+                note=note,
+                starter_subject=(starter_subject or "").strip() or None,
+                starter_name=(starter_name or "").strip() or None,
+            )
             run.courses = [
                 RunCourse(ordinal=index, course_ref=ref) for index, ref in enumerate(course_refs)
             ]
@@ -145,7 +188,12 @@ class RunStore:
                 RunEvent(
                     run_id=run_id,
                     event="run_created",
-                    data={"courses": len(course_refs), "rubric_pack": rubric_pack},
+                    data={
+                        "courses": len(course_refs),
+                        "rubric_pack": rubric_pack,
+                        "bindings": bindings_digest,
+                        "queued": queued,
+                    },
                 )
             )
         log.info("run_created", run_id=run_id, courses=len(course_refs), rubric_pack=rubric_pack)
@@ -159,7 +207,7 @@ class RunStore:
             run.status = status
             if status is RunStatus.RUNNING and run.started_at is None:
                 run.started_at = utcnow()
-            if status in {RunStatus.SUCCEEDED, RunStatus.FAILED, RunStatus.CANCELLED}:
+            if status in TERMINAL_STATUSES:
                 run.finished_at = utcnow()
             session.add(RunEvent(run_id=run_id, event="run_status", data={"status": status.value}))
 
@@ -271,9 +319,13 @@ class RunStore:
         effort_calibrated: bool,
         human_rating: str,
         reviewer: str,
+        reviewer_subject: str | None = None,
         note: str | None = None,
     ) -> int:
         """Append one override beside the proposal it replaces. Returns the new record's id.
+
+        ``reviewer_subject`` is the signed-in subject's stable id in sign-in mode (roadmap item
+        44) and ``None`` in local mode. Neither it nor the name goes into the run event.
 
         Both ratings must be internal rating names; a label ("Minor Revision") is refused rather
         than stored, because a record 12b cannot key on is a record lost.
@@ -303,6 +355,7 @@ class RunStore:
                 effort_calibrated=effort_calibrated,
                 human_rating=human_rating,
                 reviewer=reviewer.strip(),
+                reviewer_subject=(reviewer_subject or "").strip() or None,
                 note=note,
             )
             session.add(record)
@@ -348,9 +401,29 @@ class RunStore:
         with self.session() as session:
             return session.get(RunCourse, course_id)
 
-    def list_runs(self, *, limit: int = 25) -> list[Run]:
+    def list_runs(self, *, limit: int = 25, starter_subject: str | None = None) -> list[Run]:
+        """The most recent runs, newest first; only ``starter_subject``'s when one is given.
+
+        Filtered in the query rather than after it, so a person whose runs are older than the
+        latest ``limit`` of everybody's still sees their own (roadmap item 45). Who may see what
+        is :mod:`sightline.access`'s question; this is the read it asks for.
+        """
         with self.session() as session:
             statement = select(Run).order_by(Run.created_at.desc()).limit(limit)
+            if starter_subject is not None:
+                statement = statement.where(Run.starter_subject == starter_subject)
+            return list(session.scalars(statement))
+
+    def running_runs(self) -> list[Run]:
+        """Every run the store records as running, oldest first.
+
+        Wider than the background runner's own task list: a run started by ``python -m
+        sightline.batch run`` executes in another process and is visible here and nowhere else.
+        Some of these may have an owner that is gone; :func:`sightline.ownership.owner_is_live`
+        tells them apart.
+        """
+        with self.session() as session:
+            statement = select(Run).where(Run.status == RunStatus.RUNNING).order_by(Run.created_at)
             return list(session.scalars(statement))
 
     def list_events(self, run_id: str, *, limit: int = 200) -> list[RunEvent]:
@@ -454,31 +527,224 @@ class RunStore:
     # -- restart semantics -------------------------------------------------------------------
 
     def recover_interrupted(self) -> list[str]:
-        """Mark runs that were mid-flight when the process stopped.
+        """Mark interrupted the ``running`` runs whose owner is gone. Returns the ids touched.
 
-        Called once at startup. A run left in ``running`` did not fail — the process went away —
-        so it becomes ``interrupted``, which is resumable and says so. Returns the ids touched.
+        Called at app startup and by ``python -m sightline.batch resume``. A run left ``running``
+        by a process that went away did not fail, so it becomes ``interrupted``, which is
+        resumable and says so. A run whose owner is still live is another process's work in
+        progress — a command-line run beside the app, say — and is left alone: taking it over is
+        how one run came to execute twice at once (roadmap item 43). What "gone" means is
+        :func:`sightline.ownership.orphan_reason`, and its answer is the reason the run log gets.
         """
         touched: list[str] = []
+        left: list[str] = []
+        now = utcnow()
         with self.session() as session:
             statement = select(Run).where(Run.status == RunStatus.RUNNING)
-            for run in session.scalars(statement):
-                run.status = RunStatus.INTERRUPTED
-                touched.append(run.id)
-                session.add(
-                    RunEvent(
-                        run_id=run.id,
-                        event="run_interrupted",
-                        level="warning",
-                        data={"reason": "process restarted while the run was in progress"},
-                    )
-                )
-                for course in run.courses:
-                    if RunStatus(course.status) is RunStatus.RUNNING:
-                        course.status = RunStatus.INTERRUPTED
+            for run in session.scalars(statement).all():
+                reason = orphan_reason(run, now=now)
+                if reason is None:
+                    left.append(run.id)
+                    continue
+                if self._interrupt(session, run, reason=f"Recovered: {reason}."):
+                    touched.append(run.id)
+        if left:
+            log.info("runs_left_to_their_owners", run_ids=left, count=len(left))
         if touched:
             log.warning("runs_interrupted", run_ids=touched, count=len(touched))
         return touched
+
+    def interrupt_owned(self, owner: RunOwner) -> list[str]:
+        """Mark interrupted the ``running`` runs ``owner`` holds. The app's shutdown sweep.
+
+        Only this process's own runs: a run another process owns is not this shutdown's business,
+        however it looks from here.
+        """
+        touched: list[str] = []
+        with self.session() as session:
+            statement = select(Run).where(
+                Run.status == RunStatus.RUNNING,
+                Run.owner_host == owner.host,
+                Run.owner_pid == owner.pid,
+            )
+            for run in session.scalars(statement).all():
+                reason = "The process executing it shut down before the run finished."
+                if self._interrupt(session, run, reason=reason):
+                    touched.append(run.id)
+        if touched:
+            log.warning("runs_interrupted", run_ids=touched, count=len(touched))
+        return touched
+
+    def _interrupt(self, session: Session, run: Run, *, reason: str) -> bool:
+        """Move one ``running`` run, as read in ``session``, to ``interrupted`` and clear its owner.
+
+        A compare-and-set against the status and owner record that were read: if the owner beat,
+        finished or handed over in between, nothing is written and this returns false.
+        """
+        result = session.execute(
+            update(Run)
+            .where(Run.id == run.id, Run.status == RunStatus.RUNNING, *_same_owner(run))
+            .values(
+                status=RunStatus.INTERRUPTED,
+                owner_host=None,
+                owner_pid=None,
+                owner_heartbeat_at=None,
+            )
+            .execution_options(synchronize_session=False)
+        )
+        if result.rowcount != 1:
+            return False
+        session.add(
+            RunEvent(
+                run_id=run.id, event="run_interrupted", level="warning", data={"reason": reason}
+            )
+        )
+        for course in run.courses:
+            if RunStatus(course.status) is RunStatus.RUNNING:
+                course.status = RunStatus.INTERRUPTED
+        return True
+
+    # -- ownership (roadmap item 43) ---------------------------------------------------------
+    #
+    # See sightline.ownership for what an owner is and when one is gone. Every write below is a
+    # compare-and-set on the owner record, because the processes that race for a run share
+    # nothing but this file.
+
+    def claim_run(self, run_id: str, owner: RunOwner) -> bool:
+        """Record ``owner`` as executing ``run_id``, unless a live owner already is.
+
+        The update matches only the owner record that was read, so of two processes that both
+        found the run orphaned, exactly one write lands and the other is told no.
+        """
+        with self.session() as session:
+            run = session.get(Run, run_id)
+            if run is None:
+                raise KeyError(run_id)
+            if orphan_reason(run, me=owner) is None:
+                log.info("run_claim_refused", run_id=run_id, reason="owned by a live process")
+                return False
+            result = session.execute(
+                update(Run)
+                .where(Run.id == run_id, *_same_owner(run))
+                .values(
+                    owner_host=owner.host,
+                    owner_pid=owner.pid,
+                    owner_heartbeat_at=utcnow(),
+                    updated_at=Run.updated_at,
+                )
+                .execution_options(synchronize_session=False)
+            )
+            claimed = result.rowcount == 1
+        if claimed:
+            log.info("run_claimed", run_id=run_id, host=owner.host, pid=owner.pid)
+        else:
+            log.info("run_claim_refused", run_id=run_id, reason="claimed by another process first")
+        return claimed
+
+    def heartbeat_run(self, run_id: str, owner: RunOwner) -> bool:
+        """Refresh ``owner``'s heartbeat. False when ``owner`` no longer holds the run.
+
+        Leaves ``updated_at`` alone: that column says the run changed, and a heartbeat is not a
+        change anybody watching the run needs to see.
+        """
+        with self.engine.begin() as connection:
+            result = connection.execute(
+                update(Run)
+                .where(Run.id == run_id, Run.owner_host == owner.host, Run.owner_pid == owner.pid)
+                .values(owner_heartbeat_at=utcnow(), updated_at=Run.updated_at)
+            )
+            return result.rowcount == 1
+
+    def release_run(self, run_id: str, owner: RunOwner) -> bool:
+        """Clear ``owner``'s record from ``run_id``. False when ``owner`` no longer held it.
+
+        A run still ``running`` here did not finish — its owner stopped part-way, by a cancel or a
+        crash it did not record — so it is marked interrupted now rather than left for the next
+        recovery to find.
+        """
+        with self.session() as session:
+            run = session.get(Run, run_id)
+            if run is None or (run.owner_host, run.owner_pid) != (owner.host, owner.pid):
+                return False
+            if RunStatus(run.status) is RunStatus.RUNNING:
+                reason = "The process executing it stopped before the run finished."
+                return self._interrupt(session, run, reason=reason)
+            result = session.execute(
+                update(Run)
+                .where(Run.id == run_id, *_same_owner(run))
+                .values(owner_host=None, owner_pid=None, owner_heartbeat_at=None)
+                .execution_options(synchronize_session=False)
+            )
+            return result.rowcount == 1
+
+    # -- the queue (roadmap item 46) ---------------------------------------------------------
+    #
+    # A queued run leaves the queue by exactly one of two compare-and-sets on its status: the
+    # background runner taking it (queued -> pending) or a person cancelling it (queued ->
+    # cancelled). Whichever lands first wins, and the other is told no.
+
+    def queued_runs(self) -> list[Run]:
+        """Every queued run, in the order it was started: the order the queue executes them."""
+        with self.session() as session:
+            statement = (
+                select(Run).where(Run.status == RunStatus.QUEUED).order_by(Run.created_at, Run.id)
+            )
+            return list(session.scalars(statement))
+
+    def take_queued(self, run_id: str) -> bool:
+        """Move ``run_id`` from the queue to ``pending``, its turn having come. False if it left."""
+        with self.session() as session:
+            result = session.execute(
+                update(Run)
+                .where(Run.id == run_id, Run.status == RunStatus.QUEUED)
+                .values(status=RunStatus.PENDING)
+                .execution_options(synchronize_session=False)
+            )
+            if result.rowcount != 1:
+                return False
+            session.add(RunEvent(run_id=run_id, event="run_dequeued", data={"status": "pending"}))
+        log.info("run_dequeued", run_id=run_id)
+        return True
+
+    def cancel_queued(
+        self, run_id: str, *, subject: str | None = None, name: str | None = None
+    ) -> bool:
+        """Cancel ``run_id`` while it waits, recording who did. False if it is not queued.
+
+        Who may cancel it is :mod:`sightline.access`'s question, asked before this is called.
+        ``subject`` and ``name`` go on the run and not into its log, as its starter does.
+        """
+        with self.session() as session:
+            result = session.execute(
+                update(Run)
+                .where(Run.id == run_id, Run.status == RunStatus.QUEUED)
+                .values(
+                    status=RunStatus.CANCELLED,
+                    finished_at=utcnow(),
+                    cancelled_by_subject=(subject or "").strip() or None,
+                    cancelled_by_name=(name or "").strip() or None,
+                )
+                .execution_options(synchronize_session=False)
+            )
+            if result.rowcount != 1:
+                return False
+            session.add(
+                RunEvent(
+                    run_id=run_id,
+                    event="run_cancelled",
+                    level="warning",
+                    data={"status": RunStatus.CANCELLED.value, "reason": "Cancelled while queued."},
+                )
+            )
+            # Its courses never started; they are cancelled with it rather than left pending.
+            session.execute(
+                update(RunCourse)
+                .where(RunCourse.run_id == run_id)
+                .values(status=RunStatus.CANCELLED)
+                .execution_options(synchronize_session=False)
+            )
+        log.info("run_cancelled_while_queued", run_id=run_id)
+        return True
 
     def resumable_runs(self) -> list[Run]:
         with self.session() as session:
@@ -488,3 +754,12 @@ class RunStore:
                 .order_by(Run.created_at)
             )
             return list(session.scalars(statement))
+
+
+def _same_owner(run: Run) -> tuple[ColumnElement[bool], ...]:
+    """Conditions that match ``run``'s owner record exactly as it was read, nulls included."""
+    return (
+        Run.owner_host.is_not_distinct_from(run.owner_host),
+        Run.owner_pid.is_not_distinct_from(run.owner_pid),
+        Run.owner_heartbeat_at.is_not_distinct_from(run.owner_heartbeat_at),
+    )

@@ -13,9 +13,9 @@ from __future__ import annotations
 from collections.abc import Iterator
 
 import pytest
-from fastapi.testclient import TestClient
 
 from canvas_recordings import EXAMPLE_BASE_URL, EXAMPLE_HOST, FAKE_TOKEN, Recording, load
+from form_clients import FormClient as TestClient
 from sightline import views
 from sightline.app import create_app
 from sightline.config import Settings

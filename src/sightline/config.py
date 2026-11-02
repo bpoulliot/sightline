@@ -30,12 +30,12 @@ from pathlib import Path
 from typing import Literal
 from urllib.parse import urlsplit
 
-from pydantic import Field, SecretStr, field_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from .llm.client import DEFAULT_CONTEXT_TOKENS
 from .paths import DataPaths
-from .redaction import register_secret
+from .redaction import register_header, register_secret
 
 #: How many courses one run may hold. SPEC §09 caps a batch at sixteen; typical batches are one or
 #: two courses and the largest expected is eight to fifteen. The number is not an arbitrary limit
@@ -44,6 +44,21 @@ from .redaction import register_secret
 #: longer wait rather than more throughput, and the thing that would change that is distributed
 #: execution, which this project has decided against.
 DEFAULT_BATCH_CAP = 16
+
+#: The shortest shared secret sign-in mode accepts. A proxy secret is the only thing standing
+#: between the identity headers and anybody who can reach the app's port, so a guessable one is
+#: refused at startup rather than accepted and regretted. ``secrets.token_urlsafe(32)`` is 43.
+SIGNIN_SECRET_MIN = 32
+
+#: Default header names in sign-in mode (roadmap item 44). The identity headers are the ones
+#: Authentik's proxy outpost sends; the secret header is Sightline's own name, which the proxy is
+#: configured to add. Every one is configuration — nothing in the app is Authentik-specific, and
+#: oauth2-proxy in front of Entra ID works by setting these four and the separator.
+DEFAULT_SIGNIN_SECRET_HEADER = "X-Sightline-Proxy-Secret"
+DEFAULT_SIGNIN_SUBJECT_HEADER = "X-authentik-uid"
+DEFAULT_SIGNIN_NAME_HEADER = "X-authentik-name"
+DEFAULT_SIGNIN_GROUPS_HEADER = "X-authentik-groups"
+DEFAULT_SIGNIN_GROUPS_SEPARATOR = "|"
 
 
 class Settings(BaseSettings):
@@ -127,6 +142,43 @@ class Settings(BaseSettings):
     #: Absolute path to ``docs/tokens.css``. Empty means "find it" — see :mod:`sightline.assets`.
     tokens_css_path: Path | None = Field(default=None, validation_alias="SIGHTLINE_TOKENS_CSS")
 
+    # -- Sign-in (roadmap item 44) -----------------------------------------------------------
+    #: Sign-in mode. **Off by default**: with it off Sightline is the single-user local tool and
+    #: the Reviewer setting names the reviewer. With it on, every request must arrive through an
+    #: auth proxy carrying the shared secret and a subject, or it is refused before any route
+    #: runs. See :mod:`sightline.signin`.
+    signin: bool = Field(default=False, validation_alias="SIGHTLINE_SIGNIN")
+    #: The secret the proxy adds to every request it forwards. Environment only: it is never
+    #: stored under the data root and never shown on the Settings screen.
+    signin_secret: SecretStr | None = Field(
+        default=None, validation_alias="SIGHTLINE_SIGNIN_SECRET"
+    )
+    signin_secret_header: str = Field(
+        default=DEFAULT_SIGNIN_SECRET_HEADER, validation_alias="SIGHTLINE_SIGNIN_SECRET_HEADER"
+    )
+    signin_subject_header: str = Field(
+        default=DEFAULT_SIGNIN_SUBJECT_HEADER, validation_alias="SIGHTLINE_SIGNIN_SUBJECT_HEADER"
+    )
+    signin_name_header: str = Field(
+        default=DEFAULT_SIGNIN_NAME_HEADER, validation_alias="SIGHTLINE_SIGNIN_NAME_HEADER"
+    )
+    signin_groups_header: str = Field(
+        default=DEFAULT_SIGNIN_GROUPS_HEADER, validation_alias="SIGHTLINE_SIGNIN_GROUPS_HEADER"
+    )
+    signin_groups_separator: str = Field(
+        default=DEFAULT_SIGNIN_GROUPS_SEPARATOR,
+        min_length=1,
+        validation_alias="SIGHTLINE_SIGNIN_GROUPS_SEPARATOR",
+    )
+    #: The identity-provider group whose members are admins (roadmap item 45): an admin sees
+    #: every run and alone changes the instance settings. Matched exactly against what the proxy
+    #: forwards in the groups header — a group *name* from Authentik, an object id from Entra ID.
+    #: Unset, nobody signed in is an admin, and the instance settings come from the environment
+    #: and whatever was stored before. Local mode ignores it: its one user is the admin.
+    signin_admin_group: str | None = Field(
+        default=None, validation_alias="SIGHTLINE_SIGNIN_ADMIN_GROUP"
+    )
+
     # -- Server ------------------------------------------------------------------------------
     host: str = Field(default="127.0.0.1", validation_alias="SIGHTLINE_HOST")
     port: int = Field(default=8000, ge=1, le=65535, validation_alias="SIGHTLINE_PORT")
@@ -145,10 +197,55 @@ class Settings(BaseSettings):
         text = value.strip().rstrip("/")
         return text or None
 
+    @field_validator("signin_admin_group")
+    @classmethod
+    def _blank_is_unset(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return value.strip() or None
+
     @field_validator("log_level")
     @classmethod
     def _upper_log_level(cls, value: str) -> str:
         return value.strip().upper()
+
+    @field_validator(
+        "signin_secret_header",
+        "signin_subject_header",
+        "signin_name_header",
+        "signin_groups_header",
+    )
+    @classmethod
+    def _header_name(cls, value: str) -> str:
+        text = value.strip()
+        if not text or not all(ch.isalnum() or ch in "-_" for ch in text):
+            raise ValueError(
+                f"{value!r} is not a header name: use letters, digits, hyphens and underscores"
+            )
+        return text
+
+    @model_validator(mode="after")
+    def _signin_needs_a_secret(self) -> Settings:
+        """Sign-in mode without a strong secret would trust identity headers from anybody."""
+        if not self.signin:
+            return self
+        secret = self.signin_secret.get_secret_value() if self.signin_secret else ""
+        if len(secret.strip()) < SIGNIN_SECRET_MIN:
+            raise ValueError(
+                "SIGHTLINE_SIGNIN is on, so SIGHTLINE_SIGNIN_SECRET must be set to at least "
+                f"{SIGNIN_SECRET_MIN} characters: it is how a request proves it came through the "
+                "sign-in proxy. Generate one with "
+                'python -c "import secrets; print(secrets.token_urlsafe(32))".'
+            )
+        names = [
+            self.signin_secret_header,
+            self.signin_subject_header,
+            self.signin_name_header,
+            self.signin_groups_header,
+        ]
+        if len({name.lower() for name in names}) != len(names):
+            raise ValueError("the four SIGHTLINE_SIGNIN_*_HEADER names must all differ")
+        return self
 
     def model_post_init(self, _context: object) -> None:
         register_secret(self.canvas_base_url)
@@ -159,6 +256,18 @@ class Settings(BaseSettings):
             register_secret(self.escalation_api_key.get_secret_value())
         if self.secret_key is not None:
             register_secret(self.secret_key.get_secret_value())
+        if self.signin_secret is not None:
+            register_secret(self.signin_secret.get_secret_value())
+        if self.signin:
+            # A header dump — a debug line, an exception repr of a request — keeps the header's
+            # name and loses its value, for the secret and for the identity alike.
+            for name in (
+                self.signin_secret_header,
+                self.signin_subject_header,
+                self.signin_name_header,
+                self.signin_groups_header,
+            ):
+                register_header(name)
 
     # -- derived -----------------------------------------------------------------------------
 
@@ -232,6 +341,17 @@ class Settings(BaseSettings):
                 "env": "SIGHTLINE_ESCALATION_BASE_URL",
                 "state": state(self.escalation_configured),
                 "note": "Optional. Sightline runs fully without it.",
+            },
+            {
+                "name": "Sign-in",
+                "env": "SIGHTLINE_SIGNIN",
+                "state": "on" if self.signin else "off",
+                "note": (
+                    "On: every request must come through the sign-in proxy, the signed-in "
+                    "identity is the reviewer, each person sees their own runs and reads Canvas "
+                    "with their own token, and members of SIGHTLINE_SIGNIN_ADMIN_GROUP see every "
+                    "run and change the instance settings. Off: a local single-user tool."
+                ),
             },
         ]
 

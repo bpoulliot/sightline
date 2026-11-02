@@ -5,9 +5,10 @@
 <section class="panel" aria-labelledby="h-what">
   <h1 id="h-what">Status</h1>
   <p class="lede">
-    Nothing has been reviewed yet. This build establishes configuration, the working-data root and
-    the run store; the Canvas connector, the detectors and the review screens arrive with later
-    roadmap items.
+    Configuration, the working-data root, recent runs and the determinacy tiers. A run is started
+    from the <a href="/courses">New run</a> screen and followed on its page under
+    <a href="/runs">Runs</a>, which links every course that finished to its review — at
+    <code>/review/</code> followed by the course's run-store id.
   </p>
 </section>
 
@@ -29,7 +30,7 @@
           <th scope="row">{{ row.name }}</th>
           <td data-label="Environment variable"><code>{{ row.env }}</code></td>
           <td data-label="State">
-            <span class="state {% if row.state == 'configured' %}state-on{% else %}state-off{% endif %}">{{ row.state }}</span>
+            <span class="state {% if row.state in ('configured', 'on') %}state-on{% else %}state-off{% endif %}">{{ row.state }}</span>
           </td>
           <td data-label="Note" class="muted">{{ row.note }}</td>
         </tr>
@@ -64,7 +65,7 @@
       <tbody>
         {% for run in runs %}
         <tr>
-          <th scope="row"><code>{{ run.id[:8] }}</code></th>
+          <th scope="row"><a href="/runs/{{ run.id }}"><code>{{ run.id[:8] }}</code></a></th>
           <td data-label="Rubric">{{ run.rubric_pack }}</td>
           <td data-label="Courses" class="num">{{ run.courses | length }}</td>
           <td data-label="Status"><span class="state">{{ run.status_label }}</span></td>

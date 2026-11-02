@@ -42,8 +42,10 @@ does not wipe a half-finished batch.
 | Path | What it does |
 |---|---|
 | `/` | Status: configuration presence, the data root, recent runs, the determinacy-tier legend. |
-| `/settings` | Canvas base URL and token, **Test connection**, the model host and model picker, and the token-scope table below. |
-| `/courses` | Resolve a course from a pasted URL, a bare id, or an uploaded CSV. |
+| `/settings` | Canvas base URL and token, **Test connection**, the model host and model picker, the **Reviewer** name a recorded rating carries, and the token-scope table below. |
+| `/courses` | **New run**: resolve courses from pasted URLs, bare ids or an uploaded CSV, then pick a rubric and start a run on the ones Canvas resolved. See [Starting and following a run](#starting-and-following-a-run). |
+| `/runs`, `/runs/<run id>` | The recent runs, and one run per course and per stage, with every failure and what to change, each reviewed course's review, and the state of its export. |
+| `/review/<course id>` | One course's review: its categories in the instrument's order, a page per category, a rating recorded per row, and the export. See [The review screen](#the-review-screen). |
 
 There is also a command-line entry point, and its first form needs no Canvas token at all:
 
@@ -56,6 +58,7 @@ Everything on the web screens works with JavaScript switched off — each action
 re-renders the page with its result. `/settings` also exposes the connection test as JSON at
 `POST /api/canvas/test`, the model-host check at `POST /api/models/check` and install progress at
 `GET /api/models/installs`. Each is the same code path as its button, not a second implementation.
+A run's progress is `GET /api/runs/<run id>`, the data its page is rendered from.
 
 ### Test connection
 
@@ -87,6 +90,33 @@ For a CSV, the column headed `course_url`, `course_id`, `id` or a near spelling 
 one, the column that parsed the most rows is used and the screen says which and why. Rows that
 could not be read are listed with a reason — a CSV importer that skips what it did not understand
 is silent under-detection (SPEC §11) in miniature.
+
+### Starting and following a run
+
+The courses Canvas resolved come back under the lookup table with a **Start** form: each course
+ticked where its content can be read, and the rubric, defaulting to `uccs-oscqr-3-1-3`. Start
+records a batch (at most sixteen courses; the batch runner's own cap and message) and runs it in the
+application process. With **Ask Canvas to build a fresh export of the course** on (Settings),
+starting asks Canvas to build an export of each course, which appears in that course's export
+list; the form says so beside the button. Bundles are reviewed from the command line.
+
+A run is not started, and the form says why and where to fix it, when there is no Canvas credential,
+no model host, or no model chosen — the extract stage would stop the run — or while bindings are
+being proposed. A run started **while another run is active is queued**: one run at a time, because
+courses share one model host, and queued runs start on their own in the order they were started.
+The form says so before Start is pressed, and a queued run's page and the run list read *Queued, N
+ahead* — a count, never an estimate of when it starts. Its starter (or an admin) can cancel it from
+its page while it waits. A run started by `python -m sightline.batch run` is another process and is
+seen through the run store, so a run started in the app queues behind it the same way.
+
+A run's page shows every course, stage by stage: what each stage examined and the statement it
+made, never a percentage or a bar. A failed stage shows what it said and what to change; a failure
+of the run itself (the batch could not be assembled) is shown above the courses. A course with a
+result links to its review, and beside every course nobody has opened, the export is shown closed
+with the export gate's own reason. An interrupted run says so and names `python -m sightline.batch
+resume <run id>`; there is no resume button, because the application continues what it was running
+the next time it starts. The page is the run store as it was when it loaded; while a run is going a
+small optional script asks the progress endpoint every few seconds and reloads when it changes.
 
 ## Acquisition and the document model
 
@@ -489,16 +519,19 @@ because that is where independent human reviewers disagree most (see
 and where the arithmetic is smallest and so looks most certain. It is **a computed
 distance, not a confidence score**: no percentage, no probability, checkable against the row's own
 findings. It is computed once and persisted with the row in the review file, so every output
-surface shows the same marker. The workbook shows it in its own column (item 13); the PDF and the
-review screen are to show it beside the rating, explained once by
-`sightline.voice.agreement.near_boundary_legend`, when items 14 and 16 land (item 24). A row reading
-Sufficiently Present carries none — it has no effort figure to measure from.
+surface shows the same marker. The workbook shows it in its own column (item 13). The PDF shows it
+after the proposal's *Estimated effort* in a criterion in full and after the proposed reading in a
+compact line, and the review screen as a field after *Estimated effort* (item 24): with the
+proposal, never beside a reviewer's rating. Both explain it with
+`sightline.voice.agreement.near_boundary_legend` — the PDF once, in its *what this document is*
+block, the review screen on each marked row. A row reading Sufficiently Present carries none — it
+has no effort figure to measure from.
 
 **Overrides are the calibration data.** `sightline.rubric.overrides.record_override` appends a
 record to the run store's `rating_overrides` table: the machine proposal (rating, hours, marker,
 the findings that were summed) beside the human rating, who set it, when, and the pack id and
 version. Append-only — an override never overwrites the proposal. A run nobody overrode writes
-nothing. The review screen (item 16) is what calls it.
+nothing. The review screen (item 16) is what calls it, one row at a time.
 
 **There is no course-level figure.** No score, index or percentage, and no total of hours across
 rows: effort is not a schedule, and a course total is an aggregate score with a clock face on it.
@@ -730,7 +763,7 @@ python -m sightline.batch run --course 4410 --course 4411 --pack uccs-oscqr-rsi
 python -m sightline.batch status                 # recent runs
 python -m sightline.batch status <run id>        # one run, per course and per stage
 python -m sightline.batch resume <run id>        # continue one that was interrupted
-python -m sightline.batch open-review <course id>
+python -m sightline.batch open-review <course id>   # or open /review/<course id> in the app
 ```
 
 `--bundle` needs no Canvas token and is the way to watch the whole thing work before any
@@ -796,11 +829,13 @@ and leaves `reports/` **empty**. The only path to a file under `reports/` is
 refuses for a course whose review nobody has opened, and `tests/test_export_gate.py` scans the
 package's syntax tree so that no writer can quietly reach past it. The XLSX writer (item 13) and
 the PDF report (item 14) both render to bytes and write through `ExportGate.save`, and
-`python -m sightline.report export COURSE` is the command that does it (see *The PDF course
-report*).
+`sightline.report.export.export_course` does it — called by `python -m sightline.report export
+COURSE` and by the review screen's export control (see *The PDF course report* and *The review
+screen*).
 
-It is not access control — Sightline is one local process with no login. It stops a *program*
-exporting unattended, which is the failure the rule is about: a report delivered to a faculty
+It is not access control — in local mode Sightline is one process with no login, and sign-in
+mode (item 44) does not yet scope runs by user (item 45). It stops a *program* exporting
+unattended, which is the failure the rule is about: a report delivered to a faculty
 member that no instructional designer ever read.
 
 ### What a batch costs, measured
@@ -916,14 +951,14 @@ course_id, data)` writes them to the course's export directory through the gate.
 the designer, and written so it can go to the instructor unchanged — one document, one register.
 
 ```sh
-python -m sightline.batch open-review COURSE     # a person opens the review (item 16's screen, later)
+python -m sightline.batch open-review COURSE     # a person opens the review, or opens /review/COURSE
 python -m sightline.report export COURSE         # writes report.pdf and review.xlsx through the gate
 ```
 
 `COURSE` is a run-store course id, as `python -m sightline.batch status RUN` lists it. A course
 nobody has opened is refused with the gate's own message and nothing is written. The export reads
 the course back from the review file its run saved — `sightline.report.loader`, which the review
-screen will read through too — and **re-runs nothing**: not detection, not projection, not
+screen reads through too — and **re-runs nothing**: not detection, not projection, not
 extraction. The instrument's priority order and rating words come from the shipped pack the file
 names, at the version it names; a different version, or a key the renderer needs and the file lacks,
 is refused with the reason rather than filled in.
@@ -961,9 +996,18 @@ narrative.
   writes them through `ExportGate.save`. `tests/test_paths.py` refuses `write_pdf` called with a
   target anywhere in the package, so the shortcut round the gate cannot be taken quietly.
 
-It does not render the near-boundary marker or the human-agreement statement (roadmap item 24's
-re-run adds both), a reviewer's overrides (item 16, open question Q2), or remediation wording (item
-35) — the action plan names what was located.
+Its *what this document is* block says how often human reviewers choose the same rating (see
+[How often two reviewers choose the same rating](#how-often-two-reviewers-choose-the-same-rating)),
+and a row near a band threshold carries the near-boundary marker (item 24). It renders no
+remediation wording (item 35) — the action plan names what was located.
+
+**A rating a reviewer recorded is printed as the reviewer's** (item 16, operator decision Q2): a
+*Reviewer's rating* field beside *Proposed rating* in a criterion in full, a labelled fact in a
+compact line, a column in the action plan, and a column after *Proposed rating* on both workbook
+sheets. The proposal, its band, its effort estimate and its place in the action plan are left as the
+run made them — never re-banded, never back-computed. Every one of those additions appears only when
+a rating was recorded, so the export of a course nobody overrode is unchanged, byte for byte, and
+the committed sample does not move. The reviewer's *name* is not printed: the record keeps it.
 
 ### What the report adds, and under what licence
 
@@ -1014,6 +1058,52 @@ the phrase bank, the templates, the stylesheet, the fonts or `uv.lock` moves the
 rebuild with no code change at all: the base image's tag floats, and a new pango or harfbuzz
 release in it is a new rendering.
 
+## The review screen
+
+`/review/<course id>` is where an instructional designer reads one course's review, records their
+own ratings, and exports. The id is the **run-store** course id that `python -m sightline.batch
+status RUN` prints — never a Canvas host or course id. It reads the course back through
+`sightline.report.loader`, the same loader the export uses, and **re-runs nothing**.
+
+- **Opening is loading.** The first request for any page of a course's review records that a person
+  opened it (`ExportGate.open_review`; a later page never moves the timestamp). That is the human
+  action the export gate waits for. A course whose review file cannot be read is not opened.
+- **Grouped by rubric category, in the instrument's own order** (decided 2026-09-08). The index
+  counts each category's criteria by proposed reading, with nothing added up, beside the number of
+  questions with no rating recorded, and links to the first such question. Inside a category,
+  *severity* is a sort (priority crossed with band; MOB's null priority sorts last and is never
+  dropped) and a filter (by proposed reading, by tier, or questions with no rating recorded) — never
+  a second grouping. A view is its query parameters, so it is a link.
+- **Tier is on every row**, as the ink-density chip, and the row's sentences sit in one block per
+  register, so a Tier A count and a Tier C question never share a channel. The coverage state is in
+  the bank's words: a row nothing examined never reads like a clean one.
+- **A Tier C row opens with nothing selected**, its evidence shown, and is *unresolved* until a
+  rating is recorded for it. Submitting it without a choice records nothing; No Response is a
+  choice like the others. Tier A, B and D rows open with the proposal selected, so recording it
+  unchanged — with a note, say — records a confirmation, which item 12a counts as calibration data.
+- **No bulk-accept of any kind.** One form records one rating for one row.
+- **Who a rating is recorded as** is the *Reviewer* name on the Settings screen (operator decision
+  Q1, 2026-10-29). Until one is set, the form is not offered and a post is refused, naming
+  Settings; the form says whose name it will record. `sightline.review.identity.current_reviewer`
+  is the one lookup: in sign-in mode (item 44) it answers with the signed-in identity, and the
+  record keeps the subject's stable id beside the display name.
+- **Overrides go through item 12a's record**: `MachineProposal.from_review` read from the review
+  file, then `record_override`, append-only. The page shows each row's latest record and its note.
+- **The export control** writes `report.pdf` and `review.xlsx` through the gate and offers each
+  back, read through `ExportGate.destination`; both carry recorded ratings as the reviewer's. The
+  export endpoint never opens a review itself, and refuses an unopened course with the gate's own
+  message.
+- **Every word is the voice layer's.** Sentences come from `render_review`; every fixed word on the
+  review pages is a phrase-bank label or format, linted by item 15's register lint, and the suite
+  reads the rendered pages back to prove the templates add none.
+
+Each row closes with the two-sentence agreement statement, collapsed under *How often two human
+reviewers choose the same rating* after the rating form, and a row near a band threshold shows the
+marker after *Estimated effort*, with its legend in that collapsed statement (item 24). It renders no
+attention flag (a batch never builds a `Comparison`, so a review file holds none), no progress bar,
+percentage or course score, and no run count beside a quote. A course's review is reached from its run's page
+(`/runs/<run id>`).
+
 ## How often two reviewers choose the same rating
 
 The PDF and the review screen carry one measured fact about the people who do this work: how often
@@ -1051,7 +1141,8 @@ corpus grows, the numbers change in one file.
 
 **Where a reader meets it.** The PDF's *what this document is* block and the review screen carry
 the two-sentence form, `sightline.voice.agreement.brief()`, with the sample size and the Major
-limit in the same breath; they take it up when items 14 and 16 land. The workbook carries none of
+limit in the same breath: the PDF once, before any paragraph about a reviewer's rating, and the
+review screen collapsed after each row's rating form (item 24). The workbook carries none of
 it: one header row per sheet and a lossless CSV round-trip leave a paragraph no honest place to
 live, and the workbook is the designer's working copy rather than the one forwarded to faculty.
 
@@ -1185,7 +1276,14 @@ repository is a bug, and `tests/test_config.py` fails the build over one.
 | `SIGHTLINE_ESCALATION_API_KEY` | Key for the above. |
 | `SIGHTLINE_TOKENS_CSS` | Override the location of `docs/tokens.css`. |
 | `SIGHTLINE_PORT` | Host port for the compose service. Default `8099`. |
+| `SIGHTLINE_SIGNIN_BIND` / `SIGHTLINE_SIGNIN_PORT` | Where `docker-compose.signin.yml` publishes the sign-in proxy. Defaults `127.0.0.1` and `9000`. See [docs/SIGN-IN.md](docs/SIGN-IN.md). |
 | `SIGHTLINE_LOG_LEVEL` / `SIGHTLINE_LOG_FORMAT` | `INFO` and `json` by default; `console` is easier to read locally. |
+| `SIGHTLINE_SIGNIN` | Sign-in mode. Default `false`. See *Sign-in behind a proxy*. |
+| `SIGHTLINE_SIGNIN_SECRET` | The secret the auth proxy adds to every request it forwards. Required in sign-in mode, at least 32 characters. Environment only. |
+| `SIGHTLINE_SIGNIN_SECRET_HEADER` | The header the secret arrives in. Default `X-Sightline-Proxy-Secret`. |
+| `SIGHTLINE_SIGNIN_SUBJECT_HEADER` / `_NAME_HEADER` / `_GROUPS_HEADER` | The identity headers. Defaults `X-authentik-uid`, `X-authentik-name`, `X-authentik-groups` (Authentik's proxy outpost). |
+| `SIGHTLINE_SIGNIN_GROUPS_SEPARATOR` | What separates groups in the groups header. Default `\|`. |
+| `SIGHTLINE_SIGNIN_ADMIN_GROUP` | The group whose members are admins in sign-in mode, matched exactly against what the groups header carries. Unset: nobody signed in is an admin. |
 
 `CANVAS_BASE_URL` and `CANVAS_API_TOKEN` are the **fallback**. Normally both are entered on the
 settings screen and held encrypted in the run store; the environment is what a container uses when
@@ -1209,6 +1307,70 @@ artifact that travels — copied for a bug report, backed up, opened in a SQLite
 screen-share — and encrypting means none of that exposes a token. It does **not** defend against
 someone who can read the whole data root, because by default the key is a file in it. If that is
 the threat, put the key in `SIGHTLINE_SECRET_KEY` and keep it somewhere the volume is not.
+
+### Sign-in behind a proxy
+
+Sightline is a single-user local tool by default. **Sign-in mode** (`SIGHTLINE_SIGNIN=true`, roadmap
+item 44) is for one instance offered to several people: an identity provider federates the
+institution's sign-on, an auth proxy in front of the app signs people in, and the app trusts the
+identity the proxy forwards — only from the proxy. The proxy adds a shared secret header to every
+request; a request without it, with a wrong one, with an identity header sent twice, or without a
+subject is refused with 401 before any route runs. The one exception is `GET /healthz`, which the
+container's health check calls from inside the container; without the proxy it answers with its
+status and nothing else.
+
+The reviewer is then the signed-in person: an override records the subject's stable id beside the
+display name, so a renamed person keeps their history, and the Reviewer field on Settings gives way
+to *You are signed in as …*. Sessions — how long, and signing out — are the proxy's (item 47).
+
+**Each person's runs are their own** (item 45). A run records who started it. The run list shows a
+person the runs they started; a run's page, `GET /api/runs/{id}`, its review pages, a rating posted
+to it and its exports answer anybody else with 404, the same answer as a run that does not exist.
+Opening a review is what the export gate waits for, so this is enforced on every route, not by
+hiding links. Runs recorded before item 45, and runs started on the command line, record no
+starter: an admin sees them, nobody else does.
+
+**An admin** is a member of the group `SIGHTLINE_SIGNIN_ADMIN_GROUP` names. An admin sees every run,
+with who started it, and alone changes the instance settings: the Canvas base URL, the export
+preference, the model host and the model, and installing a model. Anybody else sees their state on
+Settings and no form. With the setting unset there is no admin.
+
+**Each person stores their own Canvas token** on Settings, encrypted as the single token is in
+local mode. A run reads Canvas, and requests its content export, with its starter's token, and
+still does when a restart resumes it. A starter with no token stops the run before any Canvas call,
+with a remedy naming Settings; no other token is borrowed, so the instance token and
+`CANVAS_API_TOKEN` are not used for anyone signed in. Local mode is unchanged: its one user is the
+admin, and the one stored credential is theirs.
+
+Header names are configuration and nothing in the app is provider-specific. The defaults are
+Authentik's proxy outpost headers. **[docs/SIGN-IN.md](docs/SIGN-IN.md) is the deployment runbook**
+(item 47): `docker-compose.signin.yml` runs the app behind an Authentik proxy outpost attached to an
+existing Authentik, with no app port published, and the runbook covers federating the institution's
+sign-on, the admin group, the 8-hour browser session and the shared secret. Its second worked
+example is oauth2-proxy in front of Entra ID, whose header settings are:
+
+```
+SIGHTLINE_SIGNIN_SUBJECT_HEADER=X-Forwarded-User
+SIGHTLINE_SIGNIN_NAME_HEADER=X-Forwarded-Preferred-Username
+SIGHTLINE_SIGNIN_GROUPS_HEADER=X-Forwarded-Groups
+SIGHTLINE_SIGNIN_GROUPS_SEPARATOR=,
+```
+
+Two things the app cannot check for you: the proxy must **replace**, not append to, an identity
+header a client sends (the app refuses a header that arrives twice, which catches an appending
+proxy), and the app's port must be reachable only through the proxy. Entra's groups header carries
+group object ids, not names, so the admin group is configured as an object id.
+
+The secret is registered with `sightline.redaction` by value and the identity headers by name, so
+a header line, a request scope or a logged header mapping keeps the header's name and loses its
+value.
+
+**Every form post carries a CSRF token, in both modes.** A local tool listens on a port any web
+page in the same browser can post to. Each page with a form renders a hidden `csrf_token`: an HMAC
+of a random nonce held in an `HttpOnly`, `SameSite=Lax` cookie and, in sign-in mode, of the
+signed-in subject, under a key the process draws at start. A post without it — or with
+`X-CSRF-Token` for a script — is refused with a page that says to reload. A restart draws a new
+key, so a page left open across one is refused once and works after a reload.
 
 ## What is in this repository, and what never is
 
@@ -1308,7 +1470,10 @@ src/sightline/   the application
   batch/         the batch runner: stages, resume, and the export gate
   voice/         the phrase bank, the register lint, the renderer and the closing narrative
   report/        the review-file loader, the PDF report's model, template and print stylesheet, and
-                 the export command
+                 the export (command and function)
+  review/        the review screen: its page model, its routes, and the reviewer lookup
+  new_run.py     what the New run screen offers (the rubric choices) and refuses (why a run cannot start)
+  run_screens.py the run list and the run-progress page
   capabilities.yaml  the capability-tag vocabulary: the one thing detectors and packs share
   model.py       the normalized document model every detector reads
 tests/           the suite

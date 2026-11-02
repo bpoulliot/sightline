@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Sightline — no such run{% endblock %}
+
+{% block content %}
+<section class="panel" aria-labelledby="h-missing">
+  <div class="banner banner-bad" role="alert">
+    {% if signed_in %}
+    {#- Item 45: the same words for a run that does not exist and a run somebody else started. -#}
+    <p class="banner-head" id="h-missing">There is no run <code>{{ run_id }}</code> for you to open.</p>
+    <p class="banner-remedy">The <a href="/runs">Runs</a> screen lists the runs you can open.</p>
+    {% else %}
+    <p class="banner-head" id="h-missing">This run store has no run <code>{{ run_id }}</code>.</p>
+    <p class="banner-remedy">The <a href="/runs">Runs</a> screen lists the runs it has.</p>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

@@ -33,10 +33,13 @@ from ..config import Settings, get_settings
 from ..credentials import CredentialStore
 from ..llm.client import OllamaClient
 from ..logging import configure_logging
+from ..models import RunStatus
+from ..ownership import RunHold, RunOwnedElsewhereError
 from ..paths import DataPaths
 from ..preferences import PreferenceStore
+from ..rubric.accepted import BindingsError, resolve_pack
 from ..rubric.effort import load_effort_model
-from ..rubric.shipped import shipped_pack, shipped_packs
+from ..rubric.shipped import shipped_packs
 from ..store import RunStore
 from .gate import ExportGate
 from .pipeline import (
@@ -47,11 +50,18 @@ from .pipeline import (
     is_bundle_reference,
 )
 from .progress import progress_of
-from .runner import BatchRunner, BatchSummary, BatchTooLargeError, create_batch_run
-from .service import live_pipeline_factory
+from .runner import (
+    DEFAULT_RUBRIC_PACK,
+    BatchRunner,
+    BatchSummary,
+    BatchTooLargeError,
+    PipelineFactory,
+    create_batch_run,
+)
+from .service import live_pipeline_factory, resolved_pack
 from .stages import Stage, StageOutcome
 
-DEFAULT_PACK = "uccs-oscqr-3-1-3"
+DEFAULT_PACK = DEFAULT_RUBRIC_PACK
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -140,15 +150,15 @@ def _open(settings: Settings) -> tuple[DataPaths, RunStore]:
 
 def _bundle_factory(
     settings: Settings,
-    pack_id: str,
+    paths: DataPaths,
     *,
     endpoint: str | None,
     model: str | None,
 ):
-    pack = shipped_pack(pack_id)
-
     @asynccontextmanager
-    async def build(_run: Any):
+    async def build(run: Any):
+        # The pack with the bindings the run recorded, as the app's pipeline resolves it.
+        resolved = resolved_pack(run, paths)
         client = (
             OllamaClient(
                 endpoint,
@@ -162,7 +172,8 @@ def _bundle_factory(
             yield Narrating(
                 ReviewPipeline(
                     source=BundleSource(),
-                    pack=pack,
+                    pack=resolved.pack,
+                    bindings=resolved.digest,
                     client=client,
                     model=model,
                     effort=load_effort_model(settings.effort_costs),
@@ -190,7 +201,6 @@ def _factory(
     store: RunStore,
     *,
     bundles: bool,
-    pack_id: str,
     endpoint: str | None,
     model: str | None,
 ):
@@ -207,7 +217,7 @@ def _factory(
     if bundles:
         return _bundle_factory(
             settings,
-            pack_id,
+            paths,
             endpoint=endpoint or preferences.model_host().endpoint,
             model=model or preferences.review_model().name,
         )
@@ -251,11 +261,19 @@ async def _start(args: argparse.Namespace, settings: Settings) -> int:
 
     paths, store = _open(settings)
     try:
+        # The bindings accepted for the pack on its page in the app, as the app's Start uses them
+        # (roadmap item 22, part two). The run records which, and resuming it keeps them.
+        try:
+            resolved = resolve_pack(args.pack, paths)
+        except BindingsError as exc:
+            print(f"The accepted bindings for {args.pack} cannot be read: {exc}.", file=sys.stderr)
+            return 2
         try:
             run_id = create_batch_run(
                 store,
                 references,
                 rubric_pack=args.pack,
+                bindings_digest=resolved.digest,
                 cap=settings.batch_cap,
                 note=args.note,
             )
@@ -263,20 +281,47 @@ async def _start(args: argparse.Namespace, settings: Settings) -> int:
             print(f"{exc.summary} {exc.remedy}", file=sys.stderr)
             return 2
         print(f"Run {run_id}: {len(references)} course(s) against {args.pack}.")
+        if resolved.digest is not None:
+            print(f"It uses the bindings accepted for {args.pack}, recorded as {resolved.digest}.")
+        if resolved.stale is not None:
+            print(
+                f"The bindings accepted for {args.pack} were made over the pack as an earlier "
+                "build shipped it, so this run uses the shipped pack's own. Propose again on the "
+                "rubric's page in the app.",
+                file=sys.stderr,
+            )
         factory = _factory(
             settings,
             paths,
             store,
             bundles=bool(args.bundle),
-            pack_id=args.pack,
             endpoint=args.endpoint,
             model=args.model,
         )
-        summary = await BatchRunner(store, paths, factory).execute(run_id)
-        print(describe(summary))
-        return 0 if not (summary.failed or summary.aborted or summary.not_run) else 1
+        return await _execute_owned(store, paths, factory, run_id)
     finally:
         store.dispose()
+
+
+async def _execute_owned(
+    store: RunStore, paths: DataPaths, factory: PipelineFactory, run_id: str
+) -> int:
+    """Execute a run as its recorded owner (roadmap item 43), and print what it did.
+
+    The owner record is what lets the app, or another command, see that this process is executing
+    the run and leave it alone; a run another live process owns is refused here the same way.
+    """
+    try:
+        with RunHold(store, run_id):
+            summary = await BatchRunner(store, paths, factory).execute(run_id)
+    except RunOwnedElsewhereError as exc:
+        print(
+            f"{exc} `python -m sightline.batch status {run_id}` shows how far it has got.",
+            file=sys.stderr,
+        )
+        return 2
+    print(describe(summary))
+    return 0 if not (summary.failed or summary.aborted or summary.not_run) else 1
 
 
 async def _resume(args: argparse.Namespace, settings: Settings) -> int:
@@ -286,6 +331,18 @@ async def _resume(args: argparse.Namespace, settings: Settings) -> int:
         if run is None:
             print(f"No run {args.run_id!r} in the run store.", file=sys.stderr)
             return 2
+        if RunStatus(run.status) is RunStatus.QUEUED:
+            # Roadmap item 46: a queued run waits its turn in the app's queue. Executing it here
+            # would overtake every run started before it.
+            print(
+                f"Run {args.run_id} is queued in the app, behind the runs started before it, and "
+                "starts there when its turn comes. Its page in the app shows how many runs are "
+                "ahead, and cancels it.",
+                file=sys.stderr,
+            )
+            return 2
+        # Takes over only runs whose owner is gone. A run another process is executing stays
+        # running, and the claim below refuses it.
         store.recover_interrupted()
         bundles = any(is_bundle_reference(course.course_ref) for course in run.courses)
         factory = _factory(
@@ -293,13 +350,10 @@ async def _resume(args: argparse.Namespace, settings: Settings) -> int:
             paths,
             store,
             bundles=bundles,
-            pack_id=run.rubric_pack,
             endpoint=args.endpoint,
             model=args.model,
         )
-        summary = await BatchRunner(store, paths, factory).execute(args.run_id)
-        print(describe(summary))
-        return 0 if not (summary.failed or summary.aborted or summary.not_run) else 1
+        return await _execute_owned(store, paths, factory, args.run_id)
     finally:
         store.dispose()
 
@@ -335,6 +389,7 @@ def _status(args: argparse.Namespace, settings: Settings) -> int:
                     else "no review opened yet — nothing may be exported for this course"
                 )
                 print(f"    {opened}")
+                print(f"    review at /review/{course.course_id}")
         return 0
     finally:
         store.dispose()

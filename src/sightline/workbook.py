@@ -57,6 +57,16 @@ exactly what the format refuses. It is also the designer's working artifact, not
 to faculty. **Do not add the statement here to make the surfaces match**; the omission is the
 decision. The per-row near-boundary marker *is* here, in its own column.
 
+THE REVIEWER'S RATING IS A COLUMN OF ITS OWN
+-------------------------------------------
+Operator decision Q2 (2026-10-29, roadmap item 16): where a reviewer recorded a rating on the review
+screen, the workbook carries their latest one, in a ``Reviewer's rating`` column beside ``Proposed
+rating``. The proposal, its effort estimate and its near-boundary marker are left exactly as the run
+made them — never re-banded, never back-computed — so the two can be read side by side and neither
+as the other. A row nobody overrode says so in that column. **The column exists only when at least
+one rating was recorded**, so a workbook for a course nobody overrode is the workbook item 13 wrote,
+cell for cell, and the committed sample does not move.
+
 WHAT IS AND IS NOT EMBEDDED
 ---------------------------
 The document properties are written by this module, not left to the library: no creator, no
@@ -162,6 +172,7 @@ _WIDTHS = {
     "col_determinacy": 26,
     "col_coverage": 30,
     "col_rating": 18,
+    "col_reviewer_rating": 18,
     "col_effort": 30,
     "col_near_boundary": 30,
     "col_evidence": 80,
@@ -311,6 +322,7 @@ def build_workbook(
     report: DetectionReport | None = None,
     extractions: Sequence[RowExtraction] | Mapping[str, RowExtraction] | None = None,
     course_id: str | None = None,
+    overrides: Mapping[str, Rating] | None = None,
     voice: Voice | None = None,
     register: Register | None = None,
 ) -> WorkbookModel:
@@ -319,7 +331,8 @@ def build_workbook(
     ``pack`` supplies the category titles, and must be the pack the projection was made from.
     ``base_url`` is the configured Canvas URL every link is built from; without one there would be
     findings without links, so it is required. ``created`` is the timestamp the document properties
-    carry — the caller's, never the clock's.
+    carry — the caller's, never the clock's. ``overrides`` is the reviewer's latest rating per row
+    code (:func:`sightline.rubric.overrides.reviewer_ratings`); empty or ``None`` adds nothing.
     """
     if not base_url:
         raise WorkbookError(
@@ -354,14 +367,24 @@ def build_workbook(
     if problems:
         raise WorkbookError("rendered sentences break the register:\n  " + "\n  ".join(problems))
 
+    reviewed = dict(overrides or {})
+    unknown = sorted(set(reviewed) - set(rendered))
+    if unknown:
+        raise WorkbookError(
+            f"a reviewer's rating was given for {unknown}, which this projection has no row for"
+        )
     titles = {section.code: section.title for section in pack.sections}
     labels = _rating_labels(projection, pack)
-    ctx = _Builder(voice=voice, titles=titles, labels=labels, projection=projection)
+    ctx = _Builder(
+        voice=voice, titles=titles, labels=labels, projection=projection, overrides=reviewed
+    )
+    criteria_columns = _with_reviewer(_CRITERIA_COLUMNS, reviewed)
+    action_columns = _with_reviewer(_ACTION_COLUMNS, reviewed)
 
     criteria = Sheet(
         name=ctx.label("sheet_criteria"),
-        columns=_CRITERIA_COLUMNS,
-        header=tuple(ctx.label(name) for name in _CRITERIA_COLUMNS),
+        columns=criteria_columns,
+        header=tuple(ctx.label(name) for name in criteria_columns),
         rows=tuple(ctx.criteria_row(row, rendered[row.code]) for row in projection.rows),
     )
     action_rows: list[tuple[Cell, ...]] = []
@@ -369,13 +392,21 @@ def build_workbook(
         action_rows.extend(ctx.action_lines(row, rendered[row.code]))
     action = Sheet(
         name=ctx.label("sheet_action_plan"),
-        columns=_ACTION_COLUMNS,
-        header=tuple(ctx.label(name) for name in _ACTION_COLUMNS),
+        columns=action_columns,
+        header=tuple(ctx.label(name) for name in action_columns),
         rows=tuple(action_rows),
     )
     model = WorkbookModel(sheets=(criteria, action), created=created.astimezone(UTC))
     _check(model, rules)
     return model
+
+
+def _with_reviewer(columns: tuple[str, ...], overrides: Mapping[str, Rating]) -> tuple[str, ...]:
+    """``columns`` with the reviewer's column after the proposal's, if any rating was recorded."""
+    if not overrides:
+        return columns
+    at = columns.index("col_rating") + 1
+    return (*columns[:at], "col_reviewer_rating", *columns[at:])
 
 
 def _rating_labels(projection: Projection, pack: RubricPack) -> Mapping[str, str]:
@@ -395,6 +426,7 @@ class _Builder:
     titles: Mapping[str, str]
     labels: Mapping[str, str]
     projection: Projection
+    overrides: Mapping[str, Rating]
 
     def label(self, name: str) -> Cell:
         register, piece = self.voice.label(name)
@@ -419,6 +451,20 @@ class _Builder:
 
     def rating(self, row: RowResult) -> Cell:
         return _verbatim_cell(row.label)
+
+    def ratings(self, row: RowResult) -> tuple[Cell, ...]:
+        """The proposal's cell, then — when any rating was recorded — the reviewer's.
+
+        The reviewer's cell names the instrument's own word for their rating, or says none was
+        recorded for this row. It never falls back to the proposal: a blank reviewer column
+        filled with the machine's words is exactly the confusion Q2 rules out.
+        """
+        if not self.overrides:
+            return (self.rating(row),)
+        human = self.overrides.get(row.code)
+        if human is None:
+            return (self.rating(row), self.label("reviewer_none"))
+        return (self.rating(row), _verbatim_cell(self.labels[human.value]))
 
     def near(self, row: RowResult) -> Cell:
         near = row.near_boundary
@@ -447,7 +493,7 @@ class _Builder:
             self.priority(row),
             self.determinacy(row),
             self.label(_COVERAGE_LABEL[row.coverage]),
-            self.rating(row),
+            *self.ratings(row),
             self.effort_cell(row),
             self.near(row),
             _sentences_cell(evidence),
@@ -493,7 +539,7 @@ class _Builder:
             self.category(row),
             _verbatim_cell(row.code),
             self.priority(row),
-            self.rating(row),
+            *self.ratings(row),
             self.near(row),
             self.determinacy(row),
         )

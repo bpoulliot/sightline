@@ -17,11 +17,11 @@ Write one complete HEAD per item in the project's `staged/` directory. Include e
 settled decisions, scope, known traps and acceptance criteria. Begin with:
 
 ```html
-<!-- model: gpt-6-astra -->
+<!-- model: opus[1m] -->
 <!-- effort: medium -->
 ```
 
-GPT-6 Astra is the selected queue model. Medium is the default; use high or xhigh where
+The queue runs the Claude runner, and Opus is the selected queue model. Medium is the default; use high or xhigh where
 complexity warrants it. Xhigh is the ceiling. Preserve explicit effort when migrating an
 existing HEAD. Review old staged items against today's roadmap before releasing them.
 
@@ -38,8 +38,10 @@ AGENTS.md and the roadmap first. Keep commits focused and use Conventional Commi
 Run relevant tests and each required lint/format command, checking their exit codes
 separately. Record results and remaining work in the roadmap in the same PR.
 
-Open the PR on Gitea. End its description with `Assisted by Codex`; do not invent a
-co-author identity or add an assistant Co-Authored-By trailer. Poll required CI checks
+Open the PR on Gitea. End each commit message with the `Co-Authored-By:` trailer and the PR
+description with the `Generated with [Claude Code]` line that the session's own attribution
+instructions give, and nothing else; do not invent an assistant identity the session was not
+given. Poll required CI checks
 within the same session. Missing or pending checks are not successful checks.
 Immediately before the merge (merge style `merge`, not squash), re-read the PR's full head SHA, main base and all
 required statuses at that exact SHA. Confirm main moved after merging. Do not bypass
@@ -54,9 +56,12 @@ Merging does not authorize deployment, release publication or restarting product
 Use synthetic test data; do not contact live Canvas or expose institution identifiers,
 course exports or credentials. Changes to other projects' processes are out of scope.
 
-## Queue status during the transition
+## How the queue runs
 
-The Codex adapter is prepared but unattended activation remains blocked pending permission
-review, hook validation and the migration replay gates. Do not bypass this gate or run the
-old staged replacement scripts. Interactive work follows the repository instructions and
-Gitea gate now. Existing staged work remains staged until explicitly released.
+Queued items run under the Claude runner, one fresh session per item. Sightline's queue is
+part of the `work` lane, which it shares with the other work projects; the lane runs one
+project's queue at a time, never two items at once. Before each item the lane gate checks the
+shared checkout: it must be on `main` with no tracked changes, or the lane holds and runs
+nothing until someone looks. Sessions therefore work in a worktree of their own and never
+switch, stash or commit in the shared checkout. Interactive work follows the same repository
+instructions and Gitea gate. Staged work remains staged until explicitly released.

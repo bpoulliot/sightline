@@ -389,6 +389,9 @@ td.num { font-family: var(--f-mono); }
 .banner p { margin: 0; }
 .banner-head { font-weight: 600; }
 .banner-remedy { margin-top: .3rem; }
+/* A queued run's cancel (roadmap item 46): the button, and beside it what cancelling means. */
+.queue-cancel { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; margin-top: .7rem; }
+.queue-cancel .hint { margin: 0; }
 
 /* ---- connection report -------------------------------------------------------------------- */
 
@@ -432,6 +435,264 @@ td.num { font-family: var(--f-mono); }
 }
 .check-meta { font-size: .78rem; display: flex; flex-wrap: wrap; gap: .5rem; align-items: baseline; }
 
+/* ---- review screen (roadmap item 16) ------------------------------------------------------ */
+
+.review-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .3rem 1.3rem;
+  margin: 0 0 1rem;
+  font-size: .9rem;
+}
+.review-nav a { color: var(--accent-ink); }
+
+.review-head .meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .15rem 1.2rem;
+  margin: .1rem 0 .7rem;
+  font-size: .88rem;
+  color: var(--ink-soft);
+}
+.course-line { margin: 0; color: var(--ink-mid); }
+.reviewer {
+  margin: .8rem 0 0;
+  padding-top: .7rem;
+  border-top: 1px solid var(--rule);
+  font-size: .92rem;
+  color: var(--ink-mid);
+  max-width: var(--measure);
+}
+.reviewer-missing { color: var(--amber); }
+
+.review-head h1 { font-size: 1.6rem; line-height: 1.25; }
+.review-head a,
+.jump a,
+.review-counts a,
+.decision a,
+.files a,
+.banner a { color: var(--accent-ink); }
+
+.jump { margin: 0 0 1rem; max-width: var(--measure); }
+/* Every column stays in view at desktop width: the headers wrap rather than pushing the last
+ * column, the questions with no rating recorded, out of sight behind a scrollbar. */
+.review-counts { min-width: 0; }
+.review-counts th,
+.review-counts td { padding: .5rem .5rem; }
+.review-counts thead th { white-space: normal; vertical-align: bottom; }
+.review-counts td.zero { color: var(--ink-soft); }
+.unresolved-count { font-weight: 600; color: var(--ink); }
+.files { margin: 0; padding-left: 1.1rem; }
+
+/* The view: sort and filter controls, submitted as a GET so every view is a link. */
+.view { padding-top: 1rem; padding-bottom: 1rem; }
+.view-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .6rem 1.1rem;
+  align-items: flex-end;
+}
+.view-form .field { margin: 0; }
+.view-form .field-check label { margin: 0; font-size: .92rem; align-items: center; }
+.field select {
+  font-family: var(--f-body);
+  font-size: .9rem;
+  color: var(--ink);
+  background: var(--surface-2);
+  border: 1px solid var(--rule-strong);
+  border-radius: 4px;
+  padding: .4rem .5rem;
+  max-width: 100%;
+}
+.field select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.shown { color: var(--ink-soft); font-size: .88rem; }
+
+/* A criterion: the tier chip, the proposal, the evidence in one block per register, the decision. */
+.panel .criterion-head {
+  font-family: var(--f-body);
+  font-size: 1.02rem;
+  font-weight: 600;
+  line-height: 1.45;
+  margin: 0 0 .7rem;
+  overflow-wrap: anywhere;
+}
+.criterion-head .tier { margin-right: .2rem; vertical-align: .1em; }
+.code { font-family: var(--f-mono); font-size: .86em; color: var(--ink-mid); white-space: nowrap; }
+
+.fields { margin: 0; display: grid; gap: .3rem; }
+.fields > div {
+  display: grid;
+  grid-template-columns: 10rem 1fr;
+  gap: .2rem 1rem;
+  align-items: baseline;
+}
+.fields dt {
+  font-family: var(--f-mono);
+  font-size: .68rem;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.fields dd { margin: 0; color: var(--ink-mid); font-size: .93rem; }
+
+/* SPEC §02: Tier A counts and Tier C questions never share a visual channel. Each register's block
+ * carries the ink density of its tier: filled rule, washed ground, dashed, dotted. */
+.block {
+  margin: .9rem 0 0;
+  padding: .55rem .85rem .6rem;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  border-left-width: 3px;
+}
+.block h3 {
+  margin: 0 0 .3rem;
+  font-family: var(--f-mono);
+  font-size: .66rem;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.block-a { border-color: var(--rule); border-left-color: var(--accent); }
+.block-b { border-color: var(--accent-wash); border-left-color: var(--accent); background: var(--accent-wash); }
+.block-c { border-color: var(--rule-strong); border-style: dashed; }
+.block-d { border-color: var(--rust); border-style: dotted; }
+.line {
+  margin: .25rem 0;
+  max-width: var(--measure);
+  font-size: .93rem;
+  overflow-wrap: anywhere;
+}
+.line a { color: var(--accent-ink); }
+.url-note { font-size: .8rem; color: var(--ink-soft); }
+
+.decision {
+  margin: 1rem 0 0;
+  padding-top: .9rem;
+  border-top: 1px solid var(--rule);
+}
+.decision h3 {
+  margin: 0 0 .4rem;
+  font-family: var(--f-mono);
+  font-size: .7rem;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ink-mid);
+}
+/* Item 24: how often human reviewers agree, collapsed after the decision. Body ink, body size: it is
+ * a measured fact like any other on the page, not small print, and not a banner. */
+.agreement { margin: .8rem 0 0; }
+.agreement summary {
+  cursor: pointer;
+  color: var(--accent-ink);
+  font-size: .9rem;
+}
+.agreement summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.agreement p {
+  margin: .4rem 0 0;
+  max-width: var(--measure);
+  color: var(--ink-mid);
+  font-size: .93rem;
+  overflow-wrap: anywhere;
+}
+.recorded { margin: 0 0 .25rem; font-weight: 600; color: var(--ink); }
+.recorded-note { margin: 0 0 .6rem; color: var(--ink-mid); font-size: .92rem; overflow-wrap: anywhere; }
+.unresolved {
+  display: inline-block;
+  margin: 0 0 .7rem;
+  padding: .2rem .55rem;
+  border: 1px dashed var(--rule-strong);
+  border-radius: 4px;
+  color: var(--ink-mid);
+  font-size: .9rem;
+}
+.override { margin: .3rem 0 0; }
+.override fieldset { border: 0; margin: 0 0 .7rem; padding: 0; min-width: 0; }
+.override legend {
+  padding: 0;
+  margin: 0 0 .35rem;
+  font-family: var(--f-mono);
+  font-size: .7rem;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ink-mid);
+}
+.choices { display: flex; flex-wrap: wrap; gap: .3rem 1.1rem; }
+.choices label { display: inline-flex; gap: .35rem; align-items: center; font-size: .93rem; }
+.override textarea { min-height: 3.2rem; }
+
+/* ---- New run and run progress (roadmap item 36) ------------------------------------------ */
+
+/* The Start form's two pickers. A fieldset per choice, each option a sentence with its id. */
+.picker { border: 0; margin: 0 0 1.1rem; padding: 0; min-width: 0; }
+.picker legend {
+  padding: 0;
+  margin: 0 0 .45rem;
+  font-family: var(--f-mono);
+  font-size: .7rem;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ink-mid);
+}
+.picker .field-check label { font-size: .95rem; overflow-wrap: anywhere; }
+.picker .field-check .hint { display: block; margin-top: .15rem; }
+.lede a,
+.empty a,
+.hint a { color: var(--accent-ink); }
+.reasons { margin: .4rem 0 0; padding-left: 1.1rem; }
+.reasons li { margin: 0 0 .45rem; }
+.reasons li:last-child { margin-bottom: 0; }
+.reasons .banner-remedy { display: block; }
+.button[disabled] { cursor: not-allowed; opacity: .6; }
+.button[disabled]:hover { border-color: var(--rule-strong); color: var(--ink); }
+.actions .hint { margin: 0; max-width: var(--measure); }
+a.button { display: inline-block; text-decoration: none; }
+
+.run-head h1 code,
+.run-course h2 code { font-size: .7em; vertical-align: .1em; }
+.run-course h2 { overflow-wrap: anywhere; }
+.run-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35rem .8rem;
+  align-items: baseline;
+  margin: 0 0 1rem;
+}
+.run-statement { color: var(--ink-mid); max-width: var(--measure); }
+.run-head .pairs { margin-bottom: 1rem; }
+.run-head .review-nav a,
+.run-list a,
+.export-reason a { color: var(--accent-ink); }
+
+/* Every column of a stage table stays in view at desktop width; the statement takes what is left. */
+.stages { min-width: 0; }
+.stages th:first-child { width: 15rem; }
+.stages td:nth-child(2) { width: 6rem; }
+.stages td:nth-child(3) { width: 11rem; }
+.stages td { overflow-wrap: anywhere; }
+.stage-failure { color: var(--rust); font-weight: 600; }
+
+.run-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem 1.5rem;
+  margin-top: 1.1rem;
+  padding-top: .9rem;
+  border-top: 1px solid var(--rule);
+}
+.run-action p { margin: 0 0 .4rem; }
+.run-action .subhead { margin-top: 0; }
+.run-action .hint { margin: 0; }
+.export-reason { font-size: .9rem; color: var(--ink-mid); max-width: var(--measure); }
+
+.run-log { min-width: 0; }
+.run-log td,
+.run-log th { overflow-wrap: anywhere; }
+.run-log th:first-child { width: 6rem; }
+
 /* ---- footer ------------------------------------------------------------------------------- */
 
 .footer {
@@ -472,6 +733,31 @@ td.num { font-family: var(--f-mono); }
   .checks li { grid-template-columns: 1fr; }
   .checks li > .state { grid-row: auto; justify-self: start; }
 
+  /* A criterion is already a card; its labelled fields stack, and the view controls take the
+   * full width rather than sitting four abreast. */
+  .fields > div { grid-template-columns: 1fr; gap: 0; }
+  .view-form { display: block; }
+  .view-form .field { margin: 0 0 .7rem; }
+  .view-form .field select { width: 100%; }
+  .block { padding: .5rem .65rem .55rem; }
+  .review-head h1 { font-size: 1.4rem; }
+  .run-actions { grid-template-columns: 1fr; }
+  .stages th:first-child,
+  .stages td:nth-child(2),
+  .stages td:nth-child(3),
+  .run-log th:first-child { width: auto; }
+
+  /* A category's counts as label-and-value lines, so a card is a short list rather than a
+   * column of captions. */
+  .review-counts tbody td {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+    padding: .05rem 0;
+  }
+  .review-counts tbody td::before { margin-top: 0; }
+
   /* Tables become stacked records. A four-column table at 390px either scrolls out of sight or
    * loses a column; neither is acceptable when the columns carry evidence. Each cell keeps its
    * column name, taken from the same data-label the header row uses. */
@@ -510,3 +796,23 @@ td.num { font-family: var(--f-mono); }
     margin-top: .35rem;
   }
 }
+
+/* ---- rubric pages (roadmap item 22, part two) ------------------------------------------------ */
+
+.moves { margin: .3rem 0 .2rem; padding-left: 1.2rem; font-size: .93rem; max-width: var(--measure); overflow-wrap: anywhere; }
+.moves li { margin: .1rem 0; }
+.history { margin: 0; padding-left: 1.4rem; }
+.history > li { margin: 0 0 .9rem; }
+.others { list-style: none; margin: 0; padding: 0; }
+.others > li { margin: 0 0 1rem; padding-bottom: .8rem; border-bottom: 1px solid var(--rule); }
+.others > li:last-child { border-bottom: 0; }
+.proposal-row { margin: 0 0 1.4rem; }
+.proposal-row .criterion-head,
+.others .criterion-head { font-family: var(--f-body); font-size: 1rem; font-weight: 600; line-height: 1.45; margin: 0 0 .4rem; overflow-wrap: anywhere; }
+.proposal .field-check { margin: 0 0 .5rem; }
+.proposal .field-check label { font-weight: 600; }
+.confirm-actions { display: flex; flex-wrap: wrap; gap: .6rem; }
+.digest { overflow-wrap: anywhere; word-break: break-all; }
+.run-list .state { margin-left: .3rem; white-space: normal; }
+.none-proposed > summary { cursor: pointer; margin: .4rem 0 .8rem; color: var(--accent-ink); }
+.picker .unconfirmed { padding-left: 1.75rem; margin: .15rem 0 .4rem; }

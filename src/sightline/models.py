@@ -72,8 +72,14 @@ class RunStatus(enum.StrEnum):
     and it exists because the alternatives both lie. ``succeeded`` over a batch with a failed
     course is the silent half of SPEC §11 — a glance at the run list would say the work is done.
     ``failed`` over the same batch throws away two finished reviews. Roadmap item 17.
+
+    ``queued`` is a run started while another was active (roadmap item 46). It waits, first in
+    first out, and the application's background runner moves it to ``pending`` when its turn
+    comes. It is neither resumable nor terminal: a restart keeps it queued, and only its starter or
+    an admin ends it early, as ``cancelled``.
     """
 
+    QUEUED = "queued"
     PENDING = "pending"
     RUNNING = "running"
     INTERRUPTED = "interrupted"
@@ -94,6 +100,7 @@ TERMINAL_STATUSES: frozenset[RunStatus] = frozenset(
 #: What each status is called on a screen. A mapping rather than a string transformation, because
 #: "Partial" is not what a person needs to read about a batch that reviewed two courses of three.
 STATUS_LABELS: dict[RunStatus, str] = {
+    RunStatus.QUEUED: "Queued",
     RunStatus.PENDING: "Pending",
     RunStatus.RUNNING: "Running",
     RunStatus.INTERRUPTED: "Interrupted",
@@ -116,7 +123,35 @@ class Run(Base):
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
     status: Mapped[RunStatus] = mapped_column(String(16), default=RunStatus.PENDING)
     rubric_pack: Mapped[str] = mapped_column(String(64))
+    #: The accepted bindings the run uses (roadmap item 22, part two): the digest of a state kept
+    #: under the data root by :mod:`sightline.rubric.accepted`, recorded when the run is created.
+    #: ``None`` is the shipped pack's own bindings, which is also what every run recorded before
+    #: the column existed ran with.
+    bindings_digest: Mapped[str | None] = mapped_column(String(80), default=None)
     note: Mapped[str | None] = mapped_column(Text, default=None)
+    #: Who is executing this run: the host name and process id that claimed it, and when that
+    #: process last said it was still working. Set while a process executes the run and cleared
+    #: when it stops, so a ``running`` row with no owner was left by a process that never recorded
+    #: one. Recovery reads these to take over only a run whose owner is gone (roadmap item 43);
+    #: :mod:`sightline.ownership` says what "gone" means.
+    owner_host: Mapped[str | None] = mapped_column(String(255), default=None)
+    owner_pid: Mapped[int | None] = mapped_column(Integer, default=None)
+    owner_heartbeat_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), default=None
+    )
+    #: Who started the run, in sign-in mode (roadmap item 45): the signed-in subject's stable id,
+    #: and the display name beside it for the admin's run list. The run reads Canvas with this
+    #: subject's own token, and only this subject or an admin may see it, review it or export it.
+    #: ``None`` for a run started in local mode or on the command line, and for every run recorded
+    #: before the column existed: :mod:`sightline.access` shows those to an admin only in sign-in
+    #: mode, and to the one local user in local mode.
+    starter_subject: Mapped[str | None] = mapped_column(String(255), default=None)
+    starter_name: Mapped[str | None] = mapped_column(String(128), default=None)
+    #: Who cancelled the run while it was queued (roadmap item 46): the signed-in subject and the
+    #: name beside it, or in local mode the Reviewer setting's name and no subject. Kept on the run
+    #: rather than in its log, as the starter is: the log says what happened, not who.
+    cancelled_by_subject: Mapped[str | None] = mapped_column(String(255), default=None)
+    cancelled_by_name: Mapped[str | None] = mapped_column(String(128), default=None)
 
     courses: Mapped[list[RunCourse]] = relationship(
         back_populates="run",
@@ -258,7 +293,11 @@ class RatingOverride(Base):
 
     #: The human side.
     human_rating: Mapped[str] = mapped_column(String(32))
-    #: Who set it — whatever identifier the review screen has for the person. Free text.
+    #: Who set it — whatever identifier the review screen has for the person. Free text: the
+    #: Reviewer setting in local mode, the signed-in display name in sign-in mode.
     reviewer: Mapped[str] = mapped_column(String(128))
+    #: The signed-in subject's stable id (roadmap item 44), or null. Null on every record made in
+    #: local mode and on every record a previous version made, which keep their name and no id.
+    reviewer_subject: Mapped[str | None] = mapped_column(String(255), default=None)
     note: Mapped[str | None] = mapped_column(Text, default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

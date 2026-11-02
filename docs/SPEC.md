@@ -230,6 +230,17 @@ worker container. At 1–16 courses the work is I/O-bound against Ollama and the
 distribute. Run state persists to SQLite so a restart resumes. Follows the van1sh footprint
 deliberately.
 
+A run that is executing records its **owner**: host name, process id, and a heartbeat the owner
+refreshes while it works. The app and a command-line run can be different processes, or different
+containers sharing the data volume. A restart therefore takes over only a run whose owner is gone:
+a dead process id on the same host, or a stale heartbeat on any host. A process id means nothing
+across hosts. Roadmap item 43; the rule is `sightline.ownership`.
+
+One run executes at a time. A run started in the app while another is active is recorded
+`queued`, and one asyncio task in the background runner starts the oldest queued run when nothing
+is ahead of it. The queue is the store's `queued` rows in creation order, so it survives a restart.
+Roadmap item 46.
+
 ### Nothing institution-specific is compiled in
 
 Sightline is intended to be reusable and open source. Every deployment-specific value is
@@ -483,8 +494,10 @@ runs returned different spans is marked *needs attention*.
   subset rather than the course.
 - **Where the flag is surfaced.** The extraction screen names it, and the serialized comparison
   carries a `needs_attention` object — present only when the runs differed, absent rather than
-  false when they agreed, so a renderer cannot read the key as a boolean to sort on. The review
-  screen of §09 is roadmap item 16 and is not built yet; that payload is what it renders.
+  false when they agreed, so a renderer cannot read the key as a boolean to sort on. A batch runs
+  one pass and never builds a `Comparison`, so a review file holds no such payload and the review
+  screen (item 16) renders none; if a later item puts one in the review file, it renders
+  `ATTENTION_NOTE` with it.
 
 ### What a routed row costs, measured 2026-09-28 (item 33)
 
@@ -553,7 +566,9 @@ lives in one file, `src/sightline/rubric/costs.yaml`, overridable by `SIGHTLINE_
 unpriced detector costs a documented non-zero default and is named in the pack coverage report. A
 banded row carries a **near-boundary marker** when its hours fall within a margin of a threshold,
 with a wider margin at Sufficiently Present / Minor, where independent human reviewers disagree
-most; it is a computed distance, never a confidence. Overrides persist beside the machine proposal
+most; it is a computed distance, never a confidence. Item 24 renders the persisted marker with the
+proposal's effort in the PDF and on the review screen, explained by one templated legend. Overrides
+persist beside the machine proposal
 in the run store's `rating_overrides` table (§09). No course-level total of hours is computed: a
 sum of effort across rows is an aggregate score with a clock face on it (§11).
 
@@ -660,18 +675,23 @@ deployment footprint is a priority. All colour comes from `docs/tokens.css`.
   a gate rather than a convention since item 17: `sightline.batch.gate.ExportGate` is the only way
   to a path under `reports/`, it refuses for a course whose review nobody opened, and a structural
   test fails the build if any other module names that directory.
-- **Progress is per course and per stage, and a stage that examined nothing is a failure.** Until
-  the review UI lands (item 16) the surfaces are `GET /api/runs/{id}` and
-  `python -m sightline.batch status`. The run-progress *screen*, and the New run screen, are
-  roadmap item 36 — split from item 16 by operator decision on 2026-09-25, which made item 16 the
-  review screen only.
+- **Progress is per course and per stage, and a stage that examined nothing is a failure.** The
+  surfaces are the run-progress screen (`/runs/{id}`), `GET /api/runs/{id}` and
+  `python -m sightline.batch status`. The run-progress screen and the New run screen are roadmap
+  item 36 — split from item 16 by operator decision on 2026-09-25, which made item 16 the review
+  screen only.
 - **An uploaded rubric runs unmapped.** Rows with no binding fall through to extraction-only, and a
   rubric with no bindings at all loads, runs and produces a usable review. There is no mapping
   screen before first use. Bindings, when wanted, are proposed by a model and confirmed once per
   rubric, never per course. Decided 2026-09-08. Roadmap item 04 built the format and the three
   coverage states; item 22 built the proposals with a command-line review
-  (`python -m sightline.rubric propose` / `review` / `accept`); the confirmation screen waits on
-  the rubric-selection screen of item 36. Item 19 is superseded.
+  (`python -m sightline.rubric propose` / `review` / `accept`); the confirmation screen attaches
+  to the New run screen's rubric picker, which item 36 built. Item 19 is superseded.
+- **Binding proposals are made, confirmed and reverted on a screen.** The screen runs the
+  proposals in the background; accepting applies the bindings to the app's copy of the pack
+  (never the shipped file), recorded with who and when, and revertible; a run may start with
+  proposals unconfirmed and uses only confirmed bindings, with the picker saying so. A run
+  records which bindings it ran with. Decided 2026-10-30; roadmap item 22 part 2.
 - **The review screen groups by rubric category, in the instrument's own order.** Severity is a
   sort and a filter within a category, never a second grouping. Decided 2026-09-08; roadmap
   item 16.
@@ -679,16 +699,206 @@ deployment footprint is a priority. All colour comes from `docs/tokens.css`.
   2026-09-08; roadmap item 20.
 
 - **An override records the *Reviewer* setting.** It is set once on the Settings screen, and the
-  override form refuses until it is. Decided 2026-10-29; roadmap item 16. Sign-in (item 40) would
-  replace it with the signed-in identity.
+  override form refuses until it is. Decided 2026-10-29; roadmap item 16. In sign-in mode the
+  signed-in identity replaces it (item 44).
 - **Exports carry the reviewer's rating where one was recorded**, labelled as the reviewer's,
   beside the unchanged machine proposal and its effort figures. A row with no override carries the
   proposal, labelled as proposed. Decided 2026-10-29; roadmap item 16.
 
-### Open for discussion
+**As built (item 16).** `sightline.review`, at `/review/<run-store course id>`: an index of the
+categories in the pack's order, with counts by proposed reading and the number of questions with no
+rating recorded, and one page per category, sorted and filtered by query parameters. The first
+request for any page opens the review (`ExportGate.open_review`). Every row carries its tier chip,
+its coverage in the bank's words, its proposal, its sentences in one block per register, its latest
+override record, and one form recording one rating for that row; a Tier C row's form arrives with
+nothing selected and refuses a submission without a choice. Recorded ratings go through
+`record_override`, with the reviewer from `sightline.review.identity.current_reviewer`, the one
+lookup. The export control calls `sightline.report.export.export_course`, as the command does.
+Exports print a recorded rating in a *Reviewer's rating* field, fact or column that exists only
+when one was recorded, so a course nobody overrode exports exactly as before. Two choices the
+decisions above leave open, made here: the exports carry the reviewer's rating and not their name
+(the record keeps the name); and Tier A, B and D rows open with the proposal selected, so recording
+it unchanged records a confirmation.
 
-- **Sign-in and multiple users.** Everything above assumes one local user with no login. Roadmap
-  item 40 holds the questions.
+**As built (item 36).** *New run* is the course screen extended: `POST /courses` resolves what
+was pasted or uploaded, and the courses Canvas resolved come back with a Start form — each course
+ticked where its content can be read, and a rubric picker over the shipped packs with
+`uccs-oscqr-3-1-3` selected. `POST /runs` records the batch with `create_batch_run` (the cap and
+its message are the batch runner's) and submits it to the background runner. A run is not started,
+and the form says why and names Settings, without a Canvas credential, a model host or a chosen
+model. Item 36 also refused a start **while another run was running**; item 46 replaced that refusal
+with a queue (below). What counts as running is this process's tasks, or a run the store records as
+`running` whose owner is live, which is how a command-line run in another process shows (item 43:
+a `running` row whose owner is gone holds nothing up). Bundles stay on the command
+line. *Run progress* is `/runs` (the recent runs) and `/runs/{id}`: per course and per stage, what
+each stage examined and its statement, never a percentage; a failed stage's summary and remedy; the
+run's own failures from its log; the run log itself; for each course with a result a link to its
+review; and beside each course nobody has opened, a closed export control with the gate's own
+reason. An interrupted run names `python -m sightline.batch resume <id>` and has no resume button.
+The live log is the page re-read: an optional script polls `GET /api/runs/{id}` while a run is
+going and reloads when it changes. One wording choice: the stored stage name `score` is never
+shown — every stage is shown by its title (`Roll up effort and order the action plan`), because
+§11 keeps "score" out of the vocabulary.
+
+**As built (item 22, part 2).** *Rubrics* (`sightline.rubric_screens`) is `/rubrics`, a page per
+shipped pack at `/rubrics/{pack}`, and a confirmation screen per proposal set at
+`/rubrics/{pack}/proposals/{set}`. *Propose bindings* runs part one's `propose()` as a background
+task (`sightline.proposing`) with the review model from Settings, through item 09's client at
+concurrency 1; its progress is rows to ask, rows asked and rows that could not be asked. It is
+refused while a run is executing (item 36's check, with item 43's live owner), Start is refused
+while it runs, and each refusal names the other. A finished set is kept under the data root; a
+task that stops keeps nothing and says why. The confirmation screen keeps part one's order and
+every 2026-09-08 decision: boxes unchecked, *check all* never touches a conflict, conflicts listed
+apart with their own boxes, what / why / how per proposal, Tier D *not asked*, a failed row *could
+not be asked*. **Accept is offered only after the coverage delta of exactly the checked set has
+been shown** — `accept()`'s own delta, computed without writing — and a set that changed since is
+shown again, not accepted. Accepting needs the Reviewer setting and records it
+(`current_reviewer`), the time, the proposal numbers and the delta. A set made over another state
+of the pack is refused with *propose again*; accepting changes the pack, so a set is accepted once,
+as a unit, and reverting that acceptance opens it again. `sightline.rubric.accepted` keeps
+`rubrics/<pack>/` under the data root: the sets, each accepted state immutably under its sha256
+digest (an edited state file is refused), and an append-only history; a revert undoes the latest
+standing acceptance. **`resolve_pack` is the one resolver**: the New run screen and
+`python -m sightline.batch run` record the digest in force on the run (`runs.bindings_digest`,
+an added column), the batch service and the command's bundle path resolve a run by that digest, so
+a resumed run keeps its bindings, and the review file names it (`pack.bindings`) for
+`sightline.report.loader`. A run or a review file with none reads the shipped pack. An accepted
+state made over a shipped pack this build no longer ships is not applied to new runs and the page
+says so. The picker shows *bindings proposed, not confirmed* with a link, and which accepted
+bindings runs use; it never blocks Start. Two readings taken here: accepting and reverting are
+refused without a Reviewer, as an override is; and for a pack imported with a join key (both
+shipped packs) the base mapping `accept()` needs is the shipped `rubrics/maps/<pack>.yaml` with
+the bindings in force written in.
+
+### Sign-in and multiple users (decided 2026-10-30, roadmap item 40)
+
+Everything above describes the local single-user mode, which stays the default. In sign-in mode:
+
+- **Sign-in happens in front of the app.** A self-hosted identity provider federates the
+  institution's SSO; an auth proxy passes a verified identity; the app refuses any request that
+  did not come through the proxy. Three containers, one process each. Item 44, item 47.
+- **The reviewer is the signed-in subject**, recorded by its stable id with the display name
+  beside it. Item 44.
+- **Every form post carries a CSRF token**, in both modes. Item 44.
+- **Users see their own runs; an admin sees every run** and alone changes instance settings.
+  Admin is an identity-provider group. Item 45.
+- **Each user's own Canvas token**, encrypted at rest; a run reads and exports as its starter.
+  Item 45.
+- **A run started while another is active waits in a first-in-first-out queue**, showing its
+  position, cancellable by its starter or an admin. Item 46.
+- **Sessions last 8 hours and end when the browser closes**, held by the proxy. Item 47; the
+  reference deployment is `docker-compose.signin.yml` and `docs/SIGN-IN.md`.
+
+**As built (item 44).** `sightline.signin` and `sightline.csrf`, two pure ASGI middlewares that run
+before any route. With `SIGHTLINE_SIGNIN` on, a request is refused with 401 and a body that names no
+header when the shared secret header is missing or wrong (constant-time compare), when the secret
+or an identity header arrives twice, or when the subject is missing; `GET /healthz` alone answers
+without the proxy, with `{"status": …}` and nothing else. Settings refuses to start sign-in mode
+without a secret of at least 32 characters, or with two header names the same. Header names are
+configuration (`SIGHTLINE_SIGNIN_*_HEADER`, `SIGHTLINE_SIGNIN_GROUPS_SEPARATOR`); the defaults are
+Authentik's outpost headers and a Sightline-named secret header, and the suite runs the same checks
+with oauth2-proxy's header set. `current_reviewer` returns a `Reviewer` (display name, subject id)
+from the identity, and an override records `reviewer_subject` beside `reviewer` (an added column;
+older records and local-mode records have none). The display name falls back to the subject when
+the proxy sends none. Groups are read and kept on the identity; nothing decides anything from them
+until item 45. The Settings screen's Reviewer section shows the signed-in name instead of the field,
+and a post to the Reviewer setting is refused. CSRF, in both modes: the token is an HMAC of a cookie
+nonce and the subject under a per-process key, accepted as the `csrf_token` field or an
+`X-CSRF-Token` header; a missing or wrong token is refused with 403 and a page that says to reload.
+Three readings taken here: the acceptance and revert history of the rubric screens records the
+display name only, as before — the subject id is recorded on overrides, which is what this item
+names; a restart invalidates rendered forms once (the key is never stored); and the cookie is set
+only on a response that rendered a form, so a first page load's parallel stylesheet requests cannot
+replace the nonce the page's forms carry.
+
+**As built (item 45).** `sightline.access` is the one lookup: `viewer(request)` answers who is
+asking and whether they are an admin. Local mode is `LOCAL`, one implicit user who is the admin, so
+every screen reads as before. In sign-in mode a run records `starter_subject` and `starter_name`
+(added columns; neither goes into the run's events), and the run list, `/`, `/runs/{id}`,
+`GET /api/runs/{id}` and every `/review/{course}` route — pages, a rating posted, the export and
+its downloads — answer only the starter or an admin. Anybody else gets 404 with the same words as
+an id that names nothing, checked before the review is read, so the second person cannot open the
+review and so cannot satisfy the export gate. The run list is filtered in the query, not after it.
+Admin is exact membership of `SIGHTLINE_SIGNIN_ADMIN_GROUP` in item 44's groups; with it unset
+nobody is an admin. Only an admin posts the Canvas base URL, the export preference, the model host
+(save and forget), the model and a model install. Anybody else is refused with 403 and changes
+nothing, including a token riding on the same post as a base URL, and Settings shows them each
+setting's state and no form. Each person's token is an `app_secrets` row named by a digest of
+their subject, encrypted with the existing key. `CredentialStore.canvas_for(subject)` returns the
+instance base URL with that person's token and never the instance's or the environment's token.
+The batch service reads the subject off the run each time it builds a pipeline. A run is therefore
+its starter's on the screen, after a restart resumes it, and under `python -m sightline.batch
+resume`. Start, the course lookup and the connection test use the same credential.
+Four readings taken here:
+- **A starter with no token stops the run** before any Canvas client is built, with a remedy
+  naming Settings. The run is left *interrupted*, not *failed*: that is the batch runner's rule for
+  every missing credential, because nothing is wrong with the courses.
+- **A run with no starter** (every run recorded before this item, and every command-line run)
+  reads Canvas with the instance credential, as before, and is visible to an admin only.
+- **Somebody else's active run** blocks Start and Propose bindings as before (one model host). It
+  is named as another person's run, with no id and no link.
+- **Proposing, accepting and reverting rubric bindings is not admin-only.** The decision names the
+  model host, the model and the Canvas base URL as instance settings, and the item adds the export
+  preference. Bindings are recorded per pack with who accepted them, and they apply to every
+  later run. Whether they are an instance setting is open: roadmap item 45's entry says so.
+
+**As built (item 46).** A Start while a run is active, or while runs are queued, records the run
+with status `queued` (`RunStatus.QUEUED`, label *Queued*; neither resumable nor terminal) instead of
+refusing it; the other blockers — no credential, no model host, no model, bindings being proposed —
+still refuse. `BackgroundRunner` owns the queue: one task that starts the oldest queued run
+(`RunStore.queued_runs`, by creation time) when `ahead_of_queue()` is empty — this process's tasks,
+the runs a restart has still to resume, and a store-`running` run whose owner is live. It is woken
+when one of this process's runs ends and looks again every five seconds for what it cannot be woken
+by, a command-line run finishing. It also waits while bindings are proposed (`held_by`), and
+proposing is refused while runs are queued, so a queued run is never held up behind a proposer it
+was not told about. Taking a run (`take_queued`, queued → pending) and cancelling it
+(`cancel_queued`, queued → cancelled) are compare-and-sets on the status, so exactly one lands. A
+restart resumes what it was executing first, then carries on with the queue in its order; shutdown
+leaves queued runs queued. The Start form shows a notice — not a refusal — naming the run that is
+executing (when the person may see it) and how many runs are ahead. A queued run's page and the run
+list read *Queued, N ahead*; `GET /api/runs/{id}` carries `queue_ahead`, so the page's script
+reloads when the run moves up. *Cancel this run* (`POST /runs/{id}/cancel`) answers the starter or
+an admin (`viewer(request).can_see(run)`) and 404 to anybody else, as every other run route does;
+only a queued run can be cancelled (409 otherwise, saying which state it is in). The run records
+who cancelled it (`cancelled_by_subject`, `cancelled_by_name`, added columns; in local mode the
+Reviewer setting's name and no subject); its log says *Cancelled while queued* and not who. There
+is no priority, no reordering and no estimate of when a run starts. Three readings taken here:
+- **The run page names the canceller as its reader is entitled to see it:** *you* to whoever did
+  it, the recorded name to an admin, and *an admin* to a starter whose run an admin cancelled.
+- **`python -m sightline.batch resume` refuses a queued run** (exit 2): executing it there would
+  overtake every run started before it. `python -m sightline.batch run` is unchanged and starts at
+  once in its own process; the app's queue then waits behind it.
+- **Proposing bindings is refused while runs are queued**, not only while one runs: a queued run
+  starts as soon as the host is free, and a proposer started in that moment would hold it up.
+
+**As built (item 47).** `docker-compose.signin.yml` and `docs/SIGN-IN.md`. Two containers, not
+three: the operator's decision attaches the deployment to an Authentik that already exists, so the
+file runs the app and an Authentik proxy outpost (`ghcr.io/goauthentik/proxy`, tagged
+`AUTHENTIK_TAG` to match the server), and the runbook links to Authentik's own installation
+instructions where there is none. The app publishes no port and joins two networks: `proxy`,
+`internal`, shared with the outpost alone, and `egress`, its way to the model host and Canvas, on
+the pinned `SIGHTLINE_SUBNET`. The outpost publishes on the loopback by default, for a TLS
+terminator in front. Secrets come from two environment files, `.env` for the app (with
+`SIGHTLINE_SIGNIN_SECRET`, required at config time) and `.env.outpost` for the outpost's URL and
+token, so neither container holds the other's credential; the outpost has no `environment:` block,
+because one would override its env file. Authentik adds the shared secret through a scope mapping
+(`ak_proxy` → `additionalHeaders`), and the session is the User Login stage's *Session duration*
+`seconds=0` with the provider's *Token validity* `hours=8`. The second worked example is
+oauth2-proxy v7.13.0 in front of Entra ID, through its alpha configuration, the only way it injects
+a static header; the subject is the Entra object id (`userIDClaim: oid`), and the admin group is a
+group object id. `tests/test_signin_compose.py` checks that the file parses, that the app publishes
+no port and shares a network only with the outpost, that the shared one is internal, that the
+egress subnet is the local file's, and that no secret-shaped value is a literal; each check is also
+fired against a broken copy. Three readings taken here:
+- **oauth2-proxy cannot give both halves of the session decision.** `--cookie-expire` is a duration
+  (survives a closed browser) or `0` (a session cookie with no age limit). The example takes `8h`
+  and says so.
+- **Whether Authentik's outpost cookie is itself a session cookie was not determined** without a
+  live instance. The runbook gives both settings and a check to run after deploying, and names the
+  8-hour token validity as the bound to rely on.
+- **oauth2-proxy's documentation shows header values nested under `claimSource:` and
+  `secretSource:`; v7.13.0 refuses that** and takes the flat form, which is what the runbook shows.
+  Checked by starting that version with no network.
 
 ---
 

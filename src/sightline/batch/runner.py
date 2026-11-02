@@ -61,6 +61,10 @@ log = get_logger("sightline.batch.runner")
 #: Filename of the artifact a reviewer opens, inside the course's directory under ``runs/``.
 REVIEW_FILENAME = "review.json"
 
+#: The rubric a run is reviewed against when nobody chose another (SPEC §09: rubric selection is
+#: per run, defaulting to OSCQR 3.1.3). One home, read by the command line and the New run screen.
+DEFAULT_RUBRIC_PACK = "uccs-oscqr-3-1-3"
+
 #: Builds the pipeline a run executes, and closes whatever it opened. An async context manager
 #: rather than a plain callable because the real one holds an HTTP client per run.
 PipelineFactory = Callable[[Run], AbstractAsyncContextManager[CoursePipeline]]
@@ -86,21 +90,39 @@ def create_batch_run(
     references: Sequence[str],
     *,
     rubric_pack: str,
+    bindings_digest: str | None = None,
     cap: int = DEFAULT_BATCH_CAP,
     note: str | None = None,
+    starter_subject: str | None = None,
+    starter_name: str | None = None,
+    queued: bool = False,
 ) -> str:
     """Record a batch, refusing one that is over the cap. Returns the run id.
 
     The cap is checked *here*, at the one point a run comes into existence, rather than in the
     loop that executes it: a run created over the cap and truncated at execution time is a batch
     where courses somebody listed are silently not reviewed.
+
+    ``bindings_digest`` is the accepted bindings the run uses, from
+    :func:`sightline.rubric.accepted.resolve_pack` at the moment it is started; ``None`` is the
+    shipped pack's own. ``starter_subject`` and ``starter_name`` are who started it in sign-in
+    mode (roadmap item 45): the run reads Canvas with that person's token. ``queued`` records it as
+    waiting behind the active run (roadmap item 46).
     """
     cleaned = [reference.strip() for reference in references if reference.strip()]
     if not cleaned:
         raise ValueError("a run needs at least one course reference")
     if len(cleaned) > cap:
         raise BatchTooLargeError(len(cleaned), cap)
-    return store.create_run(cleaned, rubric_pack=rubric_pack, note=note)
+    return store.create_run(
+        cleaned,
+        rubric_pack=rubric_pack,
+        bindings_digest=bindings_digest,
+        note=note,
+        starter_subject=starter_subject,
+        starter_name=starter_name,
+        queued=queued,
+    )
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)
@@ -531,6 +553,7 @@ class BatchRunner:
 
 
 __all__ = [
+    "DEFAULT_RUBRIC_PACK",
     "REVIEW_FILENAME",
     "BatchRunner",
     "BatchSummary",
