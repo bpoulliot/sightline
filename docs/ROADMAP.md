@@ -6,7 +6,7 @@ Labels: **READY** · **NEEDS DISCUSSION** · **NEEDS MEASUREMENT** · **BLOCKED*
 Nothing unready enters the queue. One item per conversation, one PR per item.
 
 Queue lives at `~/docker/overnight/projects/sightline/` (moved from `~/docker/overnight-sightline/`
-on 2026-09-22). Next free item number: **48** (41 is claimed by open PR #40; 42 and 43 were filed
+on 2026-09-22). Next free item number: **48** (41 was filed by PR #40; 42 and 43 were filed
 by item 36's session, PR #43; 44–47 split from item 40 on 2026-10-30).
 
 ---
@@ -56,6 +56,7 @@ by item 36's session, PR #43; 44–47 split from item 40 on 2026-10-30).
 | 38 | A bound Tier D row is counted in two coverage buckets, and `coverage` exits 1 calling it a bug | 1 | READY | **DONE** — PR #35. Tier first; 42 → 41 of 68, exit 1 → 0 |
 | 39 | Every other bare pattern in `.dockerignore` is root-only too | 3 | READY | **DONE** — PR #41. Planted nested files 19 → 0 in the dev image, 15 → 0 in runtime |
 | 40 | Sign-in (SSO) and multiple users | 3 | **DECIDED** 2026-10-30 — split into 44–47 | Nothing to build under this number; the decisions are its entry |
+| 41 | A cancelled CI `image` job leaves its sample-report `docker run` running on the shared DinD daemon | 0 | READY | filed 2026-10-29 from `~/docker` TODO I267 |
 | 42 | A run that completed with failures records no finish time | 1 | READY — filed 2026-10-29 by item 36 | **DONE** — PR #44. Every terminal status stamps `finished_at`; `interrupted` stays unset |
 | 43 | The app's restart recovery takes over a run another process is executing | 1 | **READY** — (a) an owner record, decided 2026-10-30 | **DONE** — PR #48. Runs record host, pid and a heartbeat; recovery, shutdown and Start read them |
 | 44 | Signed-in identity behind a trusted proxy | 3 | READY | **DONE** — PR #50 (sign-in mode behind a proxy secret, the subject on overrides, CSRF on every form post) |
@@ -1066,6 +1067,37 @@ The near-boundary marker and `agreement.brief()` belong to item 24's re-run, not
 - Screenshot QA is done at 1400 px and 390 px on every screen built, with the CDP target closed
   afterwards.
 - The full suite is green, ruff and black exit codes are read separately, and all CI jobs are green.
+
+**41 · FILED 2026-10-29 from `~/docker` TODO I267 (operator, interactive). READY, Tier 0. A cancelled
+`image` job leaves its sample-report container running on the runner's shared DinD daemon.**
+
+*Evidence.* The `image` job (`.gitea/workflows/ci.yml`, label `cserv`) runs
+`docker run --rm "sightline:ci-dev-${GITHUB_SHA}" pytest -q -rs tests/test_sample_report.py`
+against `act_runner_dind`. Cancelling a job kills the job container and with it the `docker run`
+*client*, not the container that client started: `--rm` only fires when the container exits on
+its own, and the container has no name, so nothing finds it afterwards. On 2026-10-29 that
+pattern in caltidy's PR gate, with re-pushes cancelling runs, took a DinD daemon with no memory
+limit to 28.5 GiB, and the host OOM-killed processes across every service (I267). The daemon now
+has a 16 GiB ceiling shared by every repo's jobs.
+
+*Exposure here is small.* `ci.yml` has no `concurrency` block, so nothing cancels a run
+automatically: only a manual cancel during that step leaks, and the step runs one test file. The
+health-check container in the next step already does this right (named, `docker rm -f` first and
+after). It is Tier 0 because a leak on the shared daemon lands on other projects' jobs, not on
+this one's.
+
+*Fix.* Give the sample-report step the health check's shape: a fixed name
+(`sightline-ci-sample-${GITHUB_SHA}`), `docker rm -f "$name" || true` before the run, the name
+added to the `always()` cleanup step, and `--memory` set from a measured peak with swap off
+(`--memory-swap` equal). If a `concurrency` block with `cancel-in-progress` is ever added, the name
+must be per ref rather than per SHA, so a new run finds the old one's container (caltidy PR #108's
+shape).
+
+*Acceptance.* Cancel the `image` job during the sample-report step. Afterwards
+`docker exec act_runner_dind docker ps` lists no `sightline-ci-sample-*` container once the
+cleanup step has run, and a re-run starts with none. All CI jobs green.
+
+*Shares the cause:* caltidy (fixed, PR #108), accesslens (its item 165), syllabuslock (its B5).
 
 **43 · DONE 2026-10-30 — PR #48.** Filed 2026-10-29 by item 36's session (PR #43). **The
 application's restart recovery takes over a run another process is executing.**
