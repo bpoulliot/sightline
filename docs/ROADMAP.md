@@ -166,6 +166,12 @@ predecessors being DONE on `main`, then `99z-` item 47 (decided the same day: Au
 DONE — PR #50. `99x-` (item 45) ran DONE — PR #51. `99y-` (item 46) ran DONE — PR #52. `99z-`
 (item 47) ran DONE — PR #53.
 
+**Wave 5 — composed 2026-11-02, re-ordered 2026-11-04, not released.** In order: `99za-` item 41
+(the bug first), `99zb-` item 48, `99zc-` item 51, `99zd-` item 50 (its runbook describes 48 and 51
+as built, so it gates on both), `99ze-` item 49's measurement. Each gates on its own status row on
+`main`, so none can run before this PR merges. 12b and 52 have no prompt yet: both wait on the
+pilot's corpus runs.
+
 ---
 
 ## Not queued, and why
