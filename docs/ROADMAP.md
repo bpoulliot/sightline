@@ -6,7 +6,7 @@ Labels: **READY** · **NEEDS DISCUSSION** · **NEEDS MEASUREMENT** · **BLOCKED*
 Nothing unready enters the queue. One item per conversation, one PR per item.
 
 Queue lives at `~/docker/overnight/projects/sightline/` (moved from `~/docker/overnight-sightline/`
-on 2026-09-22). Next free item number: **48** (41 was filed by PR #40; 42 and 43 were filed
+on 2026-09-22). Next free item number: **53** (51–52 filed 2026-11-04; 48–50 filed 2026-11-02; 41 was filed by PR #40; 42 and 43 were filed
 by item 36's session, PR #43; 44–47 split from item 40 on 2026-10-30).
 
 ---
@@ -27,20 +27,20 @@ by item 36's session, PR #43; 44–47 split from item 40 on 2026-10-30).
 | 10 | Extraction layer with verified quotes | 1 | READY | **DONE** — PR #15 |
 | 11 | Three-run disagreement router | 1 | READY | **DONE** — PR #17 |
 | 12a | Effort model — ship it | 1 | READY | **DONE** — PR #20 |
-| 12b | Effort model — fit the costs | 1 | **BLOCKED** — item 06/07/08 detectors have all landed; unblocked in code, still needs the calibration corpus | — |
+| 12b | Effort model — fit the costs | 1 | **NEEDS MEASUREMENT** — decided 2026-11-04: on the pilot's runs of the calibration-corpus courses (item 50's checklist), not before | — |
 | 13 | XLSX writer | 2 | READY | **DONE** — PR #28 |
 | 14 | PDF course report | 2 | READY | **DONE** — PR #31 |
 | 15 | Narrative generator and voice contract | 2 | READY | **DONE** — PR #27 |
 | 16 | Review UI | 2 | READY — Q1 (a) and Q2 (b) decided 2026-10-29 | **DONE** — PR #42. The review screen; the Reviewer setting (Q1); exports carry a recorded rating as the reviewer's (Q2) |
 | 17 | Batch runner | 2 | READY | **DONE** — PR #18 |
-| 18 | Escalation adapter | 3 | **PARKED** 2026-10-29 — ChatGPT Edu API not available | — |
+| 18 | Escalation adapter | 3 | **PARKED** 2026-10-29 — ChatGPT Edu API not available; the Ollama route is measured as item 52 | — |
 | 19 | Uploaded-rubric mapping screen | 3 | **SUPERSEDED by 22** | — |
 | 20 | Multi-course comparison view | 3 | **DECIDED — not building it** | see 25 |
 | 21 | Detector integrity guard | 0 | READY | **DONE** — PR #8 |
 | 22 | Model-proposed bindings, human-confirmed | 3 | **DONE** | **DONE** — part 1 PR #32 (proposal engine + command-line review); part 2 PR #49 (the Rubrics screens: propose, confirm, revert; runs record the bindings they used) |
 | 23 | Canvas-requested content export | 1 | READY | **DONE** — PR #6 |
 | 24 | Agreement and near-boundary transparency | 2 | READY | **DONE** — PR #29 (data, guard, docs) and PR #45 (the statement and the marker in the PDF and on the review screen) |
-| 25 | Returned-review ingestion | 3 | **BLOCKED** — needs reviews delivered and returned | — |
+| 25 | Returned-review ingestion | 3 | **BLOCKED** — needs reviews delivered and returned; the pilot keeps what comes back (item 50, decided 2026-11-04) | — |
 | 26 | Wire document bytes from the export to the detectors | 1 | READY | **DONE** — PR #21 |
 | 27 | One detector's crash must not take the whole review with it | 1 | READY | **DONE** — PR #22 |
 | 28 | A binding says *relevant*; rating reads it as *sufficient* | 1 | READY | **DONE** — PR #23 |
@@ -63,6 +63,11 @@ by item 36's session, PR #43; 44–47 split from item 40 on 2026-10-30).
 | 45 | Runs per user, an admin role, and per-user Canvas tokens | 3 | READY | **DONE** — PR #51 (a run is its starter's, 404 to anyone else; admin group alone changes instance settings; each person's own Canvas token) |
 | 46 | Queue a run behind the active one | 3 | READY | **DONE** — PR #52 (a Start while a run is active is queued FIFO; *Queued, N ahead*; starter or admin cancels, recorded; survives a restart; waits behind a live command-line run) |
 | 47 | Reference deployment: identity provider, proxy and app | 3 | READY — 44 DONE (PR #50); Authentik decided 2026-10-30 | **DONE** — PR #53 (`docker-compose.signin.yml`: the app behind an Authentik outpost, no app port, an internal network; `docs/SIGN-IN.md`, with oauth2-proxy + Entra ID as a second example) |
+| 48 | Rubric bindings belong to the person who accepts them | 3 | **READY** — decided 2026-11-02 (operator) | — |
+| 49 | A pushed version tag builds the image and publishes it to the Gitea registry | 3 | **NEEDS MEASUREMENT** — whether the job token can push (`~/docker` I59) | — |
+| 50 | Pilot readiness: the master key from the environment, a state backup, and a pilot runbook | 3 | **READY** — decided 2026-11-02 (operator); checklist amended 2026-11-04 | — |
+| 51 | Sign-in admits only members of a users group (or the admin group) | 3 | **READY** — decided 2026-11-04 (operator) | — |
+| 52 | Does a larger model on the existing model host settle the disagreement set? | 3 | **NEEDS MEASUREMENT** — on the pilot's corpus runs, as 12b; filed 2026-11-04 | — |
 
 ---
 
@@ -161,6 +166,12 @@ predecessors being DONE on `main`, then `99z-` item 47 (decided the same day: Au
 DONE — PR #50. `99x-` (item 45) ran DONE — PR #51. `99y-` (item 46) ran DONE — PR #52. `99z-`
 (item 47) ran DONE — PR #53.
 
+**Wave 5 — composed 2026-11-02, re-ordered 2026-11-04, not released.** In order: `99za-` item 41
+(the bug first), `99zb-` item 48, `99zc-` item 51, `99zd-` item 50 (its runbook describes 48 and 51
+as built, so it gates on both), `99ze-` item 49's measurement. Each gates on its own status row on
+`main`, so none can run before this PR merges. 12b and 52 have no prompt yet: both wait on the
+pilot's corpus runs.
+
 ---
 
 ## Not queued, and why
@@ -195,7 +206,14 @@ in either workbook prices a defect.
   computes a **near-boundary marker** — with a wider margin at the Sufficiently Present / Minor
   boundary, because that is where humans actually disagree — and deliberately ships no UI for it.
   Item 24 surfaces it.
-- **12b — fit the costs · BLOCKED on items 06/07/08.** A calibration corpus of real completed
+- **12b — fit the costs · NEEDS MEASUREMENT, on the pilot (decided 2026-11-04).** It was held
+  BLOCKED on items 06/07/08; those have all landed, so that reason is spent. What remains is that
+  the corpus courses must be acquired again, which is a live Canvas call no session makes: the
+  operator runs them on the pilot as a step of item 50's checklist. A later session then fits the
+  table from those runs' recorded detector results against the corpus's human ratings, reading
+  them on the pilot host and committing only the fitted table, the harness and aggregates — never
+  a course, a passage, a person or the institution. Its prompt is written when the runs exist.
+  The original reasoning follows. A calibration corpus of real completed
   reviews exists outside the repository. It records outcomes, not inputs: no file states how many
   defects a rating was based on, and none records time actually spent. So the costs cannot be read
   off it. What it supplies is a *target* — fit the table so computed bands reproduce the human
@@ -266,7 +284,8 @@ available. The app functions fully without it. *Noted, not decided:* the adapter
 OpenAI-compatible and Ollama serves that API, so a larger model on the existing model host could be
 the escalation endpoint. Whether one that fits beside the extraction model resolves the
 disagreement set better than the three runs is a measurement question against the calibration
-corpus, to be filed as its own item if it is wanted.
+corpus, to be filed as its own item if it is wanted. *Filed 2026-11-04 (operator) as item 52;* 18
+stays parked until 52 reports.
 
 **19 · SUPERSEDED by 22.** Its premise — that an uploaded rubric needs a mapping screen before it
 is usable — is dead. Under item 04 an unbound rubric runs immediately, extraction-only. What remains
@@ -336,6 +355,9 @@ is a computed distance from a threshold, never a percentage, a star, a colour ra
 "unsure".
 
 **25 — returned-review ingestion · NEW, BLOCKED on reviews being delivered and coming back.**
+*Decided 2026-11-04 (operator): stays blocked, and the pilot starts the collection.* Item 50's
+checklist gains a step: keep each workbook and action plan that comes back edited, beside the run
+it came from, outside the repository. 25 is specified once a few exist, against real edits.
 Item 16 captures the overrides a designer makes *inside* Sightline, and §09 already calls that
 record the calibration data. It is not the whole signal. **What a human changes after the report
 leaves the app** — the edits made to a workbook or an action plan on its way to faculty — is the
@@ -428,11 +450,19 @@ image on every PR; a Dockerfile that is never built in CI rots within a month.
 There is no production deployment and no cutover — `docker compose up` on a developer machine is the
 entire story until that changes.
 
+**Decided 2026-11-02 (operator): the pilot runs on the operator's own host**, behind the SWAG and
+Authentik instances already running there, in sign-in mode. The host-specific compose and SWAG
+configuration live in that host's own repository, not here; this repository keeps the reference
+file and runbook item 47 wrote, host-agnostic. The operator deploys; a session never does. Item 50
+is what the pilot needs from this repository first. Releases are cut by the operator pushing a
+`vMAJOR.MINOR.PATCH` tag, never by a merge; item 49 makes that tag build and publish the image. Access is by identity-provider group: an admin group and a users
+group, bound at the provider and checked by the app (item 51, decided 2026-11-04).
+
 **Item 40 (decided 2026-10-30) changes the story without changing the rule.** A shared instance
 is three containers — a self-hosted identity provider, an auth proxy and the app — one process
 each. Item 47 wrote the reference compose file (`docker-compose.signin.yml`: the app and an
 Authentik proxy outpost, attached to an existing Authentik) and its runbook (`docs/SIGN-IN.md`),
-host-agnostic; where it runs and who operates it is undecided, and a session never deploys it. Without the proxy the app keeps
+host-agnostic; the pilot runs on the operator's host (decided 2026-11-02, above), and a session never deploys it. Without the proxy the app keeps
 today's single-user local mode.
 
 **The compose network subnet is pinned**, and later items should not unpin it. Sightline has to
@@ -1067,6 +1097,184 @@ The near-boundary marker and `agreement.brief()` belong to item 24's re-run, not
 - Screenshot QA is done at 1400 px and 390 px on every screen built, with the CDP target closed
   afterwards.
 - The full suite is green, ruff and black exit codes are read separately, and all CI jobs are green.
+
+**48 · FILED 2026-11-02 (operator, interactive). READY. Rubric bindings belong to the person who
+accepts them.** Item 45 left open whether proposing, accepting and reverting bindings is an
+instance setting (admin only). *Decided 2026-11-02 (operator): neither — each user has their own
+bindings, stored per user.* One person's accepted bindings never change another person's runs.
+
+*Scope.* Accepted states, their history and proposal sets are keyed by the subject id of the person
+who made them (`Run.starter_subject`'s identity, item 45), under the existing
+`rubrics/<pack>/` store. `resolve_pack` takes the starter: a run uses its starter's accepted
+bindings for that pack, or the shipped pack when they have none, and records the digest exactly as
+today (`runs.bindings_digest`), so a resumed or re-exported run keeps what it ran with. The Rubrics
+screens and the New run picker show the signed-in person's own bindings and proposals. Proposing
+stays serialized against runs as items 22 and 46 built it (one model host), whoever proposes.
+
+*Readings taken here, stated so they can be reversed.* (a) **No sharing in this item**: copying
+another person's bindings, or an admin publishing a default set, is a later item if the pilot asks
+for it. (b) **An admin sees** every person's history read-only (as with runs) and changes none of
+it. (c) **Local mode** is one implicit user, as item 45 made it; bindings accepted before this item
+belong to that user, so a local install behaves exactly as now. (d) **A run with no starter**
+(command-line and older runs) keeps reading the bindings it recorded; a new command-line run reads
+the shipped pack unless `--bindings <digest>` names an accepted state.
+
+*Traps.* The subject id is the key, never the display name (item 40, decision 1). The digest
+recorded on a run must still resolve after its starter's bindings change, which the immutable
+per-digest store already guarantees; do not key the lookup by person alone. Moving item 22's
+store must not orphan an accepted state a recorded run names.
+
+*Acceptance.* Two signed-in people accept different bindings for one pack; each one's run uses
+their own digest, and neither sees the other's proposals or accepted state on the Rubrics
+screens. An admin sees both histories and cannot accept or revert on another person's behalf. A
+run recorded before the change re-exports with its original bindings. Local mode's existing
+tests pass unchanged. SPEC §09's *open* bullet under *Sign-in and multiple users* is replaced by
+an *As built (item 48)* paragraph. Screens checked at 1400 and 390 px. Suite, ruff and black
+green, each exit code read separately.
+
+**49 · FILED 2026-11-02 (operator, interactive). NEEDS MEASUREMENT. A pushed version tag builds the
+image and publishes it to the Gitea registry.** Today CI builds the image on every PR and throws
+it away; no workflow publishes one (`~/docker` TODO I59 lists Sightline as building nothing).
+
+*Decided 2026-11-02 (operator).* Semantic versions: a patch release (`x.y.N`) for fixes, a minor
+(`x.N.0`) for backward-compatible features, a major (`N.0.0`) for breaking changes. **The operator
+cuts a release by pushing a `vX.Y.Z` tag; a merge never publishes one**, so unattended queue merges
+stay unable to publish, and AGENTS.md's rule stands. CI may *suggest* the next number from the
+Conventional Commits since the last tag (`fix` → patch, `feat` → minor, `!`/`BREAKING CHANGE` →
+major) but never tags.
+
+*What is known* (xenotag's I59 measurement, 2026-10-10, and I59 itself): the registry is Gitea's
+own packages store; a job must push to `gitea:3000` over the job network, plain HTTP, so the DinD
+daemon needs it as an insecure registry; **never through `git.bitmapserv.org`**, which is behind
+Cloudflare and caps a request at 100 MB. Gitea 1.27.3 serves no anonymous pulls, so the host pulls
+with a `read:package` token. There are no cleanup rules yet.
+
+*The measurement, first and alone.* Whether Gitea 1.27.3's automatic job token may push a package
+(1.25.5 refused it): one throwaway `workflow_dispatch` push of a tiny image to a scratch package
+name, then delete the package. If it is refused, the outcome is a request for the operator to
+create a `write:package` secret, not a workaround. Commit the harness under
+`measurements/49-registry-push/`, record the result and relabel.
+
+*The build, once READY.* A workflow on `v*` tags: refuse a tag whose version differs from
+`pyproject.toml`'s; build the `runtime` target; run the existing health check against it; push
+`:X.Y.Z` and `:X.Y`, and `:latest` only for the highest version. A release note listing the
+Conventional Commits since the previous tag. A retention rule (for example the last five patch
+versions of each minor) is the operator's to set in Gitea; the item documents it rather than
+setting it.
+
+**50 · FILED 2026-11-02 (operator, interactive). READY. Pilot readiness: the master key from the
+environment, a state backup, and a pilot runbook.** What the pilot on the operator's host (see
+*Deployment*) needs from this repository before a first live run.
+
+*Decided 2026-11-02 (operator).*
+1. **Keys.** Each person enters their own Canvas token and it is encrypted at rest — item 45
+   built that. The **master key** that encrypts the tokens comes from `SIGHTLINE_SECRET_KEY` in
+   the host's secret environment, never from a file in the data volume: in sign-in mode the app
+   refuses to start without it, saying which variable to set and how to generate one. Local mode
+   keeps the key file. A per-person passphrase was considered and declined: a queued or resumed
+   run must reach Canvas while its starter is away.
+2. **Backups are of Sightline's state, not of Canvas exports.** Kept: the run store (runs,
+   recorded ratings and overrides, encrypted tokens, preferences), the review files under
+   `runs/`, accepted bindings under `rubrics/`, and the delivered artifacts under `reports/`.
+   Left out: `exports/` and `cache/`, which can be fetched again and hold course content that
+   should not travel off the host. The master key is backed up separately, through the host's
+   secrets handling, never beside the data.
+3. **A pilot runbook**, `docs/PILOT.md`, for the operator's first live runs.
+
+*Scope.* (1) the startup refusal and its test, the README and `.env.example` lines, and SIGN-IN.md
+saying so. A key change is a re-entry of every token, and the runbook says so; key rotation is not
+built. (2) `python -m sightline.backup <dest>`: a consistent snapshot of the SQLite store through
+its online backup API (the store runs in WAL mode, so a file copy of a live store is not a backup),
+plus the kept directories, into a dated directory, and a `--check` that opens a snapshot read-only
+and reports what it holds. Restoring is documented, not automated. (3) `PILOT.md`: deploying on a
+host with SWAG and Authentik by pointing at SIGN-IN.md; then a checklist the operator runs, in
+order, recording what each step showed — Test connection; the content-export request on one course
+and the Canvas permission it needed (item 23 left that unnamed, to be confirmed live); Check the
+model host; Propose bindings on a live host; one course with known human ratings through Start,
+review and export; the Authentik session cookie at browser close (item 47 could not determine it).
+Each check names what to send back to the roadmap, as aggregates, never a course, person or the
+institution.
+
+*Traps.* No session runs the checklist: it contacts live Canvas, which the rules forbid. The backup
+command must refuse a destination inside the data root. Nothing in PILOT.md names the institution
+or its Canvas host.
+
+*Acceptance.* The app in sign-in mode exits non-zero with the message when `SIGHTLINE_SECRET_KEY`
+is unset, and starts when it is set. A backup taken while a run is writing opens and lists the run;
+`exports/` and `cache/` are absent from it; a destination inside the data root is refused. Suite,
+ruff and black green, each exit code read separately.
+
+*Amended 2026-11-04 (operator).* The checklist in (3) gains three steps, and SIGN-IN.md's
+deployment pointer gains one:
+- **Access by group (item 51).** Before the first sign-in: the identity provider's application is
+  bound to the users group and the admin group, so nobody else reaches the app;
+  `SIGHTLINE_SIGNIN_USER_GROUP` and `SIGHTLINE_SIGNIN_ADMIN_GROUP` are set to those groups. The
+  check: one person in each group signs in, and one person in neither is refused by the identity
+  provider. PILOT.md names groups only as examples (`sightline-users`, `admins`).
+- **The calibration corpus (items 12b and 52).** Run the corpus courses through Start, after the
+  one-course check. Send back: how many were acquired and how many failed, by reason.
+- **What comes back (item 25).** Keep every workbook and action plan returned edited, beside the
+  run it came from, under the data root's `private/` (never `exports/`, which the backup leaves
+  out; `private/` is added to the backup's kept directories). Send back: how many came back.
+
+Item 50 lands after 51, so its runbook can describe both groups as built.
+
+**51 · FILED 2026-11-04 (operator, interactive). READY. Sign-in admits only members of a users
+group, or the admin group.** Item 45 made a person an admin by group membership; nothing makes a
+person a *user*. Today any identity the proxy passes is let in, so the identity provider's
+application policy is the only gate. *Decided 2026-11-04 (operator):* both — the identity
+provider's application is bound to the two groups (the host's configuration, item 50's runbook),
+**and** the app checks, so a loosened policy does not open the app to everyone the provider knows.
+
+*Scope.* `SIGHTLINE_SIGNIN_USER_GROUP`, read from the same groups header item 44 reads and matched
+exactly as item 45 matches the admin group. In sign-in mode with it set, a request whose identity
+is in neither the users group nor the admin group is refused with **403** and a page naming the
+group to ask for, rendering no run, course or setting; `GET /healthz` is answered as now. The admin
+group alone suffices. Unset, nothing changes (any proxied identity is admitted, as item 44 built
+it), and startup in sign-in mode logs one line saying so. Local mode ignores it.
+
+*Readings taken here, stated so they can be reversed.* (a) **One place**: the check sits with the
+sign-in middleware's identity, not in each view, so no route can forget it. (b) **Not required**
+in sign-in mode: requiring it would break the reference deployment's default for no gain where the
+provider already gates; the pilot sets it. (c) **Removal keeps data**: a person taken out of the
+group keeps their runs in the store, an admin still sees them, and they cannot sign in to see
+them.
+
+*Traps.* Match the group name exactly, never by substring (`sightline-users` must not admit
+`not-sightline-users`). The refusal is a page, not an empty body: the person needs to know which
+group to request. CSRF and the proxy-secret refusal keep their order: a request that did not come
+through the proxy is refused before group membership is looked at.
+
+*Acceptance.* In the users group: admitted. In the admin group only: admitted as admin. In
+neither: 403 on `/`, `/runs`, a run, a review and a form post, naming the group; `/healthz` still
+200. Unset: today's tests pass unchanged. A substring group is refused. README, `.env.example` and
+SIGN-IN.md (Authentik: bind the application to both groups; the oauth2-proxy example: its
+allowed-groups setting) say so. The refusal page checked at 1400 and 390 px. SPEC §09 gains *As
+built (item 51)*. Suite, ruff and black green, each exit code read separately.
+
+**52 · FILED 2026-11-04 (operator, interactive). NEEDS MEASUREMENT. Does a larger model on the
+existing model host settle the disagreement set better than the three runs?** Item 18's adapter
+is parked for want of ChatGPT Edu API access; its entry notes that Ollama serves the same
+OpenAI-compatible API, so the escalation endpoint could be a larger model on the host Sightline
+already uses.
+
+*The measurement, when it can run.* It needs the corpus courses acquired, so it waits on the pilot's
+corpus runs (item 50's checklist), as 12b does. Then: which larger models fit on the model host
+beside the extraction model (memory, and whether Ollama must unload one to load the other); and,
+re-running only each corpus course's disagreement set on the best that fits, whether its verified
+quotes are stable across two runs where the three runs were not, how many fewer rows stay routed,
+and the wall-clock cost per course. The metric is written into the harness before any result is
+read. The comparison is with the three-run router and the corpus's human ratings as targets; it
+never yields an accuracy or confidence figure for Sightline, and its write-up says so.
+
+*Outcomes.* (a) It settles materially more rows at an acceptable cost: item 18 is re-specified
+against the Ollama endpoint and relabelled. (b) It does not: 18 stays parked, and the numbers are
+recorded so this is not re-asked. Harness and aggregates under `measurements/52-escalation/`;
+nothing that names a course, passage, person or the institution.
+
+*Traps.* The model host's concurrency is one: the measurement must not run while a pilot run is
+active (item 46's queue is the gate). A model that does not fit is a result, not a reason to
+shrink the extraction model.
 
 **41 · FILED 2026-10-29 from `~/docker` TODO I267 (operator, interactive). READY, Tier 0. A cancelled
 `image` job leaves its sample-report container running on the runner's shared DinD daemon.**
@@ -2512,6 +2720,16 @@ to this.**
   something credential-shaped" rather than dropped.
 
 ## Corrections log
+
+**2026-11-04 — blocked and parked items revisited (operator, interactive).** 12b relabelled NEEDS
+MEASUREMENT on the pilot's corpus runs (its BLOCKED reason was spent); 18 stays parked and its Ollama
+route is filed as 52; 19 and 20 unchanged (20's condition for return is still 12b); 25 stays blocked
+and the pilot keeps what comes back. 51 filed: the app admits only a users group or the admin
+group, on top of the identity provider's binding. Item 50's checklist amended to match.
+
+**2026-11-02 — decisions recorded (operator).** *Deployment* names the pilot's host (the operator's,
+behind its SWAG and Authentik) and says releases are cut by a pushed tag. SPEC §09's open question
+on bindings is answered: per user, item 48. Items 48–50 filed.
 
 **2026-10-30 — item 46 built (PR #52).** SPEC §04 *Runtime* says one run executes at a time and the
 rest queue; §09's *As built (item 36)* no longer says a start is refused while another run is
