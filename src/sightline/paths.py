@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import contextlib
 import os
+import shutil
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -55,6 +56,10 @@ class DataPathEscape(DataPathError):
 
 class DataPathUnwritable(DataPathError):
     """The data root cannot be created, or cannot be written to once it exists."""
+
+
+class SnapshotRefused(DataPathError):
+    """A backup snapshot cannot be made where it was asked for (roadmap item 50)."""
 
 
 @dataclass(frozen=True)
@@ -295,3 +300,61 @@ class DataPaths:
         finally:
             os.close(descriptor)
         return material
+
+
+# -- backup snapshots (roadmap item 50) ------------------------------------------------------------
+#
+# The one place Sightline writes outside its data root, and so the one place that has to refuse the
+# data root itself. A snapshot is built under ``<name>.partial`` and renamed into place when it is
+# complete, for the same reason a download is: a backup that died halfway must not be mistaken for
+# one that did not. The snapshot directory is handed back as a :class:`DataPaths`, so every file
+# written into it goes through the same gate as everything else here.
+
+
+def begin_snapshot(data: DataPaths, destination: str | os.PathLike[str], name: str) -> DataPaths:
+    """Create the empty, owner-only snapshot directory ``<destination>/<name>.partial``.
+
+    Refuses a destination inside the data root, symlinks resolved: a backup kept beside what it
+    backs up is lost with it, and one written into ``runs/`` would be copied into the next. Refuses
+    a ``name`` that already exists, complete or partial, rather than writing into it.
+    """
+    if not name or name in {".", ".."} or "/" in name or "\\" in name:
+        raise SnapshotRefused(f"not a snapshot name: {name!r}")
+    target = Path(destination).expanduser().absolute()
+    if data.contains(target):
+        raise SnapshotRefused(
+            f"{target} is inside the data root ({data.root}); a backup must be kept somewhere "
+            "the data root is not"
+        )
+    final = target / name
+    staging = target / f"{name}{PARTIAL_SUFFIX}"
+    for existing in (final, staging):
+        if existing.exists() or existing.is_symlink():
+            raise SnapshotRefused(f"{existing} already exists")
+    try:
+        target.mkdir(parents=True, exist_ok=True)
+        staging.mkdir(mode=SECRET_DIR_MODE)
+    except OSError as exc:
+        raise SnapshotRefused(f"{target}: {exc.strerror or exc}") from exc
+    # The mode passed to mkdir is filtered by the umask; this is not.
+    staging.chmod(SECRET_DIR_MODE)
+    return DataPaths(root=staging)
+
+
+def finish_snapshot(snapshot: DataPaths) -> Path:
+    """Move a completed snapshot from its ``.partial`` name to its real one. Returns the path."""
+    staging = snapshot.root
+    if not staging.name.endswith(PARTIAL_SUFFIX):
+        raise SnapshotRefused(f"{staging} is not a snapshot in progress")
+    final = staging.with_name(staging.name.removesuffix(PARTIAL_SUFFIX))
+    if final.exists() or final.is_symlink():
+        raise SnapshotRefused(f"{final} already exists")
+    os.rename(staging, final)
+    return final
+
+
+def abandon_snapshot(snapshot: DataPaths) -> None:
+    """Remove a snapshot that failed partway. Only ever a ``.partial`` this module created."""
+    staging = snapshot.root
+    if staging.name.endswith(PARTIAL_SUFFIX) and staging.is_dir() and not staging.is_symlink():
+        shutil.rmtree(staging, ignore_errors=True)
