@@ -264,12 +264,15 @@ confirmation screen shows every proposal with the same what, why and how, every 
 *Check all* checks every proposal that is not a conflict, and each conflict needs its own box. The
 coverage change of exactly the checked proposals is shown before **Accept** is offered.
 
-Accepting applies to the app's copy of the rubric, never to the shipped file. Each acceptance is
+Accepting applies to your copy of the rubric, never to the shipped file. With sign-in on, each
+person has their own: what one person proposes and accepts applies to the runs they start and
+nobody else's, and an admin can read everybody's history but change none of it. Each acceptance is
 kept under the data root (`rubrics/<pack id>/`) with who accepted it and when, the proposal
 numbers and the coverage change, and the latest one can be reverted; nothing is removed from the
-history. Every run started afterwards — from the app or `python -m sightline.batch` — uses the
-accepted bindings and records their digest, so its reports read the same bindings after a later
-acceptance or revert. A run may start while proposals wait: it uses only confirmed bindings, and
+history. Every run started afterwards from the app uses its starter's accepted bindings and records
+their digest, so its reports read the same bindings after a later acceptance or revert. A run
+started with `python -m sightline.batch run` uses the shipped rubric's own bindings unless
+`--bindings <digest>` names an accepted state; the digest is on the rubric's page. A run may start while proposals wait: it uses only confirmed bindings, and
 the picker says *bindings proposed, not confirmed* beside the rubric.
 
 ---

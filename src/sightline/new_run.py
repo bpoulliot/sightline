@@ -12,6 +12,7 @@ not markup, so item 22's binding confirmation attaches to a choice without the p
 rebuilt: each choice says whether the pack has *bindings proposed, not confirmed* and links to its
 page (:mod:`sightline.rubric_screens`), and whether runs use bindings accepted there. Neither ever
 blocks Start — bindings are an accelerator, not a prerequisite, and a run uses only confirmed ones.
+Both are the person's own (roadmap item 48): their proposals and the bindings they accepted.
 
 *The reasons a run cannot start.* Each one is a :class:`Blocker` with a remedy, shown before
 anybody presses Start and checked again when they do:
@@ -105,12 +106,13 @@ class Blocker:
 
 
 def rubric_choices(
-    selected: str | None = None, *, paths: DataPaths | None = None
+    selected: str | None = None, *, paths: DataPaths | None = None, viewer: Viewer = LOCAL
 ) -> tuple[RubricChoice, ...]:
     """The shipped packs in file order, with ``selected`` (or the default) chosen.
 
     An empty tuple when no pack can be found; the screen says so rather than offering nothing.
-    With ``paths``, each choice also carries its bindings state (item 22).
+    With ``paths``, each choice also carries its bindings state (item 22): ``viewer``'s own
+    (item 48).
     """
     try:
         packs = shipped_packs()
@@ -129,7 +131,7 @@ def rubric_choices(
             href=rubric_href(pack.id),
         )
         if paths is not None:
-            choice = _with_bindings(choice, pack.id, paths)
+            choice = _with_bindings(choice, pack.id, paths, viewer)
         choices.append(choice)
     return tuple(choices)
 
@@ -139,25 +141,28 @@ def rubric_href(pack_id: str) -> str:
     return f"/rubrics/{pack_id}"
 
 
-def unconfirmed_sets(pack_id: str, paths: DataPaths) -> int:
-    """How many kept proposal sets were made over the bindings in force and hold proposals.
+def unconfirmed_sets(pack_id: str, paths: DataPaths, starter: str | None = None) -> int:
+    """How many of ``starter``'s kept proposal sets were made over their bindings in force and hold
+    proposals.
 
     A set made over any other state of the pack can no longer be accepted (part one refuses it),
     so it is not open, whatever it holds.
     """
-    resolved = resolve_pack(pack_id, paths)
+    resolved = resolve_pack(pack_id, paths, starter=starter)
     now = fingerprint(resolved.pack)
     return sum(
         1
-        for saved in BindingStore(paths).proposal_sets(pack_id)
+        for saved in BindingStore(paths, starter).proposal_sets(pack_id)
         if saved.proposals.fingerprint == now and saved.proposals.proposals
     )
 
 
-def _with_bindings(choice: RubricChoice, pack_id: str, paths: DataPaths) -> RubricChoice:
+def _with_bindings(
+    choice: RubricChoice, pack_id: str, paths: DataPaths, viewer: Viewer
+) -> RubricChoice:
     try:
-        resolved = resolve_pack(pack_id, paths)
-        unconfirmed = unconfirmed_sets(pack_id, paths) > 0
+        resolved = resolve_pack(pack_id, paths, starter=viewer.subject)
+        unconfirmed = unconfirmed_sets(pack_id, paths, viewer.subject) > 0
     except BindingsError:
         # The rubric's page says what is wrong with the kept bindings; the picker still offers
         # the pack, and a run started now records what it resolves to when it starts.
@@ -169,9 +174,15 @@ def _with_bindings(choice: RubricChoice, pack_id: str, paths: DataPaths) -> Rubr
         accepted=(
             None
             if accepted is None
-            else f"Runs use the bindings accepted on {accepted.at[:10]} by {accepted.reviewer}."
+            else f"{runs_word(viewer)} use the bindings accepted on {accepted.at[:10]} by "
+            f"{accepted.reviewer}."
         ),
     )
+
+
+def runs_word(viewer: Viewer) -> str:
+    """Whose runs a person's bindings apply to, as a sentence starts: theirs alone, signed in."""
+    return "Your runs" if viewer.signed_in else "Runs"
 
 
 def active_runs(store: RunStore, runner: BackgroundRunner | None) -> list[Run]:
@@ -278,7 +289,7 @@ def blockers(
         )
     busy = proposing.running if proposing is not None else None
     if busy is not None:
-        found.append(proposing_blocker(busy))
+        found.append(proposing_blocker(busy, viewer))
     return found
 
 
@@ -314,8 +325,21 @@ def queue_notice(
     )
 
 
-def proposing_blocker(state: ProposingState) -> Blocker:
-    """The refusal while bindings are being proposed: it names the rubric they are for."""
+def proposing_blocker(state: ProposingState, viewer: Viewer = LOCAL) -> Blocker:
+    """The refusal while bindings are being proposed: it names the rubric they are for.
+
+    Somebody else's proposing (roadmap item 48) is named as theirs, with no link: its progress is
+    shown on its proposer's page only.
+    """
+    if state.owner != viewer.subject:
+        return Blocker(
+            summary=(
+                f"Another person is proposing bindings for {state.pack_name}. The proposer asks "
+                "the same model host, one row at a time, and a run would compete with it for that "
+                "host."
+            ),
+            remedy="Wait for the proposing to finish, then start the run.",
+        )
     return Blocker(
         summary=(
             f"Bindings are being proposed for {state.pack_name}. The proposer asks the same model "
@@ -366,6 +390,7 @@ __all__ = [
     "queue_notice",
     "rubric_choices",
     "rubric_href",
+    "runs_word",
     "short_id",
     "unconfirmed_sets",
 ]

@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% from "_bindings.html" import history_list %}
+{% block title %}Sightline — {{ pack.name }}, {{ person }}{% endblock %}
+
+{% block content %}
+<section class="panel" aria-labelledby="h-person">
+  <h1 id="h-person">{{ pack.name }}: bindings kept by {{ person | lower if local else person }}</h1>
+  <p class="meta muted">Version {{ pack.version }}, {{ pack.criteria | length }} criteria, <code>{{ pack.id }}</code></p>
+  <p class="lede">
+    Each person keeps their own bindings for a rubric, and what they accept applies to the runs
+    they start. As an admin you can read this person's bindings and their history. This page is
+    read-only: only they propose, accept or revert their bindings.
+  </p>
+  {% if local %}
+  <p class="note">The local-mode user is Sightline's one user when sign-in is off. Everything accepted before sign-in was turned on is theirs, and runs recorded with it keep it.</p>
+  {% endif %}
+  <p class="actions"><a href="/rubrics/{{ pack.id }}">Back to your own bindings for this rubric</a></p>
+</section>
+
+<section class="panel" id="bindings" aria-labelledby="h-bindings">
+  <h2 id="h-bindings">Bindings their runs use</h2>
+  {% if resolved.stale %}
+  <p class="banner banner-warn" role="status">The bindings they accepted were made over the rubric as an earlier build shipped it, so they are not applied. Their runs use the shipped rubric's own bindings.</p>
+  {% endif %}
+  {% if latest and resolved.digest %}
+  <p class="line">Their runs started now use the bindings accepted on {{ latest.at[:10] }} by {{ latest.reviewer }} (acceptance {{ latest.number }}), recorded as <code class="digest">{{ resolved.digest }}</code>.</p>
+  {% else %}
+  <p class="line">Their runs started now use the shipped rubric's own bindings.</p>
+  {% endif %}
+  <dl class="fields">
+    {%- for bucket in buckets %}
+    <div><dt>{{ bucket.label }}</dt><dd>{{ bucket.rows }} row(s)</dd></div>
+    {%- endfor %}
+    <div><dt>Proposal sets kept</dt><dd>{{ sets }}</dd></div>
+  </dl>
+</section>
+
+<section class="panel" id="history" aria-labelledby="h-history">
+  <h2 id="h-history">History</h2>
+  {{ history_list(history, reverted_by) }}
+</section>
+{% endblock %}

@@ -63,7 +63,7 @@ by item 36's session, PR #43; 44–47 split from item 40 on 2026-10-30).
 | 45 | Runs per user, an admin role, and per-user Canvas tokens | 3 | READY | **DONE** — PR #51 (a run is its starter's, 404 to anyone else; admin group alone changes instance settings; each person's own Canvas token) |
 | 46 | Queue a run behind the active one | 3 | READY | **DONE** — PR #52 (a Start while a run is active is queued FIFO; *Queued, N ahead*; starter or admin cancels, recorded; survives a restart; waits behind a live command-line run) |
 | 47 | Reference deployment: identity provider, proxy and app | 3 | READY — 44 DONE (PR #50); Authentik decided 2026-10-30 | **DONE** — PR #53 (`docker-compose.signin.yml`: the app behind an Authentik outpost, no app port, an internal network; `docs/SIGN-IN.md`, with oauth2-proxy + Entra ID as a second example) |
-| 48 | Rubric bindings belong to the person who accepts them | 3 | **READY** — decided 2026-11-02 (operator) | — |
+| 48 | Rubric bindings belong to the person who accepts them | 3 | **READY** — decided 2026-11-02 (operator) | **DONE** — PR #56. Sets and history per subject id; states shared by digest; admin reads all, read-only |
 | 49 | A pushed version tag builds the image and publishes it to the Gitea registry | 3 | **NEEDS MEASUREMENT** — whether the job token can push (`~/docker` I59) | — |
 | 50 | Pilot readiness: the master key from the environment, a state backup, and a pilot runbook | 3 | **READY** — decided 2026-11-02 (operator); checklist amended 2026-11-04 | — |
 | 51 | Sign-in admits only members of a users group (or the admin group) | 3 | **READY** — decided 2026-11-04 (operator) | — |
@@ -170,7 +170,7 @@ DONE — PR #50. `99x-` (item 45) ran DONE — PR #51. `99y-` (item 46) ran DONE
 (the bug first), `99zb-` item 48, `99zc-` item 51, `99zd-` item 50 (its runbook describes 48 and 51
 as built, so it gates on both), `99ze-` item 49's measurement. Each gates on its own status row on
 `main`, so none can run before this PR merges. 12b and 52 have no prompt yet: both wait on the
-pilot's corpus runs.
+pilot's corpus runs. `99zb-` (item 48) ran DONE — PR #56.
 
 ---
 
@@ -1098,8 +1098,12 @@ The near-boundary marker and `agreement.brief()` belong to item 24's re-run, not
   afterwards.
 - The full suite is green, ruff and black exit codes are read separately, and all CI jobs are green.
 
-**48 · FILED 2026-11-02 (operator, interactive). READY. Rubric bindings belong to the person who
-accepts them.** Item 45 left open whether proposing, accepting and reverting bindings is an
+**48 · DONE 2026-11-05 — PR #56.** Filed 2026-11-02 (operator, interactive). **Rubric bindings
+belong to the person who accepts them.** *As built:* SPEC §09 *As built (item 48)*. Each signed-in
+person's sets and history are under `rubrics/<pack>/people/<digest of subject>/`. Local mode's user
+keeps the pack-level record, so nothing moved. States stay shared by digest. An admin reads
+everybody's on read-only people pages. `python -m sightline.batch run --bindings <digest>`. One
+existing test changed on purpose: the command-line one, whose behaviour reading (d) changes. Item 45 left open whether proposing, accepting and reverting bindings is an
 instance setting (admin only). *Decided 2026-11-02 (operator): neither — each user has their own
 bindings, stored per user.* One person's accepted bindings never change another person's runs.
 
@@ -2720,6 +2724,11 @@ to this.**
   something credential-shaped" rather than dropped.
 
 ## Corrections log
+
+**2026-11-05 — item 48 built (PR #56).** SPEC §09 gains *As built (item 48)*, replacing the
+decided-not-built sentence under *As built (item 45)*, and *As built (item 22, part 2)* notes the
+starter and `--bindings`. `docs/RUBRIC-PACKS.md` says bindings are per person and the command line
+reads the shipped pack by default. Item 48 is DONE.
 
 **2026-11-04 — blocked and parked items revisited (operator, interactive).** 12b relabelled NEEDS
 MEASUREMENT on the pilot's corpus runs (its BLOCKED reason was spent); 18 stays parked and its Ollama
