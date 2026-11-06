@@ -1284,6 +1284,7 @@ repository is a bug, and `tests/test_config.py` fails the build over one.
 | `SIGHTLINE_SIGNIN_SUBJECT_HEADER` / `_NAME_HEADER` / `_GROUPS_HEADER` | The identity headers. Defaults `X-authentik-uid`, `X-authentik-name`, `X-authentik-groups` (Authentik's proxy outpost). |
 | `SIGHTLINE_SIGNIN_GROUPS_SEPARATOR` | What separates groups in the groups header. Default `\|`. |
 | `SIGHTLINE_SIGNIN_ADMIN_GROUP` | The group whose members are admins in sign-in mode, matched exactly against what the groups header carries. Unset: nobody signed in is an admin. |
+| `SIGHTLINE_SIGNIN_USER_GROUP` | The group whose members may use the app in sign-in mode (for example `sightline-users`); the admin group alone also admits. Matched exactly. Anybody else gets a 403 page naming this group. Unset: any identity the proxy forwards is admitted, and startup logs that. |
 
 `CANVAS_BASE_URL` and `CANVAS_API_TOKEN` are the **fallback**. Normally both are entered on the
 settings screen and held encrypted in the run store; the environment is what a container uses when
@@ -1334,6 +1335,17 @@ starter: an admin sees them, nobody else does.
 with who started it, and alone changes the instance settings: the Canvas base URL, the export
 preference, the model host and the model, and installing a model. Anybody else sees their state on
 Settings and no form. With the setting unset there is no admin.
+
+**Who may use it at all** (item 51) is membership of the group `SIGHTLINE_SIGNIN_USER_GROUP` names
+(for example `sightline-users`), or of the admin group (for example `admins`) on its own. Anybody
+else the proxy forwards gets 403 and a page naming the users group to ask for, on every route and
+before any route runs; the page shows no run, course or setting. `GET /healthz` answers as before.
+Group names are matched exactly, never as substrings. Bind the identity provider's application to
+both groups as well (Authentik: a group binding for each; oauth2-proxy: `allowedGroups`), so the
+provider refuses them first and the app's check is the second wall; [docs/SIGN-IN.md](docs/SIGN-IN.md)
+shows both. The setting is optional: unset, anyone the proxy forwards is admitted and startup logs
+`signin_any_identity_admitted`. Taking a person out of the group deletes nothing; their runs stay,
+and an admin still sees them.
 
 **Each person stores their own Canvas token** on Settings, encrypted as the single token is in
 local mode. A run reads Canvas, and requests its content export, with its starter's token, and

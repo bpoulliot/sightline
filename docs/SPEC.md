@@ -872,6 +872,30 @@ longer ships, as the screen refuses applying one. Two readings taken here:
 - **An admin's own bindings are their own**, kept like anybody's; being an admin changes what they
   can read, not whose bindings their runs use.
 
+**As built (item 51).** Sign-in admits only members of a users group, or the admin group.
+`SIGHTLINE_SIGNIN_USER_GROUP` (`Settings.signin_user_group`; blank is unset, as for the admin
+group) is matched exactly against item 44's groups. The check is `SignInConfig.admits`, called once
+by `SignInMiddleware` right after `identify` succeeds, so it runs after the proxy-secret checks (a
+request that did not come through the proxy is still refused with 401 before membership is looked
+at) and before CSRF and every route. In sign-in mode with the setting present, an identity in
+neither the users group nor the admin group gets **403** and `signin_refused.html`: the heading
+*You are signed in, but you are not in the group that may use Sightline.*, a remedy naming the users
+group, and no navigation, link, form, run, course or setting. The admin group alone admits; being
+admitted as a user changes nothing about what item 45 lets a person see. The log line is
+`signin_not_a_member`, with the method and nothing of the identity. Unset, every proxied identity is
+admitted as before, and the lifespan logs one `signin_any_identity_admitted` warning at startup.
+Local mode never installs the middleware, so it ignores the setting. The setting is not required in
+sign-in mode. Three readings taken here:
+- **The two stylesheets are served to a person outside the groups** (`/assets/tokens.css`,
+  `/static/app.css`, `GET`/`HEAD` only), so the refusal page reads as a Sightline page. Everything
+  else under `/static` is refused like any route.
+- **`GET /healthz` answers such a person as it answers a request nobody signed in made**: the status
+  alone, without the data root or the run counts.
+- **The refusal names the users group, never the admin group.** The person needs to know which
+  group to request; item 45 already declined to name the admin group to non-admins.
+Refusing somebody deletes nothing: their runs, bindings and token stay in the store, an admin still
+sees their runs, and they see them again once they are back in the group.
+
 **As built (item 46).** A Start while a run is active, or while runs are queued, records the run
 with status `queued` (`RunStatus.QUEUED`, label *Queued*; neither resumable nor terminal) instead of
 refusing it; the other blockers — no credential, no model host, no model, bindings being proposed —

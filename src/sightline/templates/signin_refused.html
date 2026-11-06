@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{#- What a signed-in person outside the users group gets instead of any page (roadmap item 51). It
+    names the group to ask for and links nowhere: every section would refuse them the same way. -#}
+{% block title %}Sightline: not admitted{% endblock %}
+
+{% block nav %}{% endblock %}
+
+{% block content %}
+<section class="panel" aria-labelledby="h-refused">
+  <div class="banner banner-bad" role="alert">
+    <p class="banner-head" id="h-refused">{{ summary }}</p>
+    <p class="banner-remedy">{{ remedy }}</p>
+  </div>
+</section>
+{% endblock %}
