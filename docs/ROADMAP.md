@@ -64,7 +64,7 @@ by item 36's session, PR #43; 44–47 split from item 40 on 2026-10-30).
 | 46 | Queue a run behind the active one | 3 | READY | **DONE** — PR #52 (a Start while a run is active is queued FIFO; *Queued, N ahead*; starter or admin cancels, recorded; survives a restart; waits behind a live command-line run) |
 | 47 | Reference deployment: identity provider, proxy and app | 3 | READY — 44 DONE (PR #50); Authentik decided 2026-10-30 | **DONE** — PR #53 (`docker-compose.signin.yml`: the app behind an Authentik outpost, no app port, an internal network; `docs/SIGN-IN.md`, with oauth2-proxy + Entra ID as a second example) |
 | 48 | Rubric bindings belong to the person who accepts them | 3 | **READY** — decided 2026-11-02 (operator) | **DONE** — PR #56. Sets and history per subject id; states shared by digest; admin reads all, read-only |
-| 49 | A pushed version tag builds the image and publishes it to the Gitea registry | 3 | **NEEDS MEASUREMENT** — whether the job token can push (`~/docker` I59) | — |
+| 49 | A pushed version tag builds the image and publishes it to the Gitea registry | 3 | **NEEDS DECISION** — measured 2026-11-05: the job token is refused (401); the operator creates a `write:package` token as the `REGISTRY_TOKEN` secret | measured — PR #60 |
 | 50 | Pilot readiness: the master key from the environment, a state backup, and a pilot runbook | 3 | **READY** — decided 2026-11-02 (operator); checklist amended 2026-11-04 | **DONE** — PR #58. Sign-in mode refuses to start without `SIGHTLINE_SECRET_KEY`; `python -m sightline.backup` (online backup API, `--check`); `docs/PILOT.md` |
 | 51 | Sign-in admits only members of a users group (or the admin group) | 3 | **READY** — decided 2026-11-04 (operator) | **DONE** — PR #57. `SIGHTLINE_SIGNIN_USER_GROUP`, exact; anybody in neither group gets a 403 page naming it; unset admits all and logs so |
 | 52 | Does a larger model on the existing model host settle the disagreement set? | 3 | **NEEDS MEASUREMENT** — on the pilot's corpus runs, as 12b; filed 2026-11-04 | — |
@@ -171,6 +171,8 @@ DONE — PR #50. `99x-` (item 45) ran DONE — PR #51. `99y-` (item 46) ran DONE
 as built, so it gates on both), `99ze-` item 49's measurement. Each gates on its own status row on
 `main`, so none can run before this PR merges. 12b and 52 have no prompt yet: both wait on the
 pilot's corpus runs. `99zb-` (item 48) ran DONE — PR #56. `99zc-` (item 51) ran DONE — PR #57.
+`99zd-` (item 50) ran DONE — PR #58. `99ze-` (item 49's measurement) ran — PR #60: the job token is
+refused, so item 49 is NEEDS DECISION.
 
 ---
 
@@ -1136,7 +1138,7 @@ tests pass unchanged. SPEC §09's *open* bullet under *Sign-in and multiple user
 an *As built (item 48)* paragraph. Screens checked at 1400 and 390 px. Suite, ruff and black
 green, each exit code read separately.
 
-**49 · FILED 2026-11-02 (operator, interactive). NEEDS MEASUREMENT. A pushed version tag builds the
+**49 · FILED 2026-11-02 (operator, interactive). MEASURED 2026-11-05 — NEEDS DECISION. A pushed version tag builds the
 image and publishes it to the Gitea registry.** Today CI builds the image on every PR and throws
 it away; no workflow publishes one (`~/docker` TODO I59 lists Sightline as building nothing).
 
@@ -1151,13 +1153,44 @@ major) but never tags.
 own packages store; a job must push to `gitea:3000` over the job network, plain HTTP, so the DinD
 daemon needs it as an insecure registry; **never through `git.bitmapserv.org`**, which is behind
 Cloudflare and caps a request at 100 MB. Gitea 1.27.3 serves no anonymous pulls, so the host pulls
-with a `read:package` token. There are no cleanup rules yet.
+with a `read:package` token. *(Corrected 2026-11-05: there is a cleanup rule. `~/docker` I59 records
+accesslens item 95's per-owner rule, applied 2026-10-22, which keeps `main`, `v*` and the 10 newest
+`sha-*` versions of every `bitmap` container image, so it covers Sightline's too. The build must
+check its tag names against that rule.)*
 
 *The measurement, first and alone.* Whether Gitea 1.27.3's automatic job token may push a package
 (1.25.5 refused it): one throwaway `workflow_dispatch` push of a tiny image to a scratch package
 name, then delete the package. If it is refused, the outcome is a request for the operator to
 create a `write:package` secret, not a workaround. Commit the harness under
 `measurements/49-registry-push/`, record the result and relabel.
+
+*Measured 2026-11-05 — the job token cannot push* ([`measurements/49-registry-push/`](../measurements/49-registry-push/README.md)).
+Three `workflow_dispatch` runs (3276, 3277, 3280) on chromaserv, from throwaway branches that have
+since been deleted. The job token is valid: it opens `GET /api/v1/repos/bitmap/sightline` with 200, where
+a bogus token gets 401. The registry's token endpoint (`gitea:3000/v2/token`) still returns **401**
+for it in every form tried: Basic with the actor or three other usernames, the token as username,
+Bearer, and `token`. That is the same answer a bogus password gets. `docker login gitea:3000` with
+it exits 1 `unauthorized`, and the push exits 1 `unauthorized` with no layer uploaded. The CI
+daemon does need `gitea:3000` as an insecure registry, and it already has it (`docker info`:
+`"Secure": false`). The control is the same Gitea at `172.16.250.5:3000`, which is not on the
+list: login there fails with *server gave HTTP response to HTTPS client*. A workflow must therefore
+use the name `gitea:3000`. Nothing was left behind: no package was created (read-only check of
+Gitea's `package` table, 0 rows), and the workflow lived only on the deleted branches.
+
+*The decision this forces (operator).* The job token is not a workaround, so publishing needs a
+personal access token:
+* **scope:** `write:package` and nothing else (in Gitea's *Generate New Token* form, *package:
+  Read and Write*, with every other permission *No access*);
+* **owner:** user `bitmap`, the owner the images publish under. A Gitea token cannot be narrowed to
+  one package, so it can write every `bitmap` package;
+* **where:** a repository Actions secret on `bitmap/sightline` (*Settings → Actions → Secrets*)
+  named **`REGISTRY_TOKEN`**, the name accesslens's `build.yml` already uses, and recorded in
+  `~/docker/SECRETS.md` (I59). A separate token from accesslens's, so that revoking one does not
+  break the other, unless the operator prefers to share it;
+* the workflow logs in as `bitmap` to `gitea:3000` with `--password-stdin`.
+
+Once the secret exists, this item is READY as specified below. Re-running the harness with
+`JOB_TOKEN` pointed at the secret proves it first.
 
 *The build, once READY.* A workflow on `v*` tags: refuse a tag whose version differs from
 `pyproject.toml`'s; build the `runtime` target; run the existing health check against it; push

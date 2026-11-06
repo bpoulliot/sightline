@@ -1,0 +1,134 @@
+# Roadmap item 49's measurement: can Gitea's automatic Actions job token push a container image to
+# Gitea's own registry? THIS FILE IS A HARNESS, NOT A WORKFLOW OF THIS REPOSITORY. It never lives
+# under .gitea/workflows on main. To re-run it, see README.md beside it: it is copied onto a
+# throwaway branch as .gitea/workflows/measure-49.yml, dispatched once, and the branch deleted.
+#
+# It pushes a one-file `FROM scratch` image to the scratch package `bitmap/sightline-measure-49`
+# and, if the push lands, deletes the manifest again through the registry API with the same token.
+# The token is never printed: every probe prints an HTTP status or the docker CLI's own message.
+name: measure-49 registry push
+
+on:
+  workflow_dispatch:
+
+env:
+  DOCKER_CLI_VERSION: "27.5.1"
+  REGISTRY: gitea:3000
+  # The same Gitea, by its static docker_ci address, which the CI daemon does NOT list as an
+  # insecure registry: the control for "does the daemon need gitea:3000 as an insecure registry".
+  REGISTRY_BY_IP: 172.16.250.5:3000
+  PACKAGE: bitmap/sightline-measure-49
+
+jobs:
+  push:
+    runs-on: cserv
+    container:
+      image: node:20
+      options: -v /var/run/docker.sock:/var/run/docker.sock
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the docker CLI
+        run: |
+          curl -fsSL -o /tmp/docker.tgz \
+            "https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKER_CLI_VERSION}.tgz"
+          tar -xzf /tmp/docker.tgz -C /tmp
+          install /tmp/docker/docker /usr/local/bin/docker
+          docker version --format 'client {{.Client.Version}} / daemon {{.Server.Version}}'
+
+      - name: "M1: the daemon's registry configuration"
+        run: |
+          echo "insecure CIDRs: $(docker info --format '{{json .RegistryConfig.InsecureRegistryCIDRs}}')"
+          echo "index configs:  $(docker info --format '{{json .RegistryConfig.IndexConfigs}}')"
+
+      - name: "M2: what gitea:3000 serves (from the job container)"
+        run: |
+          echo "http  /v2/ -> $(curl -s -o /dev/null -w '%{http_code}' http://gitea:3000/v2/)"
+          echo "https /v2/ -> $(curl -s -o /dev/null -w '%{http_code}' https://gitea:3000/v2/ 2>&1 || true) (000 = no TLS)"
+          echo "version    -> $(curl -s -o /dev/null -w '%{http_code}' http://gitea:3000/api/v1/version)"
+
+      - name: "M3a: the job token is present and valid (self-test: it must open the API, a bogus one must not)"
+        env:
+          JOB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -u
+          echo "job token length: ${#JOB_TOKEN}"
+          api="http://${REGISTRY}/api/v1/repos/${GITHUB_REPOSITORY}"
+          # Credentials go to curl as a config on stdin (`-K -`), never as `-u`/`-H` on the command line:
+          # the job log never shows them, and the history scan has no command-line credential to flag.
+          probe() { printf '%s\n' "$1" | curl -s -o /dev/null -w '%{http_code}' -K - "$2"; }
+          echo "API repo, job token  -> $(probe "header = \"Authorization: token ${JOB_TOKEN}\"" "$api")"
+          echo "API repo, bogus      -> $(probe 'header = "Authorization: token not-a-token"' "$api")"
+          echo "API repo, anonymous  -> $(curl -s -o /dev/null -w '%{http_code}' "$api")"
+
+      - name: "M3: registry token endpoint with the job token"
+        env:
+          JOB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          set -u
+          url="http://${REGISTRY}/v2/token?service=container_registry&scope=repository:${PACKAGE}:push,pull"
+          # Credentials go to curl as a config on stdin (`-K -`), never as `-u`/`-H` on the command line:
+          # the job log never shows them, and the history scan has no command-line credential to flag.
+          probe() { printf '%s\n' "$1" | curl -s -o /dev/null -w '%{http_code}' -K - "$2"; }
+          for u in "$ACTOR" gitea-actions x-access-token token; do
+            echo "job token, user=${u} -> $(probe "user = \"${u}:${JOB_TOKEN}\"" "$url")"
+          done
+          echo "job token as username  -> $(probe "user = \"${JOB_TOKEN}:\"" "$url")"
+          echo "job token as Bearer    -> $(probe "header = \"Authorization: Bearer ${JOB_TOKEN}\"" "$url")"
+          echo "job token as 'token'   -> $(probe "header = \"Authorization: token ${JOB_TOKEN}\"" "$url")"
+          echo "bogus password (control) -> $(probe "user = \"${ACTOR}:not-a-token\"" "$url")"
+          echo "anonymous (control)      -> $(curl -s -o /dev/null -w '%{http_code}' "$url")"
+
+      - name: "M4: docker login (bogus control, by-IP control, then the job token)"
+        env:
+          JOB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          set -u
+          printf '%s' 'not-a-token' | docker login "$REGISTRY" -u "$ACTOR" --password-stdin 2>&1 \
+            && echo "RESULT bogus-login: exit 0" || echo "RESULT bogus-login: exit $?"
+          printf '%s' "$JOB_TOKEN" | docker login "$REGISTRY_BY_IP" -u "$ACTOR" --password-stdin 2>&1 \
+            && echo "RESULT by-ip-login: exit 0" || echo "RESULT by-ip-login: exit $?"
+          printf '%s' "$JOB_TOKEN" | docker login "$REGISTRY" -u "$ACTOR" --password-stdin 2>&1 \
+            && echo "RESULT job-token-login: exit 0" || echo "RESULT job-token-login: exit $?"
+
+      - name: "M5: build a one-file image and push it"
+        id: push
+        run: |
+          set -u
+          ctx=$(mktemp -d)
+          printf 'sightline roadmap item 49 measurement, run %s\n' "$GITHUB_RUN_ID" > "$ctx/marker"
+          printf 'FROM scratch\nCOPY marker /marker\n' > "$ctx/Dockerfile"
+          tag="${REGISTRY}/${PACKAGE}:run-${GITHUB_RUN_ID}"
+          DOCKER_BUILDKIT=0 docker build -q -t "$tag" "$ctx"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          if docker push "$tag" > /tmp/push.log 2>&1; then rc=0; else rc=$?; fi
+          cat /tmp/push.log
+          echo "RESULT push: exit $rc"
+          digest=$(sed -n 's/.*digest: \(sha256:[0-9a-f]*\).*/\1/p' /tmp/push.log | head -n 1)
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+          echo "pushed digest: ${digest:-none}"
+
+      - name: "M6: if the push landed, delete the manifest with the same token"
+        if: always() && steps.push.outputs.digest != ''
+        env:
+          JOB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          set -u
+          url="http://${REGISTRY}/v2/token?service=container_registry&scope=repository:${PACKAGE}:delete,push,pull"
+          bearer=$(printf 'user = "%s"\n' "${ACTOR}:${JOB_TOKEN}" | curl -s -K - "$url" | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')
+          code=$(curl -s -o /tmp/del.out -w '%{http_code}' -X DELETE \
+            -H "Authorization: Bearer ${bearer}" \
+            "http://${REGISTRY}/v2/${PACKAGE}/manifests/${DIGEST}")
+          echo "RESULT delete manifest: HTTP $code"
+          head -c 400 /tmp/del.out; echo
+
+      - name: Clean up
+        if: always()
+        run: |
+          docker logout gitea:3000 || true
+          docker logout 172.16.250.5:3000 || true
+          docker image rm -f "${{ steps.push.outputs.tag }}" 2>/dev/null || true
