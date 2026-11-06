@@ -5,8 +5,9 @@ case: one instance offered to several people, each signing in with the instituti
 It is roadmap item 47; the decisions behind it are item 40's, and the app's side of it is items 44
 to 46 (README, *Sign-in behind a proxy*).
 
-**Nothing here has been deployed by this project.** Where it runs and who operates it is
-undecided. The compose file and both worked examples are checked offline — the compose file by
+**Nothing here has been deployed by this project.** The pilot runs on the operator's own host,
+behind a TLS terminator and an Authentik already running there (ROADMAP *Deployment*); its first
+live runs follow [PILOT.md](PILOT.md), which starts from this runbook. The compose file and both worked examples are checked offline — the compose file by
 `tests/test_signin_compose.py` and `docker compose config`, the oauth2-proxy configuration by
 starting that proxy with no network — and no identity provider was contacted to write this. Every
 host name, id and secret below is fake: `canvas.example.edu`, `auth.example.edu`,
@@ -15,6 +16,7 @@ committed.
 
 - [The shape](#the-shape)
 - [Authentik, the reference](#authentik-the-reference)
+- [The master key](#the-master-key)
 - [Checks after it is up](#checks-after-it-is-up)
 - [A second worked example: oauth2-proxy in front of Microsoft Entra ID](#a-second-worked-example-oauth2-proxy-in-front-of-microsoft-entra-id)
 - [Rotating the shared secret](#rotating-the-shared-secret)
@@ -171,6 +173,7 @@ holds a Canvas token.
 
 ```
 SIGHTLINE_SIGNIN_SECRET=fake-signin-secret-0123456789-abcdefghij
+SIGHTLINE_SECRET_KEY=fake-master-key-generate-your-own-see-below
 SIGHTLINE_SIGNIN_USER_GROUP=sightline-users
 SIGHTLINE_SIGNIN_ADMIN_GROUP=admins
 CANVAS_BASE_URL=https://canvas.example.edu
@@ -181,7 +184,8 @@ AUTHENTIK_TAG=2099.1.0
 defaults are the outpost's (`X-authentik-uid` for the subject, `X-authentik-name`,
 `X-authentik-groups` separated by `|`, and `X-Sightline-Proxy-Secret`). `AUTHENTIK_TAG` is your
 Authentik server's version; compose reads it from `.env` when it interpolates the file and refuses
-to start without it.
+to start without it. `SIGHTLINE_SECRET_KEY` is the master key ([below](#the-master-key)); compose
+and the app both refuse to start without it.
 
 `.env.outpost` — the outpost alone:
 
@@ -200,6 +204,27 @@ Then point the TLS terminator for `sightline.example.edu` at `127.0.0.1:9000`, a
 docker compose -f docker-compose.signin.yml config -q    # renders, or names what is missing
 docker compose -f docker-compose.signin.yml up -d --build
 ```
+
+## The master key
+
+Each person's Canvas token is encrypted at rest under one key, `SIGHTLINE_SECRET_KEY` (item 45
+built the encryption; item 50 made the key required here). In sign-in mode it comes from the host's
+secret environment, never from a file in the data volume, and the app refuses to start without a
+valid one, naming the variable. Generate it once:
+
+```
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+Keep it in the host's secret store, and back it up there, apart from the data:
+`python -m sightline.backup` deliberately leaves the key out (README, *Backing up*). **Changing it
+means every person enters their Canvas token again**: the stored tokens do not decrypt under
+another key, and there is no rotation command. A per-person passphrase was considered and
+declined, because a queued or resumed run must reach Canvas while its starter is away.
+
+An instance that ran sign-in mode before item 50 kept its key in `<data root>/secrets/credentials.key`.
+To keep its tokens, set `SIGHTLINE_SECRET_KEY` to that file's contents; otherwise every person
+enters their token again.
 
 ## Checks after it is up
 
@@ -390,3 +415,6 @@ Generate a new one, then change it in both places and restart the app:
 Between the two, requests are refused. With Authentik the mapping is evaluated at sign-in, so a
 person already signed in keeps sending the old secret until they sign in again: plan the rotation
 for when sessions have ended, or expect people to be asked to sign in once more.
+
+The master key is a different thing and is not rotated: a new `SIGHTLINE_SECRET_KEY` means every
+person enters their Canvas token again ([The master key](#the-master-key)).

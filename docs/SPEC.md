@@ -241,6 +241,14 @@ One run executes at a time. A run started in the app while another is active is 
 is ahead of it. The queue is the store's `queued` rows in creation order, so it survives a restart.
 Roadmap item 46.
 
+**Backups are of Sightline's state, never of Canvas content** (roadmap item 50). The run store is
+copied through SQLite's online backup API, because it runs in WAL mode and a file copy of a live
+store is not a backup; beside it go `runs/`, `rubrics/`, `reports/` and `private/` under the data
+root. `exports/` and `cache/` are left out: they can be fetched again and hold course content that
+should not travel off the host. So is `secrets/`: the master key is backed up through the host's
+secrets handling, never beside the data it decrypts. A schedule is the host's job, and restoring is
+a documented procedure rather than a command.
+
 ### Nothing institution-specific is compiled in
 
 Sightline is intended to be reusable and open source. Every deployment-specific value is
@@ -953,6 +961,35 @@ fired against a broken copy. Three readings taken here:
 - **oauth2-proxy's documentation shows header values nested under `claimSource:` and
   `secretSource:`; v7.13.0 refuses that** and takes the flat form, which is what the runbook shows.
   Checked by starting that version with no network.
+
+**As built (item 50).** Pilot readiness, in three parts. (1) **The master key from the
+environment.** In sign-in mode `Settings` refuses to start unless `SIGHTLINE_SECRET_KEY` holds a
+valid Fernet key; the message names the variable, gives the one-line command that generates one,
+and says that a different key means every person enters their Canvas token again. Blank is unset,
+and a malformed key is refused at startup rather than at the first token saved. Local mode is
+unchanged: unset, the key file under `secrets/`. Every settings refusal now hides its input
+(`hide_input_in_errors`), because a startup refusal prints outside redaction and pydantic would
+otherwise append a truncated repr of the environment to it. `docker-compose.signin.yml` requires the
+variable at config time, as it requires the proxy secret. Key rotation is not built. (2) **`python
+-m sightline.backup DEST`** writes `DEST/sightline-backup-<UTC stamp>/`, owner-only, built under a
+`.partial` name and renamed when complete, through a gate in `sightline.paths` that refuses a
+destination inside the data root (symlinks resolved) or a name that exists. The store is copied from
+a read-only connection through the backup API and rewritten as one rollback-journal file, so a
+snapshot opens on its own; the kept directories are walked without following any symlink, which is
+skipped and named in the manifest; `.partial` files and the store's own `-wal`/`-shm` are not state
+and are not copied. `MANIFEST.json` lists every file with its size and SHA-256. **`--check
+SNAPSHOT`** opens a snapshot read-only and immutable and needs no configuration: it verifies every
+file against the manifest, refuses a left-out directory or an unlisted file, runs SQLite's integrity
+check, and lists the runs by id, status, course count and creation time, with aggregate counts —
+never a course reference, which can carry the Canvas host. The backup prints the same check of
+what it wrote. (3) **`docs/PILOT.md`**, the operator's runbook for the first live runs: deploy by
+`docs/SIGN-IN.md`, the master key and backups, then the checklist, each step naming what to send
+back to the roadmap as aggregates. Two readings taken here:
+- **`private/` holds what the pilot keeps**, the workbooks and action plans that come back edited
+  (item 25), one directory per run id. The app never reads or writes it; only the backup reads it.
+- **The check lists run ids and statuses, not course references or starters.** Its output is meant
+  to be shown to whoever helps with a restore; a course reference is a URL on the institution's
+  host.
 
 ---
 
