@@ -16,6 +16,11 @@ made (:mod:`sightline.new_run`); each refusal names the other, and the run queue
 proposer. Proposals are only kept once every row has been asked: a task that stops
 part-way — the host went away, the app shut down — keeps nothing and says why, and proposing again
 starts over.
+
+**A set is kept for the person who proposed it** (roadmap item 48): it goes into their own record
+(:class:`sightline.rubric.accepted.BindingStore` with their subject id), and the progress of a task
+is shown on its proposer's page only. Proposing is still one task at a time, whoever proposes:
+there is one model host.
 """
 
 from __future__ import annotations
@@ -44,6 +49,9 @@ class ProposingState:
     pack_id: str
     pack_name: str
     model: str
+    #: Who proposed: their subject id, or ``None`` for local mode's one user; and their name.
+    owner: str | None = None
+    owner_name: str | None = None
     #: The digest of the bindings in force when it started; ``None`` is the shipped bindings.
     over: str | None
     to_ask: int
@@ -80,14 +88,15 @@ class ProposingState:
 
 
 class ProposingRegistry:
-    """The proposing task this process is running, and the last one per pack."""
+    """The proposing task this process is running, and the last one per person and pack."""
 
     def __init__(self) -> None:
-        self._states: dict[str, ProposingState] = {}
-        self._tasks: dict[str, asyncio.Task[None]] = {}
+        self._states: dict[tuple[str | None, str], ProposingState] = {}
+        self._tasks: dict[tuple[str | None, str], asyncio.Task[None]] = {}
 
-    def get(self, pack_id: str) -> ProposingState | None:
-        return self._states.get(pack_id)
+    def get(self, pack_id: str, owner: str | None = None) -> ProposingState | None:
+        """``owner``'s latest proposing task for ``pack_id``; nobody else's."""
+        return self._states.get((owner, pack_id))
 
     @property
     def running(self) -> ProposingState | None:
@@ -104,9 +113,12 @@ class ProposingRegistry:
         model: str,
         client_factory: Callable[[], OllamaClient],
         paths: DataPaths,
+        owner: str | None = None,
+        owner_name: str | None = None,
     ) -> ProposingState:
-        """Begin proposing over ``pack`` (the pack as runs use it now). The caller has checked that
-        nothing else is using the model host; this refuses a second proposing task regardless."""
+        """Begin proposing over ``pack`` (the pack as ``owner``'s runs use it now). The caller has
+        checked that nothing else is using the model host; this refuses a second proposing task
+        regardless of whose it would be."""
         busy = self.running
         if busy is not None:
             raise RuntimeError(f"bindings are already being proposed for {busy.pack_id}")
@@ -116,9 +128,11 @@ class ProposingRegistry:
             model=model,
             over=over,
             to_ask=asked_rows(pack),
+            owner=owner,
+            owner_name=owner_name,
         )
-        self._states[pack.id] = state
-        self._tasks[pack.id] = asyncio.create_task(
+        self._states[(owner, pack.id)] = state
+        self._tasks[(owner, pack.id)] = asyncio.create_task(
             self._run(state, pack, client_factory, paths), name=f"sightline-propose-{pack.id}"
         )
         log.info("binding_proposals_started", pack=pack.id, model=model, rows=state.to_ask)
@@ -134,7 +148,9 @@ class ProposingRegistry:
         client = client_factory()
         try:
             proposals = await propose(pack, client, state.model, progress=state.counted)
-            state.set_id = BindingStore(paths).save_proposals(proposals)
+            state.set_id = BindingStore(paths, state.owner, name=state.owner_name).save_proposals(
+                proposals
+            )
         except ModelHostError as exc:
             state.error = {"summary": exc.summary, "remedy": exc.remedy}
             log.warning("binding_proposals_stopped", pack=pack.id, error=exc.summary)

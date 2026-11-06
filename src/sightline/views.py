@@ -412,10 +412,10 @@ def build_router(templates: Jinja2Templates) -> APIRouter:
                 status=409,
             )
         try:
-            # The bindings in force for the rubric now (roadmap item 22, part two): only
-            # confirmed ones, and the run records which, so its reports read them back.
-            digest = resolve_pack(rubric, _paths(request)).digest
+            # The starter's bindings in force for the rubric now (roadmap items 22 and 48): only
+            # confirmed ones, their own, and the run records which, so its reports read them back.
             who = viewer(request)
+            digest = resolve_pack(rubric, _paths(request), starter=who.subject).digest
             queued = _runner(request).must_queue()
             run_id = create_batch_run(
                 _store(request),
@@ -979,7 +979,7 @@ def _start_panel(
     blocked = refusals if refusals is not None else _start_blockers(request)
     return {
         "courses": courses,
-        "rubrics": rubric_choices(rubric, paths=_paths(request)),
+        "rubrics": rubric_choices(rubric, paths=_paths(request), viewer=viewer(request)),
         "blockers": blocked,
         "refused": refusals is not None,
         # Roadmap item 46: not a refusal. A run started now waits behind the ones ahead.

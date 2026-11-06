@@ -9,6 +9,15 @@ New run screen's rubric picker (item 36) and reached from the *Rubrics* entry in
   acceptance and the control that reverts it, the *Propose bindings* action and its progress, the
   proposal sets kept for the pack, and the history of every acceptance and revert.
 - ``/rubrics/{pack}/proposals/{set}`` is the confirmation screen for one proposal set.
+- ``/rubrics/{pack}/people/{key}`` is an admin's read-only view of one other person's bindings
+  for the pack and their history (roadmap item 48). Anybody else gets 404.
+
+**Every page is the signed-in person's own** (roadmap item 48, decided 2026-11-02): the bindings in
+force are theirs, the sets listed are the ones they proposed, the history is theirs, and accepting
+or reverting changes their runs only. Another person's set id answers 404, as an id that names
+nothing. An admin sees everybody's history on the people pages and changes none of it: there is no
+route that accepts or reverts on another person's behalf. In local mode the one user owns
+everything, including what was accepted before item 48, so every page reads as it did.
 
 **The confirmation screen honours every decision of 2026-09-08 as part one recorded it.** Every
 box starts unchecked; *check all* checks every proposal that is not a conflict and nothing else;
@@ -45,7 +54,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-from .access import viewer
+from .access import Viewer, viewer
 from .config import Settings
 from .detect.base import detectors
 from .llm.client import OllamaClient
@@ -55,6 +64,7 @@ from .new_run import (
     Blocker,
     active_runs,
     rubric_href,
+    runs_word,
     short_id,
 )
 from .paths import DataPaths
@@ -66,10 +76,13 @@ from .rubric.accepted import (
     BindingStore,
     DeltaRecord,
     Entry,
+    Owner,
     ResolvedPack,
     SavedSet,
     StaleError,
     base_mapping,
+    owner_key,
+    owners,
     resolve_pack,
     reverted_by,
     standing,
@@ -115,6 +128,12 @@ NO_REVIEWER = Blocker(
 )
 
 _PACK_ID = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
+
+#: The people page's key for local mode's one user, who owns what was accepted before item 48.
+LOCAL_KEY = "local"
+
+#: Who local mode's one user is called on an admin's people pages.
+LOCAL_OWNER_NAME = "The local-mode user (everything accepted before sign-in)"
 
 
 # ---------------------------------------------------------------------------------------------
@@ -391,8 +410,20 @@ def propose_blockers(request: Request) -> list[Blocker]:
                 link="Settings",
             )
         )
+    who = viewer(request)
     busy = _proposing(request).running
-    if busy is not None:
+    if busy is not None and busy.owner != who.subject:
+        # Somebody else's proposing (roadmap item 48): its progress is on their page, not here.
+        found.append(
+            Blocker(
+                summary=(
+                    f"Another person is proposing bindings for {busy.pack_name}. One proposer at "
+                    "a time asks the model host."
+                ),
+                remedy="Wait for it to finish, then propose.",
+            )
+        )
+    elif busy is not None:
         found.append(
             Blocker(
                 summary=(
@@ -404,7 +435,6 @@ def propose_blockers(request: Request) -> list[Blocker]:
                 link=busy.pack_name,
             )
         )
-    who = viewer(request)
     for run in active_runs(_store(request), _runner(request)):
         if not who.can_see(run):
             # Somebody else's run (roadmap item 45): named as theirs, with no id and no link.
@@ -462,29 +492,42 @@ def build_rubric_router(templates: Jinja2Templates) -> APIRouter:
         except PacksNotFoundError:
             packs = {}
         paths = _paths(request)
+        who = viewer(request)
+        store = _bindings(request)
         lines: list[dict[str, Any]] = []
         for pack in packs.values():
-            line: dict[str, Any] = {"pack": pack, "href": rubric_href(pack.id), "error": None}
+            line: dict[str, Any] = {
+                "pack": pack,
+                "href": rubric_href(pack.id),
+                "error": None,
+                "others": 0,
+            }
             try:
-                resolved = resolve_pack(pack.id, paths)
+                resolved = resolve_pack(pack.id, paths, starter=who.subject)
                 now = fingerprint(resolved.pack)
-                history = BindingStore(paths).history(pack.id)
+                history = store.history(pack.id)
                 line["resolved"] = resolved
                 line["open"] = sum(
                     1
-                    for saved in BindingStore(paths).proposal_sets(pack.id)
+                    for saved in store.proposal_sets(pack.id)
                     if set_state(saved, now, history)[0] == "open"
                 )
+                if who.admin:
+                    line["others"] = len(_others(paths, pack.id, who))
             except BindingsError as exc:
                 line["error"] = str(exc)
             lines.append(line)
+        running = _proposing(request).running
         return templates.TemplateResponse(
             request=request,
             name="rubrics.html",
             context={
                 "nav": "rubrics",
                 "lines": lines,
-                "proposing": _proposing(request).running,
+                "proposing": running,
+                "proposing_mine": running is not None and running.owner == who.subject,
+                "runs": runs_word(who),
+                "signed_in": who.signed_in,
             },
         )
 
@@ -494,8 +537,8 @@ def build_rubric_router(templates: Jinja2Templates) -> APIRouter:
 
     @router.get("/api/rubrics/{pack_id}/proposing")
     async def proposing_progress(request: Request, pack_id: str) -> JSONResponse:
-        """How far proposing has got for one pack, for the page's optional script."""
-        state = _proposing(request).get(pack_id)
+        """How far this person's proposing has got for one pack, for the page's optional script."""
+        state = _proposing(request).get(pack_id, viewer(request).subject)
         if state is None:
             return JSONResponse({"pack": pack_id, "running": False}, status_code=200)
         return JSONResponse(state.to_dict())
@@ -519,12 +562,15 @@ def build_rubric_router(templates: Jinja2Templates) -> APIRouter:
                 endpoint, concurrency=1, context_tokens=settings.ollama_context_tokens
             )
 
+        who = viewer(request)
         _proposing(request).start(
             resolved.pack,
             over=resolved.digest,
             model=model,
             client_factory=client,
             paths=_paths(request),
+            owner=who.subject,
+            owner_name=who.name,
         )
         return RedirectResponse(f"{rubric_href(pack_id)}#propose", status_code=303)
 
@@ -542,7 +588,7 @@ def build_rubric_router(templates: Jinja2Templates) -> APIRouter:
         except ValueError:
             expected = -1
         try:
-            entry = BindingStore(_paths(request)).revert_latest(
+            entry = _bindings(request).revert_latest(
                 shipped=resolved.shipped, expected=expected, reviewer=reviewer
             )
         except (StaleError, BindingsError) as exc:
@@ -562,7 +608,7 @@ def build_rubric_router(templates: Jinja2Templates) -> APIRouter:
         page = confirm_page(
             resolved=resolved,
             saved=saved,
-            history=BindingStore(_paths(request)).history(pack_id),
+            history=_bindings(request).history(pack_id),
             reviewer=reviewer_name(request),
         )
         return _render_confirm(request, templates, page)
@@ -574,8 +620,7 @@ def build_rubric_router(templates: Jinja2Templates) -> APIRouter:
         if isinstance(found, _Missing):
             return _missing(request, templates, found)
         resolved, saved = found
-        paths = _paths(request)
-        store = BindingStore(paths)
+        store = _bindings(request)
         history = store.history(pack_id)
         form = await request.form()
         action = str(form.get("action", ""))
@@ -649,6 +694,52 @@ def build_rubric_router(templates: Jinja2Templates) -> APIRouter:
             f"{rubric_href(pack_id)}?done={entry.number}#bindings", status_code=303
         )
 
+    @router.get("/rubrics/{pack_id}/people/{key}", include_in_schema=False)
+    async def person_page(request: Request, pack_id: str, key: str) -> Any:
+        """An admin's read-only view of one other person's bindings and history (item 48)."""
+        who = viewer(request)
+        missing = _Missing(f"No bindings are kept under {key!r} for {pack_id}.")
+        if not who.admin or not _PACK_ID.match(pack_id):
+            # Not an admin: the same answer as a key that names nothing, as for runs (item 45).
+            return _missing(request, templates, missing)
+        try:
+            shipped = shipped_packs()[pack_id]
+        except (KeyError, PacksNotFoundError):
+            return _missing(request, templates, missing)
+        paths = _paths(request)
+        try:
+            owner = next((o for o in owners(paths, pack_id) if _key_of(o) == key), None)
+            if owner is None:
+                return _missing(request, templates, missing)
+            store = BindingStore(paths, owner.subject)
+            history = store.history(pack_id)
+            resolved = resolve_pack(pack_id, paths, starter=owner.subject, shipped=shipped)
+        except BindingsError as exc:
+            return _missing(
+                request,
+                templates,
+                _Missing(
+                    f"The bindings kept under {key!r} for {pack_id} cannot be read: {exc}.", 500
+                ),
+            )
+        stack = standing(history)
+        return templates.TemplateResponse(
+            request=request,
+            name="rubric_person.html",
+            context={
+                "nav": "rubrics",
+                "resolved": resolved,
+                "pack": shipped,
+                "person": _owner_name(owner),
+                "own": _key_of(owner) == _own_key(who),
+                "buckets": buckets(resolved.pack),
+                "latest": stack[-1] if stack else None,
+                "history": tuple(reversed(history)),
+                "reverted_by": reverted_by(history),
+                "sets": len(store.proposal_sets(pack_id)),
+            },
+        )
+
     return router
 
 
@@ -668,8 +759,8 @@ def _render_rubric(
     resolved = _resolved_or_404(request, pack_id)
     if isinstance(resolved, _Missing):
         return _missing(request, templates, resolved)
-    paths = _paths(request)
-    store = BindingStore(paths)
+    who = viewer(request)
+    store = _bindings(request)
     history = store.history(pack_id)
     now = fingerprint(resolved.pack)
     sets = [
@@ -693,8 +784,22 @@ def _render_rubric(
             )
         except BindingsError:
             revert_delta = None
-    state = _proposing(request).get(pack_id)
+    state = _proposing(request).get(pack_id, who.subject)
     done = request.query_params.get("done")
+    people: list[dict[str, Any]] = []
+    people_error: str | None = None
+    if who.admin:
+        try:
+            people = [
+                {
+                    "name": _owner_name(owner),
+                    "href": f"{rubric_href(pack_id)}/people/{_key_of(owner)}",
+                    "entries": len(BindingStore(_paths(request), owner.subject).history(pack_id)),
+                }
+                for owner in _others(_paths(request), pack_id, who)
+            ]
+        except BindingsError as exc:
+            people_error = str(exc)
     just = next((entry for entry in history if str(entry.number) == done), None)
     return templates.TemplateResponse(
         request=request,
@@ -720,6 +825,11 @@ def _render_rubric(
             # Its first sentence: the rest speaks of a file, and none exists before proposing.
             "nondeterminism": NONDETERMINISM_NOTE.split(". ")[0] + ".",
             "state_words": STATE_WORDS,
+            "runs": runs_word(who),
+            "signed_in": who.signed_in,
+            "admin": who.admin,
+            "people": people,
+            "people_error": people_error,
         },
         status_code=status,
     )
@@ -793,7 +903,7 @@ def _resolved_or_404(request: Request, pack_id: str) -> ResolvedPack | _Missing:
     if not _PACK_ID.match(pack_id):
         return _Missing(f"No shipped rubric has the id {pack_id!r}.")
     try:
-        return resolve_pack(pack_id, _paths(request))
+        return resolve_pack(pack_id, _paths(request), starter=viewer(request).subject)
     except (KeyError, PacksNotFoundError):
         return _Missing(f"No shipped rubric has the id {pack_id!r}.")
     except BindingsError as exc:
@@ -809,7 +919,7 @@ def _set_or_404(
     if isinstance(resolved, _Missing):
         return resolved
     try:
-        saved = BindingStore(_paths(request)).proposal_set(pack_id, set_id)
+        saved = _bindings(request).proposal_set(pack_id, set_id)
     except (ProposalError, BindingsError) as exc:
         return _Missing(f"The proposal set {set_id} cannot be read: {exc}", 500)
     if saved is None:
@@ -833,6 +943,30 @@ def _ints(values: Sequence[Any]) -> list[int]:
         if text.isdigit():
             out.append(int(text))
     return out
+
+
+def _bindings(request: Request) -> BindingStore:
+    """The signed-in person's own bindings store (roadmap item 48); local mode's one user's."""
+    who = viewer(request)
+    return BindingStore(_paths(request), who.subject, name=who.name)
+
+
+def _key_of(owner: Owner) -> str:
+    return owner.key or LOCAL_KEY
+
+
+def _own_key(who: Viewer) -> str:
+    return LOCAL_KEY if who.subject is None else owner_key(who.subject)
+
+
+def _owner_name(owner: Owner) -> str:
+    return LOCAL_OWNER_NAME if owner.subject is None else (owner.name or owner.subject)
+
+
+def _others(paths: DataPaths, pack_id: str, who: Viewer) -> list[Owner]:
+    """Everybody but ``who`` with bindings or proposals kept for the pack."""
+    mine = _own_key(who)
+    return [owner for owner in owners(paths, pack_id) if _key_of(owner) != mine]
 
 
 def _paths(request: Request) -> DataPaths:

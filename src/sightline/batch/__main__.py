@@ -37,7 +37,7 @@ from ..models import RunStatus
 from ..ownership import RunHold, RunOwnedElsewhereError
 from ..paths import DataPaths
 from ..preferences import PreferenceStore
-from ..rubric.accepted import BindingsError, resolve_pack
+from ..rubric.accepted import BindingsError, resolve_named, resolve_pack
 from ..rubric.effort import load_effort_model
 from ..rubric.shipped import shipped_packs
 from ..store import RunStore
@@ -92,6 +92,14 @@ def build_parser() -> argparse.ArgumentParser:
     start.add_argument("--model", help="The model to run, e.g. gemma4:e4b.")
     start.add_argument("--endpoint", help="Model host root. Defaults to the stored preference.")
     start.add_argument("--note", help="A note recorded on the run.")
+    start.add_argument(
+        "--bindings",
+        metavar="DIGEST",
+        help=(
+            "The accepted bindings to use, named by the digest the rubric's page shows "
+            "(sha256:...). Without it the run uses the shipped pack's own bindings."
+        ),
+    )
 
     resume = commands.add_parser("resume", help="Continue a run that was interrupted.")
     resume.add_argument("run_id")
@@ -261,12 +269,16 @@ async def _start(args: argparse.Namespace, settings: Settings) -> int:
 
     paths, store = _open(settings)
     try:
-        # The bindings accepted for the pack on its page in the app, as the app's Start uses them
-        # (roadmap item 22, part two). The run records which, and resuming it keeps them.
+        # A command-line run has no signed-in starter, and bindings are each person's own (roadmap
+        # item 48), so it uses the shipped pack's bindings unless --bindings names an accepted
+        # state by its digest. The run records which, and resuming it keeps them.
         try:
-            resolved = resolve_pack(args.pack, paths)
+            if args.bindings:
+                resolved = resolve_named(args.pack, paths, args.bindings.strip())
+            else:
+                resolved = resolve_pack(args.pack, paths, digest=None)
         except BindingsError as exc:
-            print(f"The accepted bindings for {args.pack} cannot be read: {exc}.", file=sys.stderr)
+            print(f"The bindings named for {args.pack} cannot be used: {exc}.", file=sys.stderr)
             return 2
         try:
             run_id = create_batch_run(
@@ -283,13 +295,8 @@ async def _start(args: argparse.Namespace, settings: Settings) -> int:
         print(f"Run {run_id}: {len(references)} course(s) against {args.pack}.")
         if resolved.digest is not None:
             print(f"It uses the bindings accepted for {args.pack}, recorded as {resolved.digest}.")
-        if resolved.stale is not None:
-            print(
-                f"The bindings accepted for {args.pack} were made over the pack as an earlier "
-                "build shipped it, so this run uses the shipped pack's own. Propose again on the "
-                "rubric's page in the app.",
-                file=sys.stderr,
-            )
+        else:
+            print(f"It uses the shipped pack's own bindings for {args.pack}.")
         factory = _factory(
             settings,
             paths,

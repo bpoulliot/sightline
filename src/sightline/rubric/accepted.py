@@ -1,14 +1,29 @@
-"""The app's copy of a pack: accepted bindings, their history, and resolving a pack id (item 22).
+"""Each person's copy of a pack: accepted bindings, their history, and resolving a pack id.
 
 Part one (:mod:`sightline.rubric.proposals`) proposes bindings and prints a mapping file. Part two
-puts the proposals on a screen, and **accepting applies to the app's copy of the pack** (decided
-2026-10-30): the shipped YAML in the repository never changes. What changes is a record under the
-data root, beside the pack id::
+puts the proposals on a screen (item 22), and **accepting applies to a copy of the pack under the
+data root** (decided 2026-10-30): the shipped YAML in the repository never changes. **Each person
+has their own copy** (roadmap item 48, decided 2026-11-02): one person's accepted bindings never
+change another person's runs. The record, beside the pack id::
 
     <data root>/rubrics/<pack id>/
-        proposals/<set id>.yaml   every proposal set the screen made, exactly as part one writes one
-        states/<hex>.json         every accepted state, immutable, named by its own digest
-        history.json              every acceptance and every revert, in order, never rewritten
+        states/<hex>.json         every accepted state, anybody's, immutable, named by its digest
+        history.json              local mode's one user: every acceptance and revert, in order
+        proposals/<set id>.yaml   local mode's one user: every proposal set the screen made
+        people/<key>/owner.json   a signed-in person: the subject id ``key`` is a digest of
+        people/<key>/history.json   their history, as above
+        people/<key>/proposals/     their proposal sets, as above
+
+**Whose copy is named by the subject id**, the signed-in person's stable id (item 44), never the
+display name; ``key`` is a digest of it (:func:`owner_key`), as their Canvas token's name is, so no
+identity-provider id becomes a file name. ``owner.json`` holds the subject and the latest display
+name, so an admin's read-only view can say whose history it is. **Local mode's one user** (item 45)
+owns the record at the pack's own level, which is where every acceptance made before item 48 was
+kept, so a local install reads exactly as it did and nothing was moved.
+
+**States are not anybody's.** They are named by digest alone and kept once per pack, so a digest a
+run recorded resolves whoever's history it came from, after any later acceptance or revert by
+anybody, and moving a person's history could never orphan one.
 
 **A state is the whole of a pack's bindings**, row by row, with the pack it applies to and the
 fingerprint of the shipped pack it was made over. Its digest is a sha256 over exactly that, so the
@@ -24,8 +39,9 @@ a reverted acceptance is still in the history, marked by the revert that undid i
 force is the ``after`` of the last entry, or the shipped bindings when there is none.
 
 **One function answers "which pack does this run use".** :func:`resolve_pack` takes a pack id and
-returns the shipped pack with the accepted bindings in force applied, and the digest that names
-them — or, given a digest a run recorded, the pack with exactly those bindings. The New run screen,
+the run's starter, and returns the shipped pack with the starter's accepted bindings in force
+applied, and the digest that names them — or, given a digest a run recorded, the pack with exactly
+those bindings, whoever accepted them. The New run screen,
 ``python -m sightline.batch``, :mod:`sightline.batch.service` and :mod:`sightline.report.loader`
 all resolve through it. A run with no digest — every run recorded before this item, and every run
 over a pack nobody accepted bindings for — reads the shipped pack, which is what it ran with.
@@ -74,6 +90,13 @@ FILE_VERSION = 1
 
 HISTORY_FILENAME = "history.json"
 
+#: Where a signed-in person's history and proposal sets are kept, under the pack's directory.
+PEOPLE = "people"
+OWNER_FILENAME = "owner.json"
+
+#: A person's directory name: :func:`owner_key` of their subject id.
+OWNER_KEY = re.compile(r"^[0-9a-f]{48}$")
+
 #: A proposal set's id: the time it was saved and a few random characters, so ids sort by time.
 SET_ID = re.compile(r"^\d{8}T\d{6}Z-[0-9a-f]{6}$")
 
@@ -94,6 +117,17 @@ class StaleError(BindingsError):
 
 def _now() -> str:
     return dt.datetime.now(dt.UTC).replace(microsecond=0).isoformat()
+
+
+def owner_key(subject: str) -> str:
+    """The directory a signed-in person's bindings are kept in: a digest of their subject id.
+
+    The same construction as their Canvas token's name (:func:`sightline.credentials.
+    user_secret_name`), so the identity provider's id is never a path.
+    """
+    if not subject:
+        raise BindingsError("a person's bindings are named by their subject id, and none was given")
+    return hashlib.blake2b(subject.encode("utf-8"), digest_size=24).hexdigest()
 
 
 # ---------------------------------------------------------------------------------------------
@@ -333,22 +367,78 @@ class SavedSet:
     proposals: ProposalSet
 
 
-class BindingStore:
-    """Proposal sets, accepted states and the history, under the data root. Reads and appends."""
+@dataclass(frozen=True, kw_only=True, slots=True)
+class Owner:
+    """Whose bindings: a signed-in person by subject id, or local mode's one user (``None``)."""
 
-    def __init__(self, paths: DataPaths) -> None:
+    subject: str | None
+    #: The display name last recorded with the subject; for local mode's user, ``None``.
+    name: str | None = None
+
+    @property
+    def key(self) -> str | None:
+        return None if self.subject is None else owner_key(self.subject)
+
+
+class BindingStore:
+    """One person's proposal sets and history, and every accepted state, under the data root.
+
+    ``owner`` is the subject id of the person whose sets and history are read and appended to;
+    ``None`` is local mode's one user. ``name`` is that person's display name, recorded beside the
+    subject so an admin's view can say whose history it is. States are shared by digest, so
+    :meth:`state` answers for any owner's.
+    """
+
+    def __init__(
+        self, paths: DataPaths, owner: str | None = None, *, name: str | None = None
+    ) -> None:
         self.paths = paths
+        self.owner = Owner(subject=owner, name=name)
+
+    def _own(self, pack_id: str, *parts: str) -> tuple[str, ...]:
+        key = self.owner.key
+        if key is None:
+            return (ROOT, pack_id, *parts)
+        return (ROOT, pack_id, PEOPLE, key, *parts)
 
     def _dir(self, pack_id: str, *parts: str) -> Path:
-        return self.paths.resolve(ROOT, pack_id, *parts)
+        return self.paths.resolve(*self._own(pack_id, *parts))
+
+    def _states(self, pack_id: str, *parts: str) -> Path:
+        return self.paths.resolve(ROOT, pack_id, "states", *parts)
+
+    def _claim(self, pack_id: str) -> None:
+        """Record whose directory this is, before anything is written into it."""
+        if self.owner.subject is None:
+            return
+        payload = {
+            "owner_file": FILE_VERSION,
+            "subject": self.owner.subject,
+            "name": self.owner.name or self.owner.subject,
+        }
+        path = self._dir(pack_id, OWNER_FILENAME)
+        if path.is_file():
+            kept = _read_owner(path)
+            if kept.subject != self.owner.subject:
+                raise BindingsError(
+                    f"{pack_id}: a person's bindings directory names another subject, so it has "
+                    "been edited"
+                )
+            if self.owner.name is None or kept.name == payload["name"]:
+                return
+        self.paths.save_text(
+            *self._own(pack_id, OWNER_FILENAME),
+            text=json.dumps(payload, indent=2, ensure_ascii=False),
+        )
 
     # -- proposal sets --------------------------------------------------------------------------
 
     def save_proposals(self, proposals: ProposalSet, *, clock: Callable[[], str] = _now) -> str:
         stamp = dt.datetime.fromisoformat(clock()).astimezone(dt.UTC).strftime("%Y%m%dT%H%M%SZ")
         set_id = f"{stamp}-{secrets.token_hex(3)}"
+        self._claim(proposals.pack_id)
         self.paths.save_text(
-            ROOT, proposals.pack_id, "proposals", f"{set_id}.yaml", text=proposals.to_yaml()
+            *self._own(proposals.pack_id, "proposals", f"{set_id}.yaml"), text=proposals.to_yaml()
         )
         return set_id
 
@@ -381,7 +471,7 @@ class BindingStore:
         """Write ``state`` under its digest unless it is there already. Returns the digest."""
         digest = state.digest
         name = f"{digest.removeprefix('sha256:')}.json"
-        path = self._dir(state.pack_id, "states", name)
+        path = self._states(state.pack_id, name)
         if path.is_file():
             self.state(state.pack_id, digest)  # an existing file must still be that state
             return digest
@@ -389,10 +479,11 @@ class BindingStore:
         return digest
 
     def state(self, pack_id: str, digest: str) -> BindingState:
+        """The accepted state named ``digest``, whoever accepted it."""
         hexdigest = digest.removeprefix("sha256:")
         if not digest.startswith("sha256:") or not STATE_HEX.match(hexdigest):
             raise BindingsError(f"{digest!r} is not the digest of an accepted state")
-        path = self._dir(pack_id, "states", f"{hexdigest}.json")
+        path = self._states(pack_id, f"{hexdigest}.json")
         if not path.is_file():
             raise BindingsError(
                 f"no accepted state {digest} is kept for {pack_id} under this data root"
@@ -431,10 +522,9 @@ class BindingStore:
             "pack": pack_id,
             "entries": [item.to_dict() for item in (*history, entry)],
         }
+        self._claim(pack_id)
         self.paths.save_text(
-            ROOT,
-            pack_id,
-            HISTORY_FILENAME,
+            *self._own(pack_id, HISTORY_FILENAME),
             text=json.dumps(payload, indent=2, ensure_ascii=False),
         )
         return entry
@@ -456,7 +546,9 @@ class BindingStore:
         """
         pack_id = shipped.id
         history = self.history(pack_id)
-        in_force = resolve_pack(pack_id, self.paths, shipped=shipped).digest
+        in_force = resolve_pack(
+            pack_id, self.paths, starter=self.owner.subject, shipped=shipped
+        ).digest
         if in_force != before:
             raise StaleError(
                 "the bindings in force changed after this page was shown, so nothing was "
@@ -524,6 +616,51 @@ class BindingStore:
         return apply(shipped, self.state(shipped.id, digest))
 
 
+def _read_owner(path: Path) -> Owner:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        if payload.get("owner_file") != FILE_VERSION:
+            raise BindingsError(f"{path.name}: not an owner file of version {FILE_VERSION}")
+        subject = str(payload["subject"])
+        name = str(payload.get("name") or subject)
+    except (KeyError, TypeError, ValueError, AttributeError) as exc:
+        if isinstance(exc, BindingsError):
+            raise
+        raise BindingsError(
+            f"{path.name}: an owner file with a missing or malformed field"
+        ) from exc
+    if owner_key(subject) != path.parent.name:
+        raise BindingsError(
+            f"{path.parent.name}: the owner file names a subject this directory is not kept "
+            "under, so it has been edited"
+        )
+    return Owner(subject=subject, name=name)
+
+
+def owners(paths: DataPaths, pack_id: str) -> tuple[Owner, ...]:
+    """Everybody who has bindings or proposals kept for ``pack_id``, for an admin's view.
+
+    Local mode's one user first, when anything is kept at the pack's own level (everything
+    accepted before item 48, and everything accepted in local mode since); then each signed-in
+    person, by display name. A directory whose owner file does not match it is refused.
+    """
+    found: list[Owner] = []
+    base = paths.resolve(ROOT, pack_id)
+    if (base / HISTORY_FILENAME).is_file() or (base / "proposals").is_dir():
+        found.append(Owner(subject=None))
+    people = base / PEOPLE
+    signed: list[Owner] = []
+    if people.is_dir():
+        for directory in sorted(people.iterdir()):
+            if not directory.is_dir() or not OWNER_KEY.match(directory.name):
+                continue
+            path = directory / OWNER_FILENAME
+            if path.is_file():
+                signed.append(_read_owner(path))
+    found.extend(sorted(signed, key=lambda owner: ((owner.name or "").casefold(), owner.key)))
+    return tuple(found)
+
+
 # ---------------------------------------------------------------------------------------------
 # Resolving a pack id: the one function
 # ---------------------------------------------------------------------------------------------
@@ -562,15 +699,17 @@ def resolve_pack(
     paths: DataPaths | None,
     *,
     digest: str | None = CURRENT,
+    starter: str | None = None,
     packs_dir: Path | str | None = None,
     shipped: RubricPack | None = None,
 ) -> ResolvedPack:
     """The pack a run over ``pack_id`` uses, and the digest of the bindings applied to it.
 
-    ``digest=CURRENT`` (the default) applies the bindings in force now — what a run being started
-    records. A digest a run recorded applies exactly that state, whatever has been accepted or
-    reverted since. ``None`` is the shipped pack. Raises ``KeyError`` for a pack this build does
-    not ship and :class:`BindingsError` for a recorded state that is not kept here.
+    ``digest=CURRENT`` (the default) applies ``starter``'s bindings in force now — what a run they
+    are starting records. ``starter`` is their subject id; ``None`` is local mode's one user. A
+    digest a run recorded applies exactly that state, whoever accepted it and whatever has been
+    accepted or reverted since. ``None`` is the shipped pack. Raises ``KeyError`` for a pack this
+    build does not ship and :class:`BindingsError` for a recorded state that is not kept here.
     """
     if shipped is None:
         shipped = shipped_pack(pack_id, packs_dir)
@@ -581,7 +720,7 @@ def resolve_pack(
             f"the run used the bindings accepted as {digest}, and no data root was given to "
             "read them from"
         )
-    store = BindingStore(paths)
+    store = BindingStore(paths, starter)
     if digest is CURRENT:
         entries = store.history(pack_id)
         current = entries[-1].after if entries else None
@@ -600,6 +739,26 @@ def resolve_pack(
     return ResolvedPack(
         pack=apply(shipped, store.state(pack_id, digest)), shipped=shipped, digest=digest
     )
+
+
+def resolve_named(
+    pack_id: str, paths: DataPaths, digest: str, *, packs_dir: Path | str | None = None
+) -> ResolvedPack:
+    """A new run's pack with the accepted state ``digest`` applied, named by digest alone.
+
+    For a run started on the command line with ``--bindings`` (roadmap item 48), which has no
+    signed-in starter whose bindings in force could be meant. Any accepted state kept for the pack
+    resolves, whoever accepted it. A state made over a pack this build no longer ships is refused
+    rather than applied, as it is not applied to a run started on the screen.
+    """
+    shipped = shipped_pack(pack_id, packs_dir)
+    state = BindingStore(paths).state(pack_id, digest)
+    if state.base != fingerprint(shipped):
+        raise BindingsError(
+            f"the bindings {digest} were accepted over {pack_id} as an earlier build shipped it, "
+            "so they are not applied to a new run"
+        )
+    return ResolvedPack(pack=apply(shipped, state), shipped=shipped, digest=digest)
 
 
 def base_mapping(pack: RubricPack, *, shipped: RubricPack) -> PackMapping | None:
@@ -645,12 +804,16 @@ __all__ = [
     "BindingsError",
     "DeltaRecord",
     "Entry",
+    "Owner",
     "ResolvedPack",
     "SavedSet",
     "StaleError",
     "apply",
     "asked_rows",
     "base_mapping",
+    "owner_key",
+    "owners",
+    "resolve_named",
     "resolve_pack",
     "reverted_by",
     "standing",
