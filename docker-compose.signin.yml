@@ -11,7 +11,8 @@
 # is refused anyway (SIGHTLINE_SIGNIN_SECRET, item 44), but the network is the first wall.
 #
 # Every secret comes from the environment; this file holds none (tests/test_signin_compose.py):
-#   .env          the app's settings, as in local mode, plus SIGHTLINE_SIGNIN_SECRET
+#   .env          the app's settings, as in local mode, plus SIGHTLINE_SIGNIN_SECRET and
+#                 SIGHTLINE_SECRET_KEY (the master key for every person's Canvas token, item 50)
 #   .env.outpost  AUTHENTIK_HOST and AUTHENTIK_TOKEN, read by the outpost only
 # Two files, so the app never holds the outpost's token and the outpost never holds a Canvas token.
 # Both are gitignored by `.env.*`. AUTHENTIK_TAG and the port settings are read from .env or the
@@ -35,6 +36,8 @@ services:
       SIGHTLINE_SIGNIN: "true"
       # Refused at config time rather than at the app's start, so a missing secret names itself.
       SIGHTLINE_SIGNIN_SECRET: ${SIGHTLINE_SIGNIN_SECRET:?set SIGHTLINE_SIGNIN_SECRET in .env (docs/SIGN-IN.md)}
+      # The app refuses to start without it too (item 50); this names it before a container runs.
+      SIGHTLINE_SECRET_KEY: ${SIGHTLINE_SECRET_KEY:?set SIGHTLINE_SECRET_KEY in .env (docs/SIGN-IN.md)}
     # No `ports:`. The outpost reaches the app at http://sightline:8000 over `proxy`.
     networks:
       - proxy

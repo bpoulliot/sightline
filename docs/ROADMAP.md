@@ -65,7 +65,7 @@ by item 36's session, PR #43; 44–47 split from item 40 on 2026-10-30).
 | 47 | Reference deployment: identity provider, proxy and app | 3 | READY — 44 DONE (PR #50); Authentik decided 2026-10-30 | **DONE** — PR #53 (`docker-compose.signin.yml`: the app behind an Authentik outpost, no app port, an internal network; `docs/SIGN-IN.md`, with oauth2-proxy + Entra ID as a second example) |
 | 48 | Rubric bindings belong to the person who accepts them | 3 | **READY** — decided 2026-11-02 (operator) | **DONE** — PR #56. Sets and history per subject id; states shared by digest; admin reads all, read-only |
 | 49 | A pushed version tag builds the image and publishes it to the Gitea registry | 3 | **NEEDS MEASUREMENT** — whether the job token can push (`~/docker` I59) | — |
-| 50 | Pilot readiness: the master key from the environment, a state backup, and a pilot runbook | 3 | **READY** — decided 2026-11-02 (operator); checklist amended 2026-11-04 | — |
+| 50 | Pilot readiness: the master key from the environment, a state backup, and a pilot runbook | 3 | **READY** — decided 2026-11-02 (operator); checklist amended 2026-11-04 | **DONE** — PR #58. Sign-in mode refuses to start without `SIGHTLINE_SECRET_KEY`; `python -m sightline.backup` (online backup API, `--check`); `docs/PILOT.md` |
 | 51 | Sign-in admits only members of a users group (or the admin group) | 3 | **READY** — decided 2026-11-04 (operator) | **DONE** — PR #57. `SIGHTLINE_SIGNIN_USER_GROUP`, exact; anybody in neither group gets a 403 page naming it; unset admits all and logs so |
 | 52 | Does a larger model on the existing model host settle the disagreement set? | 3 | **NEEDS MEASUREMENT** — on the pilot's corpus runs, as 12b; filed 2026-11-04 | — |
 
@@ -1166,8 +1166,8 @@ Conventional Commits since the previous tag. A retention rule (for example the l
 versions of each minor) is the operator's to set in Gitea; the item documents it rather than
 setting it.
 
-**50 · FILED 2026-11-02 (operator, interactive). READY. Pilot readiness: the master key from the
-environment, a state backup, and a pilot runbook.** What the pilot on the operator's host (see
+**50 · FILED 2026-11-02 (operator, interactive). DONE — PR #58 (SPEC §09 *As built (item 50)*).
+Pilot readiness: the master key from the environment, a state backup, and a pilot runbook.** What the pilot on the operator's host (see
 *Deployment*) needs from this repository before a first live run.
 
 *Decided 2026-11-02 (operator).*

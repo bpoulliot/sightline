@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from cryptography.fernet import Fernet
 
 import ollama_recordings as recordings
 from canvas_recordings import EXAMPLE_BASE_URL
@@ -69,6 +70,8 @@ WAIT_SECONDS = 60.0
 
 #: Obviously fake, and long enough for the 32-character floor.
 SECRET = "fake-proxy-secret-0000000000000000000000"
+#: Sign-in mode's master key (item 50), generated per process: no key literal in the tree.
+MASTER_KEY = Fernet.generate_key().decode()
 ADMIN_GROUP = "fake-sightline-admins"
 
 ALICE = "fake-subject-alice-0001"
@@ -115,6 +118,7 @@ def signin(data_root: Path) -> Iterator[Client]:
         log_format="json",
         signin=True,
         signin_secret=SECRET,
+        secret_key=MASTER_KEY,
         signin_admin_group=ADMIN_GROUP,
     )
     with Client(create_app(settings)) as client:
