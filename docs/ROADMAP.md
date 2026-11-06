@@ -66,7 +66,7 @@ by item 36's session, PR #43; 44–47 split from item 40 on 2026-10-30).
 | 48 | Rubric bindings belong to the person who accepts them | 3 | **READY** — decided 2026-11-02 (operator) | **DONE** — PR #56. Sets and history per subject id; states shared by digest; admin reads all, read-only |
 | 49 | A pushed version tag builds the image and publishes it to the Gitea registry | 3 | **NEEDS MEASUREMENT** — whether the job token can push (`~/docker` I59) | — |
 | 50 | Pilot readiness: the master key from the environment, a state backup, and a pilot runbook | 3 | **READY** — decided 2026-11-02 (operator); checklist amended 2026-11-04 | — |
-| 51 | Sign-in admits only members of a users group (or the admin group) | 3 | **READY** — decided 2026-11-04 (operator) | — |
+| 51 | Sign-in admits only members of a users group (or the admin group) | 3 | **READY** — decided 2026-11-04 (operator) | **DONE** — PR #57. `SIGHTLINE_SIGNIN_USER_GROUP`, exact; anybody in neither group gets a 403 page naming it; unset admits all and logs so |
 | 52 | Does a larger model on the existing model host settle the disagreement set? | 3 | **NEEDS MEASUREMENT** — on the pilot's corpus runs, as 12b; filed 2026-11-04 | — |
 
 ---
@@ -170,7 +170,7 @@ DONE — PR #50. `99x-` (item 45) ran DONE — PR #51. `99y-` (item 46) ran DONE
 (the bug first), `99zb-` item 48, `99zc-` item 51, `99zd-` item 50 (its runbook describes 48 and 51
 as built, so it gates on both), `99ze-` item 49's measurement. Each gates on its own status row on
 `main`, so none can run before this PR merges. 12b and 52 have no prompt yet: both wait on the
-pilot's corpus runs. `99zb-` (item 48) ran DONE — PR #56.
+pilot's corpus runs. `99zb-` (item 48) ran DONE — PR #56. `99zc-` (item 51) ran DONE — PR #57.
 
 ---
 
@@ -1223,7 +1223,7 @@ deployment pointer gains one:
 
 Item 50 lands after 51, so its runbook can describe both groups as built.
 
-**51 · FILED 2026-11-04 (operator, interactive). READY. Sign-in admits only members of a users
+**51 · FILED 2026-11-04 (operator, interactive). DONE — PR #57 (SPEC §09 *As built (item 51)*). Sign-in admits only members of a users
 group, or the admin group.** Item 45 made a person an admin by group membership; nothing makes a
 person a *user*. Today any identity the proxy passes is let in, so the identity provider's
 application policy is the only gate. *Decided 2026-11-04 (operator):* both — the identity
