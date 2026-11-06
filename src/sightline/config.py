@@ -178,6 +178,15 @@ class Settings(BaseSettings):
     signin_admin_group: str | None = Field(
         default=None, validation_alias="SIGHTLINE_SIGNIN_ADMIN_GROUP"
     )
+    #: The identity-provider group whose members may use the app at all (roadmap item 51). Set,
+    #: a signed-in person in neither this group nor the admin group is refused with 403 and a page
+    #: naming this group, before any route runs; the admin group alone admits. Matched exactly, as
+    #: the admin group is. Unset, any identity the proxy forwards is admitted (the identity
+    #: provider's application policy is then the only gate), and startup logs that. Not required
+    #: in sign-in mode; local mode ignores it.
+    signin_user_group: str | None = Field(
+        default=None, validation_alias="SIGHTLINE_SIGNIN_USER_GROUP"
+    )
 
     # -- Server ------------------------------------------------------------------------------
     host: str = Field(default="127.0.0.1", validation_alias="SIGHTLINE_HOST")
@@ -197,7 +206,7 @@ class Settings(BaseSettings):
         text = value.strip().rstrip("/")
         return text or None
 
-    @field_validator("signin_admin_group")
+    @field_validator("signin_admin_group", "signin_user_group")
     @classmethod
     def _blank_is_unset(cls, value: str | None) -> str | None:
         if value is None:
@@ -350,7 +359,9 @@ class Settings(BaseSettings):
                     "On: every request must come through the sign-in proxy, the signed-in "
                     "identity is the reviewer, each person sees their own runs and reads Canvas "
                     "with their own token, and members of SIGHTLINE_SIGNIN_ADMIN_GROUP see every "
-                    "run and change the instance settings. Off: a local single-user tool."
+                    "run and change the instance settings. With SIGHTLINE_SIGNIN_USER_GROUP set, "
+                    "only members of that group or the admin group are admitted. Off: a local "
+                    "single-user tool."
                 ),
             },
         ]

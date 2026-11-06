@@ -44,7 +44,13 @@ from .review import build_review_router
 from .rubric_screens import build_rubric_router
 from .run_screens import build_run_router
 from .runner import BackgroundRunner
-from .signin import SignInConfig, SignInMiddleware, signed_in
+from .signin import (
+    NOT_A_MEMBER_SUMMARY,
+    SignInConfig,
+    SignInMiddleware,
+    not_a_member_remedy,
+    signed_in,
+)
 from .store import RunStore
 from .views import build_router
 
@@ -158,6 +164,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             resumed_runs=len(resumed),
             batch_cap=resolved.batch_cap,
         )
+        if resolved.signin and resolved.signin_user_group is None:
+            # Roadmap item 51: not required, so say what its absence means.
+            log.warning(
+                "signin_any_identity_admitted",
+                note=(
+                    "SIGHTLINE_SIGNIN_USER_GROUP is unset, so any identity the sign-in proxy "
+                    "forwards is admitted; the identity provider's application policy is the "
+                    "only gate."
+                ),
+            )
         try:
             yield
         finally:
@@ -194,7 +210,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     signin = SignInConfig.from_settings(resolved)
     if signin is not None:
-        application.add_middleware(SignInMiddleware, config=signin)
+        not_a_member = templates.get_template("signin_refused.html")
+        application.add_middleware(
+            SignInMiddleware,
+            config=signin,
+            refused_page=lambda group: not_a_member.render(
+                nav=None, summary=NOT_A_MEMBER_SUMMARY, remedy=not_a_member_remedy(group)
+            ),
+        )
     application.include_router(build_router(templates))
     application.include_router(build_run_router(templates))
     application.include_router(build_review_router(templates))
