@@ -52,6 +52,8 @@ from typing import Any
 
 from . import __version__
 from .paths import (
+    BACKUP_KEPT,
+    BACKUP_LEFT_OUT,
     DB_FILENAME,
     PARTIAL_SUFFIX,
     DataPathError,
@@ -62,10 +64,10 @@ from .paths import (
 )
 
 #: Directories under the data root a snapshot keeps, in the order it reports them.
-KEPT: tuple[str, ...] = ("runs", "rubrics", "reports", "private")
+KEPT: tuple[str, ...] = BACKUP_KEPT
 
 #: Directories a snapshot never holds. ``--check`` reports any of them present as a problem.
-LEFT_OUT: tuple[str, ...] = ("exports", "cache", "secrets")
+LEFT_OUT: tuple[str, ...] = BACKUP_LEFT_OUT
 
 #: The store's own files in ``runs/``. The database arrives through the backup API instead; the
 #: write-ahead log, its index and a rollback journal are the store's working state, not data.

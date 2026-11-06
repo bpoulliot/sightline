@@ -24,6 +24,11 @@ from typing import BinaryIO
 #: Fixed subdirectories of the data root. Named here so that no call site spells them as literals.
 SUBDIRECTORIES: tuple[str, ...] = ("exports", "cache", "runs", "reports", "secrets")
 
+#: Subdirectories a backup snapshot keeps, and those it never holds (roadmap item 50). Named here
+#: with the rest: the backup only reads ``reports/``, and the review gate still owns writing it.
+BACKUP_KEPT: tuple[str, ...] = ("runs", "rubrics", "reports", "private")
+BACKUP_LEFT_OUT: tuple[str, ...] = ("exports", "cache", "secrets")
+
 #: Filename of the run store, inside ``runs/``.
 DB_FILENAME = "sightline.sqlite"
 
