@@ -51,8 +51,12 @@ FROM_ENVIRONMENT = re.compile(r"^\$\{[A-Z_][A-Z0-9_]*(:?\?[^}]*)?\}$")
 #: Obviously fake values for the compose half, in the shapes the runbook uses.
 FAKE_ENV = {
     "SIGHTLINE_SIGNIN_SECRET": "fake-signin-secret-0123456789-abcdefghij",
+    "SIGHTLINE_SECRET_KEY": "fake-master-key-not-a-real-fernet-key-000000",
     "AUTHENTIK_TAG": "2099.1.0",
 }
+
+#: Values the app cannot start without in sign-in mode, each refused at config time by name.
+REQUIRED_SECRETS = ("SIGHTLINE_SIGNIN_SECRET", "SIGHTLINE_SECRET_KEY")
 FAKE_OUTPOST_ENV = "AUTHENTIK_HOST=https://auth.example.edu\nAUTHENTIK_TOKEN=fake-outpost-token\n"
 
 
@@ -131,10 +135,12 @@ def test_the_app_publishes_no_port_and_is_reached_only_through_the_outpost(
 
 def test_no_secret_is_a_literal(compose: dict[str, Any]) -> None:
     assert secret_literal_problems(compose) == []
-    # The secret item 44 checks is required at config time, by name.
+    # The secret item 44 checks, and the master key item 50 requires, are required at config
+    # time, by name.
     app_env = _environment(compose["services"][APP])
     assert app_env["SIGHTLINE_SIGNIN"] == "true"
-    assert app_env["SIGHTLINE_SIGNIN_SECRET"].startswith("${SIGHTLINE_SIGNIN_SECRET:?")
+    for name in REQUIRED_SECRETS:
+        assert app_env[name].startswith("${" + name + ":?"), name
     # The outpost's URL and token come from its own env file, never from `environment:`, which
     # would override the file.
     outpost = compose["services"][OUTPOST]
@@ -228,10 +234,11 @@ def test_docker_compose_config_accepts_it_with_fake_values(tmp_path: Path) -> No
     rendered = json.loads(ok.stdout)
     assert not rendered["services"][APP].get("ports")
     assert rendered["services"][OUTPOST]["ports"][0]["host_ip"] == "127.0.0.1"
-    # And it refuses to render without the secret, naming it.
-    missing = {k: v for k, v in FAKE_ENV.items() if k != "SIGHTLINE_SIGNIN_SECRET"}
-    refused = subprocess.run(
-        command, cwd=tmp_path, env={**base, **missing}, capture_output=True, text=True
-    )
-    assert refused.returncode != 0
-    assert "SIGHTLINE_SIGNIN_SECRET" in refused.stderr
+    # And it refuses to render without either required secret, naming it.
+    for name in REQUIRED_SECRETS:
+        missing = {k: v for k, v in FAKE_ENV.items() if k != name}
+        refused = subprocess.run(
+            command, cwd=tmp_path, env={**base, **missing}, capture_output=True, text=True
+        )
+        assert refused.returncode != 0, name
+        assert name in refused.stderr, name
