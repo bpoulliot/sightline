@@ -30,6 +30,7 @@ from pathlib import Path
 from typing import Literal
 from urllib.parse import urlsplit
 
+from cryptography.fernet import Fernet
 from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -70,6 +71,10 @@ class Settings(BaseSettings):
         extra="ignore",
         case_sensitive=False,
         populate_by_name=True,
+        # A refusal at startup prints to the container log, outside every redaction this module
+        # registers. Pydantic would otherwise append the raw input to it — a truncated repr of
+        # the whole environment, Canvas base URL included, and a malformed key verbatim.
+        hide_input_in_errors=True,
     )
 
     # -- Canvas ------------------------------------------------------------------------------
@@ -137,6 +142,9 @@ class Settings(BaseSettings):
     #: Key for the credentials entered on the settings screen. Unset means Sightline manages a
     #: key file under the data root; setting it keeps the key out of the data volume entirely.
     #: See :mod:`sightline.credentials` for what that does and does not protect against.
+    #: **Required in sign-in mode** (roadmap item 50): there it is the master key for every
+    #: person's Canvas token, and it comes from the host's secret environment, never a file in
+    #: the volume a backup copies.
     secret_key: SecretStr | None = Field(default=None, validation_alias="SIGHTLINE_SECRET_KEY")
 
     #: Absolute path to ``docs/tokens.css``. Empty means "find it" — see :mod:`sightline.assets`.
@@ -254,7 +262,41 @@ class Settings(BaseSettings):
         ]
         if len({name.lower() for name in names}) != len(names):
             raise ValueError("the four SIGHTLINE_SIGNIN_*_HEADER names must all differ")
+        self._signin_master_key()
         return self
+
+    def _signin_master_key(self) -> None:
+        """Sign-in mode takes the master key from the environment, never the data volume.
+
+        Roadmap item 50. In local mode an unset key means a key file under the data root, which
+        is the one user's own machine. In sign-in mode that file would sit in the volume beside
+        every person's encrypted token and travel with every copy of it, so the key must come
+        from the host's secret environment. Checked here, at startup, rather than at the first
+        token anybody saves, and checked for shape as well as presence: a malformed key would
+        otherwise start cleanly and fail in front of the first person to use Settings.
+        """
+        generate = (
+            'python -c "from cryptography.fernet import Fernet; '
+            'print(Fernet.generate_key().decode())"'
+        )
+        key = self.secret_key.get_secret_value() if self.secret_key else ""
+        if not key.strip():
+            raise ValueError(
+                "SIGHTLINE_SIGNIN is on, so SIGHTLINE_SECRET_KEY must be set: it is the master "
+                "key that encrypts every person's Canvas token, and in sign-in mode it comes "
+                "from the host's secret environment, never from a file in the data volume. "
+                f"Generate one with {generate}. Keep it, and back it up apart from the data: "
+                "a different key means every person enters their Canvas token again."
+            )
+        try:
+            # The exact value the credential store will be handed, not a trimmed copy of it.
+            Fernet(key)
+        except (ValueError, TypeError):
+            # The exception text is not chained into the message: it can quote the value.
+            raise ValueError(
+                "SIGHTLINE_SECRET_KEY is set but is not a valid key: it must be 32 bytes, "
+                f"urlsafe-base64 encoded (44 characters). Generate one with {generate}."
+            ) from None
 
     def model_post_init(self, _context: object) -> None:
         register_secret(self.canvas_base_url)

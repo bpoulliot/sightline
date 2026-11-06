@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from cryptography.fernet import Fernet
 
 from canvas_recordings import EXAMPLE_BASE_URL, FAKE_TOKEN
 from form_clients import FormClient
@@ -539,6 +540,8 @@ def test_a_restarted_app_carries_on_with_its_queue(
 # -- the screens, sign-in mode --------------------------------------------------------------------
 
 SECRET = "fake-proxy-secret-0000000000000000000000"
+#: Sign-in mode's master key (item 50), generated per process: no key literal in the tree.
+MASTER_KEY = Fernet.generate_key().decode()
 ADMIN_GROUP = "fake-sightline-admins"
 ALICE = "fake-subject-alice-0001"
 BOB = "fake-subject-bob-0002"
@@ -571,6 +574,7 @@ def signed_in(data_root: Path) -> Iterator[SignedIn]:
         log_format="json",
         signin=True,
         signin_secret=SECRET,
+        secret_key=MASTER_KEY,
         signin_admin_group=ADMIN_GROUP,
     )
     with SignedIn(create_app(settings)) as test_client:

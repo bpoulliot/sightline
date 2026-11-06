@@ -30,7 +30,7 @@ from sightline.config import Settings
 from sightline.csrf import REFUSED_SUMMARY
 from sightline.signin import NOT_A_MEMBER_SUMMARY, REFUSAL
 from sightline.store import RunStore
-from test_per_user import ADMIN_GROUP, ALICE, SECRET, reviewed_run
+from test_per_user import ADMIN_GROUP, ALICE, MASTER_KEY, SECRET, reviewed_run
 
 REPO = Path(__file__).resolve().parents[1]
 
@@ -49,6 +49,7 @@ def settings_for(data_root: Path, **extra: Any) -> Settings:
         log_format="json",
         signin=True,
         signin_secret=SECRET,
+        secret_key=MASTER_KEY,
         **{"signin_admin_group": ADMIN_GROUP, "signin_user_group": USERS_GROUP, **extra},
     )
 
@@ -297,5 +298,11 @@ def test_the_setting_comes_from_the_environment_and_blank_is_unset(
     assert Settings(_env_file=None, data_dir=data_root).signin_user_group is None
     # Not required in sign-in mode.
     monkeypatch.delenv("SIGHTLINE_SIGNIN_USER_GROUP")
-    plain = Settings(_env_file=None, data_dir=data_root, signin=True, signin_secret=SECRET)
+    plain = Settings(
+        _env_file=None,
+        data_dir=data_root,
+        signin=True,
+        signin_secret=SECRET,
+        secret_key=MASTER_KEY,
+    )
     assert plain.signin and plain.signin_user_group is None
