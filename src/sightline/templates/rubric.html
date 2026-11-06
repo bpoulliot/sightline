@@ -153,7 +153,7 @@
   {% endif %}
   <ul class="run-list">
     {%- for person in people %}
-    <li><a href="{{ person.href }}">{{ person.name }}</a> <span class="hint">{{ person.entries }} history entr{{ 'y' if person.entries == 1 else 'ies' }}</span></li>
+    <li><a href="{{ person.href }}">{{ person.name }}</a>{% if person.local %} <span class="hint">(everything accepted before sign-in)</span>{% endif %} <span class="hint">{{ person.entries }} history entr{{ 'y' if person.entries == 1 else 'ies' }}</span></li>
     {%- endfor %}
   </ul>
 </section>

@@ -4,13 +4,16 @@
 
 {% block content %}
 <section class="panel" aria-labelledby="h-person">
-  <h1 id="h-person">{{ pack.name }}: {{ person }}'s bindings</h1>
+  <h1 id="h-person">{{ pack.name }}: bindings kept by {{ person | lower if local else person }}</h1>
   <p class="meta muted">Version {{ pack.version }}, {{ pack.criteria | length }} criteria, <code>{{ pack.id }}</code></p>
   <p class="lede">
     Each person keeps their own bindings for a rubric, and what they accept applies to the runs
     they start. As an admin you can read this person's bindings and their history. This page is
     read-only: only they propose, accept or revert their bindings.
   </p>
+  {% if local %}
+  <p class="note">The local-mode user is Sightline's one user when sign-in is off. Everything accepted before sign-in was turned on is theirs, and runs recorded with it keep it.</p>
+  {% endif %}
   <p class="actions"><a href="/rubrics/{{ pack.id }}">Back to your own bindings for this rubric</a></p>
 </section>
 

@@ -759,7 +759,8 @@ as a unit, and reverting that acceptance opens it again. `sightline.rubric.accep
 `rubrics/<pack>/` under the data root: the sets, each accepted state immutably under its sha256
 digest (an edited state file is refused), and an append-only history; a revert undoes the latest
 standing acceptance. **`resolve_pack` is the one resolver**: the New run screen and
-`python -m sightline.batch run` record the digest in force on the run (`runs.bindings_digest`,
+`python -m sightline.batch run` record the digest in force on the run (since item 48, the
+starter's own, and the command line's only with `--bindings`) (`runs.bindings_digest`,
 an added column), the batch service and the command's bundle path resolve a run by that digest, so
 a resumed run keeps its bindings, and the review file names it (`pack.bindings`) for
 `sightline.report.loader`. A run or a review file with none reads the shipped pack. An accepted
@@ -839,10 +840,37 @@ Four readings taken here:
   is named as another person's run, with no id and no link.
 - **Proposing, accepting and reverting rubric bindings is not admin-only.** The decision names the
   model host, the model and the Canvas base URL as instance settings, and the item adds the export
-  preference. As item 45 built it, bindings are recorded per pack with who accepted them, and they
-  apply to every later run. *Decided 2026-11-02 (operator): bindings are per user*, neither an
-  instance setting nor admin-only, so that last clause changes: each person's accepted bindings
-  apply to their own runs only. Roadmap item 48 builds it.
+  preference. *Decided 2026-11-02 (operator): bindings are per user*; item 48 below builds it.
+
+**As built (item 48).** Bindings belong to the person who accepts them. `sightline.rubric.accepted`
+keeps each signed-in person's proposal sets and history under
+`rubrics/<pack>/people/<key>/`, where `key` is a blake2b digest of the subject id (the construction
+item 45 names a person's Canvas token by), so no identity-provider id is a path; `owner.json` there
+holds the subject and the latest display name, and a directory whose owner file names another
+subject is refused as edited. Local mode's one user keeps the record at the pack's own level,
+which is where item 22 kept everything, so nothing accepted before this item moved and a local
+install reads exactly as before. **States stay shared**: `rubrics/<pack>/states/<hex>.json`,
+immutable and resolvable by digest alone, so every recorded `runs.bindings_digest` resolves
+whoever's history it came from. `resolve_pack(..., starter=)` reads the starter's bindings in
+force; the New run screen's Start passes the signed-in subject, and the picker, `/rubrics`, the
+rubric's page, its confirmation screens, accept and revert all read and write the signed-in
+person's own record (`BindingStore(paths, subject)`). Another person's set id answers 404 with the
+words of an id that names nothing. In sign-in mode the pages say *Your runs* and that each person
+keeps their own. **An admin** gets an *Other people's bindings* section on each rubric's page and
+`/rubrics/{pack}/people/{key}` (`local` for the local-mode user), read-only: the bindings their
+runs use, coverage, the number of kept sets, and the history. Anybody else gets 404 there. There is
+no route that acts on another person's record. **Proposing stays one task at a time**, whoever
+proposes (items 22 and 46): the registry keys a task by person and pack, its progress is shown on
+its proposer's page only, the set is kept in the proposer's record, and somebody else's proposing
+refuses a second proposer and a Start as *Another person is proposing bindings for …*, with no link.
+**`python -m sightline.batch run` reads the shipped pack** unless `--bindings <digest>` names an
+accepted state (`resolve_named`), which is refused when it was made over a pack this build no
+longer ships, as the screen refuses applying one. Two readings taken here:
+- **The local-mode user's record is shown to an admin in sign-in mode** as *the local-mode user*,
+  read-only, beside everybody else's; no signed-in person owns it, as no signed-in person owns a
+  run with no starter.
+- **An admin's own bindings are their own**, kept like anybody's; being an admin changes what they
+  can read, not whose bindings their runs use.
 
 **As built (item 46).** A Start while a run is active, or while runs are queued, records the run
 with status `queued` (`RunStatus.QUEUED`, label *Queued*; neither resumable nor terminal) instead of

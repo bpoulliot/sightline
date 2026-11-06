@@ -133,7 +133,7 @@ _PACK_ID = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
 LOCAL_KEY = "local"
 
 #: Who local mode's one user is called on an admin's people pages.
-LOCAL_OWNER_NAME = "The local-mode user (everything accepted before sign-in)"
+LOCAL_OWNER_NAME = "The local-mode user"
 
 
 # ---------------------------------------------------------------------------------------------
@@ -731,7 +731,7 @@ def build_rubric_router(templates: Jinja2Templates) -> APIRouter:
                 "resolved": resolved,
                 "pack": shipped,
                 "person": _owner_name(owner),
-                "own": _key_of(owner) == _own_key(who),
+                "local": owner.subject is None,
                 "buckets": buckets(resolved.pack),
                 "latest": stack[-1] if stack else None,
                 "history": tuple(reversed(history)),
@@ -795,6 +795,7 @@ def _render_rubric(
                     "name": _owner_name(owner),
                     "href": f"{rubric_href(pack_id)}/people/{_key_of(owner)}",
                     "entries": len(BindingStore(_paths(request), owner.subject).history(pack_id)),
+                    "local": owner.subject is None,
                 }
                 for owner in _others(_paths(request), pack_id, who)
             ]
