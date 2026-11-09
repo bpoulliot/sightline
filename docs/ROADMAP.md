@@ -56,7 +56,7 @@ by item 36's session, PR #43; 44–47 split from item 40 on 2026-10-30).
 | 38 | A bound Tier D row is counted in two coverage buckets, and `coverage` exits 1 calling it a bug | 1 | READY | **DONE** — PR #35. Tier first; 42 → 41 of 68, exit 1 → 0 |
 | 39 | Every other bare pattern in `.dockerignore` is root-only too | 3 | READY | **DONE** — PR #41. Planted nested files 19 → 0 in the dev image, 15 → 0 in runtime |
 | 40 | Sign-in (SSO) and multiple users | 3 | **DECIDED** 2026-10-30 — split into 44–47 | Nothing to build under this number; the decisions are its entry |
-| 41 | A cancelled CI `image` job leaves its sample-report `docker run` running on the shared DinD daemon | 0 | READY | filed 2026-10-29 from `~/docker` TODO I267 |
+| 41 | A cancelled CI `image` job leaves its sample-report `docker run` running on the shared DinD daemon | 0 | READY | **DONE** — PR #55. Named, cleaned up and capped at 512m; merged 2026-11-09 on the indirect cancel evidence (operator) |
 | 42 | A run that completed with failures records no finish time | 1 | READY — filed 2026-10-29 by item 36 | **DONE** — PR #44. Every terminal status stamps `finished_at`; `interrupted` stays unset |
 | 43 | The app's restart recovery takes over a run another process is executing | 1 | **READY** — (a) an owner record, decided 2026-10-30 | **DONE** — PR #48. Runs record host, pid and a heartbeat; recovery, shutdown and Start read them |
 | 44 | Signed-in identity behind a trusted proxy | 3 | READY | **DONE** — PR #50 (sign-in mode behind a proxy secret, the subject on overrides, CSRF on every form post) |
@@ -166,12 +166,12 @@ predecessors being DONE on `main`, then `99z-` item 47 (decided the same day: Au
 DONE — PR #50. `99x-` (item 45) ran DONE — PR #51. `99y-` (item 46) ran DONE — PR #52. `99z-`
 (item 47) ran DONE — PR #53.
 
-**Wave 5 — composed 2026-11-02, re-ordered 2026-11-04, not released.** In order: `99za-` item 41
+**Wave 5 — composed 2026-11-02, re-ordered 2026-11-04, released.** In order: `99za-` item 41
 (the bug first), `99zb-` item 48, `99zc-` item 51, `99zd-` item 50 (its runbook describes 48 and 51
 as built, so it gates on both), `99ze-` item 49's measurement. Each gates on its own status row on
 `main`, so none can run before this PR merges. 12b and 52 have no prompt yet: both wait on the
 pilot's corpus runs. `99zb-` (item 48) ran DONE — PR #56. `99zc-` (item 51) ran DONE — PR #57.
-`99zd-` (item 50) ran DONE — PR #58. `99ze-` (item 49's measurement) ran — PR #60: the job token is
+`99zd-` (item 50) ran DONE — PR #58. `99za-` (item 41) was held for a cancel no session can issue and merged 2026-11-09 — PR #55. `99ze-` (item 49's measurement) ran — PR #60: the job token is
 refused, so item 49 is NEEDS DECISION.
 
 ---
@@ -1313,8 +1313,40 @@ nothing that names a course, passage, person or the institution.
 active (item 46's queue is the gate). A model that does not fit is a result, not a reason to
 shrink the extraction model.
 
-**41 · FILED 2026-10-29 from `~/docker` TODO I267 (operator, interactive). READY, Tier 0. A cancelled
+**41 · FILED 2026-10-29 from `~/docker` TODO I267 (operator, interactive). DONE 2026-11-09 — PR #55. **A cancelled
 `image` job leaves its sample-report container running on the runner's shared DinD daemon.**
+
+*Built (PR #55).* The step now names its container `sightline-ci-sample-${GITHUB_SHA}`, runs `docker rm -f` on
+that name first, and runs it with `--memory 512m --memory-swap 512m`. The `always()` cleanup step
+removes it and the health-check container before the images. **Measured peak:** 172, 180 and
+191 MiB (`/sys/fs/cgroup/memory.peak` read at the end of three runs of the step's command in a
+locally built dev image under a 4 GiB swap-off bound; probe self-test: `true` read 5 MiB, a 300 MB
+allocation read 304 MiB). **Chosen limit: 512m**, about 2.6 times the highest peak. The step passes
+at 512m, and at 96m it is OOM-killed (exit 137), so the bound is enforced. Measured on the host
+daemon, not inside DinD.
+
+*The cancel acceptance could not be run from a session (2026-11-05).* No session can issue a
+cancel: Gitea 1.27.3 has no cancel endpoint (its swagger lists none, and
+`POST /repos/bitmap/sightline/actions/runs/{id}/cancel` answers 404), and the API token does not
+authenticate web routes (`/user/settings` answers 303 to the login page). A push to the PR while
+the step ran does not cancel the earlier run either: `bb099de` was pushed, and when DinD listed
+`sightline-ci-sample-bb099de…` the `6fd965a` push went out. Runs 3256 and 3257 both ran to the end.
+That is consistent with *nothing cancels a run automatically* above. What was seen on DinD
+(`docker ps -a`, polled every 3 s): each run's named sample container lasted only for its step,
+then the health-check container lasted for its own step, and after each step nothing
+`sightline-*` was left. **Indirect evidence that the cleanup step runs on a cancel on this
+runner:** caltidy job 11041 (cancelled 2026-11-03) ran its `always()` step "Remove the hermetic
+container" (`docker rm -f` of its named container, conclusion success), and its log reads
+"Job cancelled" after that step. Its next step, which has no `always()`, was skipped. *Still to
+do (operator):* cancel PR #55's `image` job from the web UI during the sample-report step (it
+starts about 1 min into the job, after both builds, and runs about 25 s). Then check
+`docker exec act_runner_dind docker ps` for `sightline-ci-sample-*` once cleanup has run, re-run
+the job, merge PR #55, and mark this item DONE.
+
+*Decided 2026-11-09 (operator): merge on the indirect evidence.* The caltidy cancel on this runner
+shows an `always()` cleanup step runs on a cancel, which is what the fix relies on; the live cancel
+check was not run. If a leaked `sightline-ci-sample-*` container is ever seen on DinD, reopen this
+item.
 
 *Evidence.* The `image` job (`.gitea/workflows/ci.yml`, label `cserv`) runs
 `docker run --rm "sightline:ci-dev-${GITHUB_SHA}" pytest -q -rs tests/test_sample_report.py`

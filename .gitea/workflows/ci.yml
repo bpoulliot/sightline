@@ -127,8 +127,17 @@ jobs:
         run: docker build --target dev -t "sightline:ci-dev-${GITHUB_SHA}" .
       - name: The committed sample report re-renders byte for byte in the dev image
         # The environment the sample was made in. SIGHTLINE_SAMPLE_REPORT_REQUIRED is set in that
-        # stage, so the comparison fails there rather than skips.
-        run: docker run --rm "sightline:ci-dev-${GITHUB_SHA}" pytest -q -rs tests/test_sample_report.py
+        # stage, so the comparison fails there rather than skips. Named, and removed first and in
+        # the cleanup step, because cancelling the job kills the `docker run` client and leaves the
+        # container running on the shared daemon (roadmap item 41). Per SHA because nothing cancels
+        # a run automatically; a `concurrency` block with cancel-in-progress would need a per-ref
+        # name instead. The memory limit is about 2.6 times the measured peak (item 41), swap off.
+        run: |
+          set -eu
+          name="sightline-ci-sample-${GITHUB_SHA}"
+          docker rm -f "$name" >/dev/null 2>&1 || true
+          docker run --rm --name "$name" --memory 512m --memory-swap 512m \
+            "sightline:ci-dev-${GITHUB_SHA}" pytest -q -rs tests/test_sample_report.py
       - name: The image starts and answers its own health endpoint
         run: |
           set -eu
@@ -150,6 +159,8 @@ jobs:
             echo "the image built but never became healthy" >&2
             exit 1
           fi
-      - name: Clean up the images this job created
+      - name: Clean up the containers and images this job created
         if: always()
-        run: docker image rm -f "sightline:ci-${GITHUB_SHA}" "sightline:ci-dev-${GITHUB_SHA}" || true
+        run: |
+          docker rm -f "sightline-ci-sample-${GITHUB_SHA}" "sightline-ci-${GITHUB_SHA}" || true
+          docker image rm -f "sightline:ci-${GITHUB_SHA}" "sightline:ci-dev-${GITHUB_SHA}" || true
