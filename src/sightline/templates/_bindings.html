@@ -1,0 +1,36 @@
+{#- Shared by the rubric's page and an admin's read-only people page (roadmap item 48). -#}
+{%- macro moves(delta) -%}
+<p class="line">{{ delta.statement }}</p>
+{%- if delta.moved %}
+<ul class="moves">
+  {%- for start, end, rows in delta.moved %}
+  <li>From {{ start }} to {{ end }}: <span class="code">{{ rows | join(', ') }}</span></li>
+  {%- endfor %}
+</ul>
+{%- endif %}
+{%- endmacro -%}
+
+{%- macro history_list(history, reverted_by) -%}
+  {% if history %}
+  <p class="note">Every acceptance and every revert, newest first. Nothing here is ever removed.</p>
+  <ol class="history" reversed>
+    {%- for entry in history %}
+    <li id="entry-{{ entry.number }}">
+      {%- if entry.kind == 'accepted' %}
+      <p class="line">Acceptance {{ entry.number }}, {{ entry.at[:16] | replace('T', ' ') }}, by {{ entry.reviewer }}: proposal(s) {{ entry.accepted | join(', ') }} from the proposals made {{ entry.proposal_set[:4] }}-{{ entry.proposal_set[4:6] }}-{{ entry.proposal_set[6:8] }}{% if entry.conflicts %}, of which {{ entry.conflicts | join(', ') }} on a row already bound{% endif %}.{% if entry.number in reverted_by %} Reverted by entry {{ reverted_by[entry.number].number }}.{% endif %}</p>
+      <ul class="moves">
+        {%- for code, tag in entry.added %}
+        <li>Bound <span class="code">{{ code }}</span> to <code>{{ tag }}</code></li>
+        {%- endfor %}
+      </ul>
+      {%- else %}
+      <p class="line">Revert of acceptance {{ entry.reverts }}, {{ entry.at[:16] | replace('T', ' ') }}, by {{ entry.reviewer }}.</p>
+      {%- endif %}
+      {{ moves(entry.delta) }}
+    </li>
+    {%- endfor %}
+  </ol>
+  {% else %}
+  <p class="empty">Nothing has been accepted or reverted for this rubric.</p>
+  {% endif %}
+{%- endmacro -%}

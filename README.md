@@ -1265,7 +1265,7 @@ repository is a bug, and `tests/test_config.py` fails the build over one.
 | `CANVAS_API_TOKEN` | Canvas API token. Read access, plus permission to export course content when the setting below is on — see **Canvas token scopes**. |
 | `SIGHTLINE_REQUEST_CONTENT_EXPORT` | Whether to ask Canvas to build a fresh content export of each course reviewed. Default `true`. Fallback for the setting of the same name on the Settings screen, which wins over it. |
 | `SIGHTLINE_RESOLVE_LINKS` | Whether the policy-link check may request the addresses a course links to. Default `false` — the only traffic Sightline makes outside Canvas. With it off the check reports which policy links are present and claims nothing about where they go; a request that fails is reported as unknown, never as a broken link. |
-| `SIGHTLINE_SECRET_KEY` | Key for credentials entered in the UI. Unset means Sightline manages a key file under the data root. |
+| `SIGHTLINE_SECRET_KEY` | Key for credentials entered in the UI. Unset means Sightline manages a key file under the data root. **Required in sign-in mode**, where the app refuses to start without a valid one; changing it means every person enters their Canvas token again. |
 | `SIGHTLINE_DATA_DIR` | Root for everything downloaded or generated. Default `./data`; `/data` in the container. |
 | `SIGHTLINE_EFFORT_COSTS` | A YAML file overriding entries of the per-defect cost table (`src/sightline/rubric/costs.yaml`). Unset means the shipped, uncalibrated table. See *The effort model*. |
 | `SIGHTLINE_BATCH_CAP` | Courses per run. Default `16` (SPEC §09). Lower it if you want results sooner; raising it buys a longer wait rather than more throughput, because courses are reviewed one after another. |
@@ -1284,6 +1284,7 @@ repository is a bug, and `tests/test_config.py` fails the build over one.
 | `SIGHTLINE_SIGNIN_SUBJECT_HEADER` / `_NAME_HEADER` / `_GROUPS_HEADER` | The identity headers. Defaults `X-authentik-uid`, `X-authentik-name`, `X-authentik-groups` (Authentik's proxy outpost). |
 | `SIGHTLINE_SIGNIN_GROUPS_SEPARATOR` | What separates groups in the groups header. Default `\|`. |
 | `SIGHTLINE_SIGNIN_ADMIN_GROUP` | The group whose members are admins in sign-in mode, matched exactly against what the groups header carries. Unset: nobody signed in is an admin. |
+| `SIGHTLINE_SIGNIN_USER_GROUP` | The group whose members may use the app in sign-in mode (for example `sightline-users`); the admin group alone also admits. Matched exactly. Anybody else gets a 403 page naming this group. Unset: any identity the proxy forwards is admitted, and startup logs that. |
 
 `CANVAS_BASE_URL` and `CANVAS_API_TOKEN` are the **fallback**. Normally both are entered on the
 settings screen and held encrypted in the run store; the environment is what a container uses when
@@ -1307,6 +1308,44 @@ artifact that travels — copied for a bug report, backed up, opened in a SQLite
 screen-share — and encrypting means none of that exposes a token. It does **not** defend against
 someone who can read the whole data root, because by default the key is a file in it. If that is
 the threat, put the key in `SIGHTLINE_SECRET_KEY` and keep it somewhere the volume is not.
+
+**In sign-in mode the key must come from the environment** (item 50). There it encrypts every
+person's Canvas token, so a key file in the volume would travel with every copy of the tokens it
+unlocks. With `SIGHTLINE_SIGNIN` on and `SIGHTLINE_SECRET_KEY` unset, blank or malformed, the app
+refuses to start, exits non-zero and says which variable to set and how to generate one:
+
+```
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+Keep it in the host's secret store and back it up there, apart from the data. **Changing it means
+every person enters their Canvas token again**: the stored tokens do not decrypt under another key,
+and there is no rotation command. An instance that ran sign-in mode before item 50 used the key
+file; to keep its tokens, set `SIGHTLINE_SECRET_KEY` to that file's contents. Local mode is
+unchanged.
+
+### Backing up
+
+```
+python -m sightline.backup /backups                # → /backups/sightline-backup-<UTC stamp>/
+python -m sightline.backup --check /backups/sightline-backup-20261105T031500Z
+```
+
+A backup is of **Sightline's state**: the run store (runs, recorded ratings and overrides, the
+encrypted tokens, preferences), and under the data root `runs/` (the review files), `rubrics/`
+(accepted bindings), `reports/` (delivered artifacts) and `private/` (what the operator keeps
+there, such as reviews that come back edited). Never `exports/` or `cache/`, which can be fetched
+again and hold course content that should not travel off the host, and never `secrets/`: the master
+key is backed up through the host's secrets handling, not beside the data it decrypts.
+
+The store runs in WAL mode, so a file copy of a live store is not a backup. The command copies it
+through SQLite's online backup API, which takes one consistent state while a run goes on writing, so
+it is safe to run with the app up. It writes a new owner-only directory, renamed into place only
+when complete, with a `MANIFEST.json` of every file's size and SHA-256, and refuses a destination
+inside the data root. `--check` opens a snapshot read-only, needs no configuration, verifies it
+against its manifest and SQLite's integrity check, and lists the runs it holds by id and status; the
+backup prints the same check of what it just wrote. Scheduling it is the host's job, and restoring
+is a procedure in [docs/PILOT.md](docs/PILOT.md), not a command.
 
 ### Sign-in behind a proxy
 
@@ -1334,6 +1373,17 @@ starter: an admin sees them, nobody else does.
 with who started it, and alone changes the instance settings: the Canvas base URL, the export
 preference, the model host and the model, and installing a model. Anybody else sees their state on
 Settings and no form. With the setting unset there is no admin.
+
+**Who may use it at all** (item 51) is membership of the group `SIGHTLINE_SIGNIN_USER_GROUP` names
+(for example `sightline-users`), or of the admin group (for example `admins`) on its own. Anybody
+else the proxy forwards gets 403 and a page naming the users group to ask for, on every route and
+before any route runs; the page shows no run, course or setting. `GET /healthz` answers as before.
+Group names are matched exactly, never as substrings. Bind the identity provider's application to
+both groups as well (Authentik: a group binding for each; oauth2-proxy: `allowedGroups`), so the
+provider refuses them first and the app's check is the second wall; [docs/SIGN-IN.md](docs/SIGN-IN.md)
+shows both. The setting is optional: unset, anyone the proxy forwards is admitted and startup logs
+`signin_any_identity_admitted`. Taking a person out of the group deletes nothing; their runs stay,
+and an admin still sees them.
 
 **Each person stores their own Canvas token** on Settings, encrypted as the single token is in
 local mode. A run reads Canvas, and requests its content export, with its starter's token, and
@@ -1453,7 +1503,7 @@ and says which check it skipped rather than passing quietly.
 
 ```
 assets/fonts/    the fonts the PDF report is set in, each beside its licence
-docs/            SPEC.md, ROADMAP.md, RUBRIC-PACKS.md, tokens.css
+docs/            SPEC.md, ROADMAP.md, RUBRIC-PACKS.md, SIGN-IN.md, PILOT.md, tokens.css
 examples/        synthetic sample course and sample report — never anything real
 rubrics/source/  the blank rubric workbooks
 rubrics/maps/    the authored mapping files: capability tags, determinacy tiers, section flags
@@ -1474,6 +1524,7 @@ src/sightline/   the application
   review/        the review screen: its page model, its routes, and the reviewer lookup
   new_run.py     what the New run screen offers (the rubric choices) and refuses (why a run cannot start)
   run_screens.py the run list and the run-progress page
+  backup.py      python -m sightline.backup: a consistent snapshot of the state, and --check
   capabilities.yaml  the capability-tag vocabulary: the one thing detectors and packs share
   model.py       the normalized document model every detector reads
 tests/           the suite

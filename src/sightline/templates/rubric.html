@@ -1,16 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Sightline — {{ pack.name }}{% endblock %}
 
-{%- macro moves(delta) -%}
-<p class="line">{{ delta.statement }}</p>
-{%- if delta.moved %}
-<ul class="moves">
-  {%- for start, end, rows in delta.moved %}
-  <li>From {{ start }} to {{ end }}: <span class="code">{{ rows | join(', ') }}</span></li>
-  {%- endfor %}
-</ul>
-{%- endif %}
-{%- endmacro -%}
+{% from "_bindings.html" import moves, history_list %}
 
 {% block content %}
 <section class="panel" aria-labelledby="h-rubric">
@@ -24,31 +15,34 @@
     The rubric file Sightline ships with is never changed; what is accepted is kept under the data
     root, with who accepted it and when.
   </p>
+  {% if signed_in %}
+  <p class="note">These are your bindings. Each person keeps their own: what you propose and accept here applies to the runs you start, and nobody else's.</p>
+  {% endif %}
 </section>
 
 {% if just %}
 <div class="banner banner-ok" role="status">
   {%- if just.kind == 'accepted' %}
-  <p class="banner-head">Acceptance {{ just.number }} is recorded. Runs started from now on use these bindings.</p>
+  <p class="banner-head">Acceptance {{ just.number }} is recorded. {{ runs }} started from now on use these bindings.</p>
   {%- else %}
-  <p class="banner-head">Acceptance {{ just.reverts }} is reverted. Runs started from now on use the bindings in force before it.</p>
+  <p class="banner-head">Acceptance {{ just.reverts }} is reverted. {{ runs }} started from now on use the bindings in force before it.</p>
   {%- endif %}
   {{ moves(just.delta) }}
 </div>
 {% endif %}
 
 <section class="panel" id="bindings" aria-labelledby="h-bindings">
-  <h2 id="h-bindings">Bindings runs use</h2>
+  <h2 id="h-bindings">Bindings {{ runs | lower }} use</h2>
   {% if resolved.stale %}
   <div class="banner banner-warn" role="status">
     <p class="banner-head">The bindings accepted here were made over the rubric as an earlier build shipped it, so they are not applied.</p>
-    <p class="banner-remedy">Runs use the shipped rubric's own bindings. Propose again to bind the rubric as it is now.</p>
+    <p class="banner-remedy">{{ runs }} use the shipped rubric's own bindings. Propose again to bind the rubric as it is now.</p>
   </div>
   {% endif %}
   {% if latest %}
-  <p class="line">Runs started now use the bindings accepted on {{ latest.at[:10] }} by {{ latest.reviewer }} (acceptance {{ latest.number }}), recorded as <code class="digest">{{ resolved.digest }}</code>.</p>
+  <p class="line">{{ runs }} started now use the bindings accepted on {{ latest.at[:10] }} by {{ latest.reviewer }} (acceptance {{ latest.number }}), recorded as <code class="digest">{{ resolved.digest }}</code>.</p>
   {% else %}
-  <p class="line">Runs started now use the shipped rubric's own bindings. Nothing has been accepted here{% if history %} that is still in force{% endif %}.</p>
+  <p class="line">{{ runs }} started now use the shipped rubric's own bindings. Nothing has been accepted here{% if history %} that is still in force{% endif %}.</p>
   {% endif %}
   <dl class="fields">
     {%- for bucket in buckets %}
@@ -128,7 +122,7 @@
 </section>
 
 <section class="panel" id="sets" aria-labelledby="h-sets">
-  <h2 id="h-sets">Proposals kept for this rubric</h2>
+  <h2 id="h-sets">{% if signed_in %}Your proposals{% else %}Proposals{% endif %} kept for this rubric</h2>
   {% if sets %}
   <p class="note">Open proposals were made over the bindings in force and can be accepted. A set made over an earlier state of the rubric can no longer be accepted; propose again instead.</p>
   <ul class="run-list">
@@ -147,28 +141,22 @@
 
 <section class="panel" id="history" aria-labelledby="h-history">
   <h2 id="h-history">History</h2>
-  {% if history %}
-  <p class="note">Every acceptance and every revert, newest first. Nothing here is ever removed.</p>
-  <ol class="history" reversed>
-    {%- for entry in history %}
-    <li id="entry-{{ entry.number }}">
-      {%- if entry.kind == 'accepted' %}
-      <p class="line">Acceptance {{ entry.number }}, {{ entry.at[:16] | replace('T', ' ') }}, by {{ entry.reviewer }}: proposal(s) {{ entry.accepted | join(', ') }} from the proposals made {{ entry.proposal_set[:4] }}-{{ entry.proposal_set[4:6] }}-{{ entry.proposal_set[6:8] }}{% if entry.conflicts %}, of which {{ entry.conflicts | join(', ') }} on a row already bound{% endif %}.{% if entry.number in reverted_by %} Reverted by entry {{ reverted_by[entry.number].number }}.{% endif %}</p>
-      <ul class="moves">
-        {%- for code, tag in entry.added %}
-        <li>Bound <span class="code">{{ code }}</span> to <code>{{ tag }}</code></li>
-        {%- endfor %}
-      </ul>
-      {%- else %}
-      <p class="line">Revert of acceptance {{ entry.reverts }}, {{ entry.at[:16] | replace('T', ' ') }}, by {{ entry.reviewer }}.</p>
-      {%- endif %}
-      {{ moves(entry.delta) }}
-    </li>
-    {%- endfor %}
-  </ol>
-  {% else %}
-  <p class="empty">Nothing has been accepted or reverted for this rubric.</p>
-  {% endif %}
+  {{ history_list(history, reverted_by) }}
 </section>
+
+{% if admin and (people or people_error) %}
+<section class="panel" id="people" aria-labelledby="h-people">
+  <h2 id="h-people">Other people's bindings</h2>
+  <p class="note">As an admin you can read everybody's bindings for this rubric and their history. Each page is read-only: only the person themselves accepts or reverts their bindings.</p>
+  {% if people_error %}
+  <p class="banner banner-bad" role="alert">The bindings kept for other people cannot be read: {{ people_error }}</p>
+  {% endif %}
+  <ul class="run-list">
+    {%- for person in people %}
+    <li><a href="{{ person.href }}">{{ person.name }}</a>{% if person.local %} <span class="hint">(everything accepted before sign-in)</span>{% endif %} <span class="hint">{{ person.entries }} history entr{{ 'y' if person.entries == 1 else 'ies' }}</span></li>
+    {%- endfor %}
+  </ul>
+</section>
+{% endif %}
 <script src="/static/run-progress.js" defer></script>
 {% endblock %}

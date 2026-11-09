@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from cryptography.fernet import Fernet
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
@@ -48,6 +49,8 @@ REFERENCE = "uccs-oscqr-3-1-3"
 
 #: Obviously fake, and long enough for the 32-character floor.
 SECRET = "fake-proxy-secret-0000000000000000000000"
+#: Sign-in mode's master key (item 50), generated per process: no key literal in the tree.
+MASTER_KEY = Fernet.generate_key().decode()
 SUBJECT = "fake-subject-7f3a9c"
 NAME = "Pat Example"
 ADMIN_GROUP = "fake-sightline-admins"
@@ -88,6 +91,7 @@ def signin_settings(data_root: Path, headers: dict[str, str] = AUTHENTIK, **extr
         log_format="json",
         signin=True,
         signin_secret=SECRET,
+        secret_key=MASTER_KEY,
         **names,
         **extra,
     )
@@ -301,7 +305,12 @@ def test_local_mode_health_check_is_unchanged(local) -> None:
 def test_sign_in_mode_refuses_to_start_on_a_configuration_that_would_trust_anybody(
     data_root: Path, extra: dict[str, Any]
 ) -> None:
-    base: dict[str, Any] = {"signin": True, "signin_secret": SECRET, **extra}
+    base: dict[str, Any] = {
+        "signin": True,
+        "signin_secret": SECRET,
+        "secret_key": MASTER_KEY,
+        **extra,
+    }
     with pytest.raises(ValidationError):
         Settings(_env_file=None, data_dir=data_root, **base)
 
@@ -311,6 +320,7 @@ def test_the_mode_and_its_header_names_come_from_the_environment(
 ) -> None:
     monkeypatch.setenv("SIGHTLINE_SIGNIN", "true")
     monkeypatch.setenv("SIGHTLINE_SIGNIN_SECRET", SECRET)
+    monkeypatch.setenv("SIGHTLINE_SECRET_KEY", MASTER_KEY)
     monkeypatch.setenv("SIGHTLINE_SIGNIN_SUBJECT_HEADER", OAUTH2_PROXY["subject"])
     settings = Settings(_env_file=None, data_dir=data_root)
     assert settings.signin and settings.signin_subject_header == OAUTH2_PROXY["subject"]

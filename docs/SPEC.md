@@ -241,6 +241,14 @@ One run executes at a time. A run started in the app while another is active is 
 is ahead of it. The queue is the store's `queued` rows in creation order, so it survives a restart.
 Roadmap item 46.
 
+**Backups are of Sightline's state, never of Canvas content** (roadmap item 50). The run store is
+copied through SQLite's online backup API, because it runs in WAL mode and a file copy of a live
+store is not a backup; beside it go `runs/`, `rubrics/`, `reports/` and `private/` under the data
+root. `exports/` and `cache/` are left out: they can be fetched again and hold course content that
+should not travel off the host. So is `secrets/`: the master key is backed up through the host's
+secrets handling, never beside the data it decrypts. A schedule is the host's job, and restoring is
+a documented procedure rather than a command.
+
 ### Nothing institution-specific is compiled in
 
 Sightline is intended to be reusable and open source. Every deployment-specific value is
@@ -759,7 +767,8 @@ as a unit, and reverting that acceptance opens it again. `sightline.rubric.accep
 `rubrics/<pack>/` under the data root: the sets, each accepted state immutably under its sha256
 digest (an edited state file is refused), and an append-only history; a revert undoes the latest
 standing acceptance. **`resolve_pack` is the one resolver**: the New run screen and
-`python -m sightline.batch run` record the digest in force on the run (`runs.bindings_digest`,
+`python -m sightline.batch run` record the digest in force on the run (since item 48, the
+starter's own, and the command line's only with `--bindings`) (`runs.bindings_digest`,
 an added column), the batch service and the command's bundle path resolve a run by that digest, so
 a resumed run keeps its bindings, and the review file names it (`pack.bindings`) for
 `sightline.report.loader`. A run or a review file with none reads the shipped pack. An accepted
@@ -839,10 +848,61 @@ Four readings taken here:
   is named as another person's run, with no id and no link.
 - **Proposing, accepting and reverting rubric bindings is not admin-only.** The decision names the
   model host, the model and the Canvas base URL as instance settings, and the item adds the export
-  preference. As item 45 built it, bindings are recorded per pack with who accepted them, and they
-  apply to every later run. *Decided 2026-11-02 (operator): bindings are per user*, neither an
-  instance setting nor admin-only, so that last clause changes: each person's accepted bindings
-  apply to their own runs only. Roadmap item 48 builds it.
+  preference. *Decided 2026-11-02 (operator): bindings are per user*; item 48 below builds it.
+
+**As built (item 48).** Bindings belong to the person who accepts them. `sightline.rubric.accepted`
+keeps each signed-in person's proposal sets and history under
+`rubrics/<pack>/people/<key>/`, where `key` is a blake2b digest of the subject id (the construction
+item 45 names a person's Canvas token by), so no identity-provider id is a path; `owner.json` there
+holds the subject and the latest display name, and a directory whose owner file names another
+subject is refused as edited. Local mode's one user keeps the record at the pack's own level,
+which is where item 22 kept everything, so nothing accepted before this item moved and a local
+install reads exactly as before. **States stay shared**: `rubrics/<pack>/states/<hex>.json`,
+immutable and resolvable by digest alone, so every recorded `runs.bindings_digest` resolves
+whoever's history it came from. `resolve_pack(..., starter=)` reads the starter's bindings in
+force; the New run screen's Start passes the signed-in subject, and the picker, `/rubrics`, the
+rubric's page, its confirmation screens, accept and revert all read and write the signed-in
+person's own record (`BindingStore(paths, subject)`). Another person's set id answers 404 with the
+words of an id that names nothing. In sign-in mode the pages say *Your runs* and that each person
+keeps their own. **An admin** gets an *Other people's bindings* section on each rubric's page and
+`/rubrics/{pack}/people/{key}` (`local` for the local-mode user), read-only: the bindings their
+runs use, coverage, the number of kept sets, and the history. Anybody else gets 404 there. There is
+no route that acts on another person's record. **Proposing stays one task at a time**, whoever
+proposes (items 22 and 46): the registry keys a task by person and pack, its progress is shown on
+its proposer's page only, the set is kept in the proposer's record, and somebody else's proposing
+refuses a second proposer and a Start as *Another person is proposing bindings for …*, with no link.
+**`python -m sightline.batch run` reads the shipped pack** unless `--bindings <digest>` names an
+accepted state (`resolve_named`), which is refused when it was made over a pack this build no
+longer ships, as the screen refuses applying one. Two readings taken here:
+- **The local-mode user's record is shown to an admin in sign-in mode** as *the local-mode user*,
+  read-only, beside everybody else's; no signed-in person owns it, as no signed-in person owns a
+  run with no starter.
+- **An admin's own bindings are their own**, kept like anybody's; being an admin changes what they
+  can read, not whose bindings their runs use.
+
+**As built (item 51).** Sign-in admits only members of a users group, or the admin group.
+`SIGHTLINE_SIGNIN_USER_GROUP` (`Settings.signin_user_group`; blank is unset, as for the admin
+group) is matched exactly against item 44's groups. The check is `SignInConfig.admits`, called once
+by `SignInMiddleware` right after `identify` succeeds, so it runs after the proxy-secret checks (a
+request that did not come through the proxy is still refused with 401 before membership is looked
+at) and before CSRF and every route. In sign-in mode with the setting present, an identity in
+neither the users group nor the admin group gets **403** and `signin_refused.html`: the heading
+*You are signed in, but you are not in the group that may use Sightline.*, a remedy naming the users
+group, and no navigation, link, form, run, course or setting. The admin group alone admits; being
+admitted as a user changes nothing about what item 45 lets a person see. The log line is
+`signin_not_a_member`, with the method and nothing of the identity. Unset, every proxied identity is
+admitted as before, and the lifespan logs one `signin_any_identity_admitted` warning at startup.
+Local mode never installs the middleware, so it ignores the setting. The setting is not required in
+sign-in mode. Three readings taken here:
+- **The two stylesheets are served to a person outside the groups** (`/assets/tokens.css`,
+  `/static/app.css`, `GET`/`HEAD` only), so the refusal page reads as a Sightline page. Everything
+  else under `/static` is refused like any route.
+- **`GET /healthz` answers such a person as it answers a request nobody signed in made**: the status
+  alone, without the data root or the run counts.
+- **The refusal names the users group, never the admin group.** The person needs to know which
+  group to request; item 45 already declined to name the admin group to non-admins.
+Refusing somebody deletes nothing: their runs, bindings and token stay in the store, an admin still
+sees their runs, and they see them again once they are back in the group.
 
 **As built (item 46).** A Start while a run is active, or while runs are queued, records the run
 with status `queued` (`RunStatus.QUEUED`, label *Queued*; neither resumable nor terminal) instead of
@@ -901,6 +961,35 @@ fired against a broken copy. Three readings taken here:
 - **oauth2-proxy's documentation shows header values nested under `claimSource:` and
   `secretSource:`; v7.13.0 refuses that** and takes the flat form, which is what the runbook shows.
   Checked by starting that version with no network.
+
+**As built (item 50).** Pilot readiness, in three parts. (1) **The master key from the
+environment.** In sign-in mode `Settings` refuses to start unless `SIGHTLINE_SECRET_KEY` holds a
+valid Fernet key; the message names the variable, gives the one-line command that generates one,
+and says that a different key means every person enters their Canvas token again. Blank is unset,
+and a malformed key is refused at startup rather than at the first token saved. Local mode is
+unchanged: unset, the key file under `secrets/`. Every settings refusal now hides its input
+(`hide_input_in_errors`), because a startup refusal prints outside redaction and pydantic would
+otherwise append a truncated repr of the environment to it. `docker-compose.signin.yml` requires the
+variable at config time, as it requires the proxy secret. Key rotation is not built. (2) **`python
+-m sightline.backup DEST`** writes `DEST/sightline-backup-<UTC stamp>/`, owner-only, built under a
+`.partial` name and renamed when complete, through a gate in `sightline.paths` that refuses a
+destination inside the data root (symlinks resolved) or a name that exists. The store is copied from
+a read-only connection through the backup API and rewritten as one rollback-journal file, so a
+snapshot opens on its own; the kept directories are walked without following any symlink, which is
+skipped and named in the manifest; `.partial` files and the store's own `-wal`/`-shm` are not state
+and are not copied. `MANIFEST.json` lists every file with its size and SHA-256. **`--check
+SNAPSHOT`** opens a snapshot read-only and immutable and needs no configuration: it verifies every
+file against the manifest, refuses a left-out directory or an unlisted file, runs SQLite's integrity
+check, and lists the runs by id, status, course count and creation time, with aggregate counts —
+never a course reference, which can carry the Canvas host. The backup prints the same check of
+what it wrote. (3) **`docs/PILOT.md`**, the operator's runbook for the first live runs: deploy by
+`docs/SIGN-IN.md`, the master key and backups, then the checklist, each step naming what to send
+back to the roadmap as aggregates. Two readings taken here:
+- **`private/` holds what the pilot keeps**, the workbooks and action plans that come back edited
+  (item 25), one directory per run id. The app never reads or writes it; only the backup reads it.
+- **The check lists run ids and statuses, not course references or starters.** Its output is meant
+  to be shown to whoever helps with a restore; a course reference is a URL on the institution's
+  host.
 
 ---
 

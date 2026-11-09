@@ -27,6 +27,7 @@ from typing import Any
 
 import httpx
 import pytest
+from cryptography.fernet import Fernet
 
 import ollama_recordings as recordings
 from canvas_recordings import EXAMPLE_BASE_URL, Recording, load
@@ -62,6 +63,8 @@ COURSE = "4411"
 
 #: Obviously fake, and long enough for the 32-character floor.
 SECRET = "fake-proxy-secret-0000000000000000000000"
+#: Sign-in mode's master key (item 50), generated per process: no key literal in the tree.
+MASTER_KEY = Fernet.generate_key().decode()
 ADMIN_GROUP = "fake-sightline-admins"
 
 ALICE = "fake-subject-alice-0001"
@@ -89,6 +92,7 @@ def signin_settings(data_root: Path, **extra: Any) -> Settings:
         log_format="json",
         signin=True,
         signin_secret=SECRET,
+        secret_key=MASTER_KEY,
         **{"signin_admin_group": ADMIN_GROUP, **extra},
     )
 

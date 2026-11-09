@@ -10,8 +10,13 @@
     they want, once per rubric, never per course. A run never waits on this: it uses the bindings
     accepted so far, and the shipped rubric's own where none are.
   </p>
-  {% if proposing %}
+  {% if signed_in %}
+  <p class="note">Each person keeps their own bindings. What you see here is yours, and what you accept applies to the runs you start.</p>
+  {% endif %}
+  {% if proposing and proposing_mine %}
   <p class="banner banner-warn" role="status">Bindings are being proposed for <a href="/rubrics/{{ proposing.pack_id }}">{{ proposing.pack_name }}</a>.</p>
+  {% elif proposing %}
+  <p class="banner banner-warn" role="status">Another person is proposing bindings for {{ proposing.pack_name }}.</p>
   {% endif %}
 </section>
 
@@ -23,12 +28,15 @@
   <p class="banner banner-bad" role="alert">The bindings kept for this rubric cannot be read: {{ line.error }}</p>
   {% else %}
   {% if line.resolved.accepted %}
-  <p class="line">Runs use the bindings accepted on {{ line.resolved.accepted.at[:10] }} by {{ line.resolved.accepted.reviewer }}.</p>
+  <p class="line">{{ runs }} use the bindings accepted on {{ line.resolved.accepted.at[:10] }} by {{ line.resolved.accepted.reviewer }}.</p>
   {% else %}
-  <p class="line">Runs use the shipped rubric's own bindings.</p>
+  <p class="line">{{ runs }} use the shipped rubric's own bindings.</p>
   {% endif %}
   {% if line.open %}
   <p class="line unconfirmed">Bindings proposed, not confirmed. <a href="{{ line.href }}#sets">Review them</a></p>
+  {% endif %}
+  {% if line.others %}
+  <p class="line">{{ line.others }} other person(s) keep bindings or proposals for this rubric. <a href="{{ line.href }}#people">Read them</a></p>
   {% endif %}
   {% endif %}
 </section>

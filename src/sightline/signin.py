@@ -25,8 +25,17 @@ because the check runs inside the container. It is that path and that method onl
 Sightline's own secret header, which the proxy is configured to add. Nothing here is
 Authentik-specific: oauth2-proxy in front of Entra ID works by setting the names it uses
 (``X-Forwarded-User``, ``X-Forwarded-Preferred-Username``, ``X-Forwarded-Groups``, separator ``,``).
-Groups are read and kept on the identity; nothing in this item decides anything from them (the
-admin group is item 45).
+Groups are read and kept on the identity. Item 45 decides who is an admin from them
+(:mod:`sightline.access`).
+
+**Who may use the app at all** (roadmap item 51). With ``SIGHTLINE_SIGNIN_USER_GROUP`` set, an
+identity that came through the proxy but is in neither that group nor the admin group is refused
+here, after the proxy checks and before any route, with **403 and a page** naming the group to ask
+for. The admin group alone admits. Group names are matched exactly, never as substrings. The page
+links nowhere and renders no run, course or setting; the two stylesheets it loads are served, and
+the health check answers such a person as it answers a request nobody signed in made. Unset, any
+proxied identity is admitted, as item 44 built it, and startup says so in the log. Refusing
+somebody deletes nothing: their runs and bindings stay in the store, visible to an admin.
 
 The proxy, not the app, holds the session: lifetime and sign-out are its configuration (item 47).
 The secret and the identity headers are registered with :mod:`sightline.redaction` by
@@ -79,7 +88,8 @@ class Identity:
 
     ``subject`` is the stable id, which is what identifies the person; ``name`` is the display
     name shown beside it, falling back to the subject when the proxy sends none, so a renamed
-    person keeps their history. ``groups`` are kept for item 45 and decide nothing here.
+    person keeps their history. ``groups`` decide who is an admin (item 45) and, with a users
+    group configured, whether the person is admitted at all (item 51).
     """
 
     subject: str
@@ -97,6 +107,19 @@ class SignInConfig:
     name_header: str
     groups_header: str
     groups_separator: str
+    #: ``SIGHTLINE_SIGNIN_USER_GROUP``; ``None`` admits any identity the proxy forwards.
+    user_group: str | None = None
+    #: ``SIGHTLINE_SIGNIN_ADMIN_GROUP``, which admits on its own.
+    admin_group: str | None = None
+
+    def admits(self, identity: Identity) -> bool:
+        """Whether ``identity`` may use the app: always with no users group, else by membership."""
+        if self.user_group is None:
+            return True
+        return any(
+            group is not None and group in identity.groups
+            for group in (self.user_group, self.admin_group)
+        )
 
     @classmethod
     def from_settings(cls, settings: Settings) -> SignInConfig | None:
@@ -114,6 +137,8 @@ class SignInConfig:
             name_header=settings.signin_name_header.lower(),
             groups_header=settings.signin_groups_header.lower(),
             groups_separator=settings.signin_groups_separator,
+            user_group=settings.signin_user_group,
+            admin_group=settings.signin_admin_group,
         )
 
 
@@ -167,12 +192,20 @@ class SignInMiddleware:
 
     A pure ASGI middleware rather than a route dependency, so a route added later cannot forget
     it. On success the identity is put on the request's state (``request.state.identity``), which
-    is where :func:`sightline.review.identity.current_reviewer` reads it.
+    is where :func:`sightline.review.identity.current_reviewer` reads it. An identity the
+    configuration does not admit (item 51) is refused here too, with 403 and ``refused_page``
+    rendered for the users group.
     """
 
-    def __init__(self, app: ASGIApp, config: SignInConfig) -> None:
+    def __init__(
+        self,
+        app: ASGIApp,
+        config: SignInConfig,
+        refused_page: Callable[[str], str] | None = None,
+    ) -> None:
         self.app = app
         self.config = config
+        self.refused_page = refused_page or _plain_not_a_member
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] not in {"http", "websocket"}:
@@ -189,6 +222,19 @@ class SignInMiddleware:
             log.warning("signin_refused", reason=refused.reason, method=scope.get("method"))
             await _refuse(scope, send)
             return
+        if not self.config.admits(state["identity"]):
+            if _is_health_check(scope):
+                # Answered as a request nobody signed in made: the status alone.
+                state["identity"] = None
+                await self.app(scope, receive, send)
+                return
+            if _is_stylesheet(scope):
+                # The refusal page's own two stylesheets, so it reads as a Sightline page.
+                await self.app(scope, receive, send)
+                return
+            log.warning("signin_not_a_member", method=scope.get("method"))
+            await _refuse_member(scope, send, self.refused_page(self.config.user_group or ""))
+            return
         await self.app(scope, receive, send)
 
 
@@ -196,6 +242,35 @@ def signed_in(scope_state: Any) -> Identity | None:
     """The identity :class:`SignInMiddleware` put on a request's state, if any."""
     identity = getattr(scope_state, "identity", None)
     return identity if isinstance(identity, Identity) else None
+
+
+#: What the refusal page loads, and the only paths besides the health check that a signed-in person
+#: outside the users group is served. Neither carries a run, a course or a setting.
+STYLESHEET_PATHS = frozenset({"/assets/tokens.css", "/static/app.css"})
+
+
+def _is_stylesheet(scope: Scope) -> bool:
+    return (
+        scope["type"] == "http"
+        and scope.get("path") in STYLESHEET_PATHS
+        and scope.get("method") in {"GET", "HEAD"}
+    )
+
+
+def not_a_member_remedy(group: str) -> str:
+    """What a person outside the users group is told: the group to ask for, by its name."""
+    return (
+        f"Ask whoever runs this deployment to add you to the sign-in group {group}. Until they "
+        "do, Sightline shows you nothing. Anything you made here before is kept."
+    )
+
+
+#: The heading of the page a person outside the users group gets.
+NOT_A_MEMBER_SUMMARY = "You are signed in, but you are not in the group that may use Sightline."
+
+
+def _plain_not_a_member(group: str) -> str:  # pragma: no cover - the app passes a template
+    return f"{NOT_A_MEMBER_SUMMARY}\n{not_a_member_remedy(group)}\n"
 
 
 def _is_health_check(scope: Scope) -> bool:
@@ -224,6 +299,25 @@ async def _refuse(scope: Scope, send: Send) -> None:
     await send({"type": "http.response.body", "body": REFUSAL})
 
 
+async def _refuse_member(scope: Scope, send: Send, page: str) -> None:
+    if scope["type"] == "websocket":  # pragma: no cover - the app serves no websockets
+        await send({"type": "websocket.close", "code": 1008})
+        return
+    body = page.encode("utf-8")
+    await send(
+        {
+            "type": "http.response.start",
+            "status": 403,
+            "headers": [
+                (b"content-type", b"text/html; charset=utf-8"),
+                (b"content-length", str(len(body)).encode("ascii")),
+                (b"cache-control", b"no-store"),
+            ],
+        }
+    )
+    await send({"type": "http.response.body", "body": body})
+
+
 def _text(raw: bytes | None) -> str:
     """A header value as text. UTF-8 where it is (a name with an accent), Latin-1 otherwise."""
     if raw is None:
@@ -247,11 +341,14 @@ def _role(config: SignInConfig, name: str) -> str:
 
 __all__ = [
     "HEALTH_PATH",
+    "NOT_A_MEMBER_SUMMARY",
     "REFUSAL",
+    "STYLESHEET_PATHS",
     "Identity",
     "SignInConfig",
     "SignInMiddleware",
     "SignInRefused",
     "identify",
+    "not_a_member_remedy",
     "signed_in",
 ]

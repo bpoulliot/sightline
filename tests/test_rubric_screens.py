@@ -803,19 +803,42 @@ def cli_root(monkeypatch: pytest.MonkeyPatch, data_root: Path, repo_root: Path) 
     reset_settings_cache()
 
 
-def test_the_command_records_the_bindings_accepted_on_the_screen(
+def test_the_command_records_the_bindings_its_bindings_option_names(
     cli_root: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    """Roadmap item 48, reading (d): a command-line run has no starter, so it reads the shipped
+    pack unless ``--bindings`` names an accepted state. (Item 22 had it read the bindings in force;
+    bindings are each person's own since item 48.)"""
     paths = DataPaths.from_setting(cli_root).ensure()
     digest = accepted_state(paths, "uccs-oscqr-rsi", "2", "link_text")
-    # It stops at the extract stage for want of a model host, after the run is recorded.
-    code = batch_main(["run", "--bundle", "examples/sample-course", "--pack", "uccs-oscqr-rsi"])
-    assert code in (0, 1)
+    run = ["run", "--bundle", "examples/sample-course", "--pack", "uccs-oscqr-rsi"]
+    # Each stops at the extract stage for want of a model host, after the run is recorded.
+    assert batch_main(run) in (0, 1)
+    out = capsys.readouterr().out
+    assert digest not in out
+    assert "shipped pack's own bindings" in out
+    assert batch_main([*run, "--bindings", digest]) in (0, 1)
     assert digest in capsys.readouterr().out
     store = RunStore.open(paths)
     try:
-        (run,) = store.list_runs()
-        assert run.bindings_digest == digest
+        assert sorted(str(r.bindings_digest) for r in store.list_runs()) == sorted(
+            [str(None), digest]
+        )
+    finally:
+        store.dispose()
+
+
+def test_the_command_refuses_bindings_that_are_not_an_accepted_state(
+    cli_root: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    paths = DataPaths.from_setting(cli_root).ensure()
+    run = ["run", "--bundle", "examples/sample-course", "--pack", "uccs-oscqr-rsi"]
+    assert batch_main([*run, "--bindings", "sha256:" + "0" * 64]) == 2
+    assert "cannot be used" in capsys.readouterr().err
+    assert batch_main([*run, "--bindings", "not-a-digest"]) == 2
+    store = RunStore.open(paths)
+    try:
+        assert store.list_runs() == []
     finally:
         store.dispose()
 

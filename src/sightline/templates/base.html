@@ -14,6 +14,7 @@
     <div class="wrap masthead-inner">
       <p class="wordmark">Sightline</p>
       <p class="tagline">A first pass over an online course against a review rubric.</p>
+      {%- block nav %}
       <nav class="nav" aria-label="Sections">
         <a href="/"{% if nav == 'status' %} aria-current="page"{% endif %}>Status</a>
         <a href="/settings"{% if nav == 'settings' %} aria-current="page"{% endif %}>Settings</a>
@@ -21,6 +22,7 @@
         <a href="/runs"{% if nav == 'runs' %} aria-current="page"{% endif %}>Runs</a>
         <a href="/rubrics"{% if nav == 'rubrics' %} aria-current="page"{% endif %}>Rubrics</a>
       </nav>
+      {%- endblock %}
     </div>
   </header>
 
