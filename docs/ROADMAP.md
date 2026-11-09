@@ -56,7 +56,7 @@ by item 36's session, PR #43; 44–47 split from item 40 on 2026-10-30).
 | 38 | A bound Tier D row is counted in two coverage buckets, and `coverage` exits 1 calling it a bug | 1 | READY | **DONE** — PR #35. Tier first; 42 → 41 of 68, exit 1 → 0 |
 | 39 | Every other bare pattern in `.dockerignore` is root-only too | 3 | READY | **DONE** — PR #41. Planted nested files 19 → 0 in the dev image, 15 → 0 in runtime |
 | 40 | Sign-in (SSO) and multiple users | 3 | **DECIDED** 2026-10-30 — split into 44–47 | Nothing to build under this number; the decisions are its entry |
-| 41 | A cancelled CI `image` job leaves its sample-report `docker run` running on the shared DinD daemon | 0 | READY | fix built in PR #55, **HOLD**: CI green; the cancel acceptance needs a web-UI cancel no session can issue |
+| 41 | A cancelled CI `image` job leaves its sample-report `docker run` running on the shared DinD daemon | 0 | READY | **DONE** — PR #55. Named, cleaned up and capped at 512m; merged 2026-11-09 on the indirect cancel evidence (operator) |
 | 42 | A run that completed with failures records no finish time | 1 | READY — filed 2026-10-29 by item 36 | **DONE** — PR #44. Every terminal status stamps `finished_at`; `interrupted` stays unset |
 | 43 | The app's restart recovery takes over a run another process is executing | 1 | **READY** — (a) an owner record, decided 2026-10-30 | **DONE** — PR #48. Runs record host, pid and a heartbeat; recovery, shutdown and Start read them |
 | 44 | Signed-in identity behind a trusted proxy | 3 | READY | **DONE** — PR #50 (sign-in mode behind a proxy secret, the subject on overrides, CSRF on every form post) |
@@ -171,7 +171,7 @@ DONE — PR #50. `99x-` (item 45) ran DONE — PR #51. `99y-` (item 46) ran DONE
 as built, so it gates on both), `99ze-` item 49's measurement. Each gates on its own status row on
 `main`, so none can run before this PR merges. 12b and 52 have no prompt yet: both wait on the
 pilot's corpus runs. `99zb-` (item 48) ran DONE — PR #56. `99zc-` (item 51) ran DONE — PR #57.
-`99zd-` (item 50) ran DONE — PR #58. `99ze-` (item 49's measurement) ran — PR #60: the job token is
+`99zd-` (item 50) ran DONE — PR #58. `99za-` (item 41) was held for a cancel no session can issue and merged 2026-11-09 — PR #55. `99ze-` (item 49's measurement) ran — PR #60: the job token is
 refused, so item 49 is NEEDS DECISION.
 
 ---
@@ -1313,7 +1313,7 @@ nothing that names a course, passage, person or the institution.
 active (item 46's queue is the gate). A model that does not fit is a result, not a reason to
 shrink the extraction model.
 
-**41 · FILED 2026-10-29 from `~/docker` TODO I267 (operator, interactive). READY, Tier 0 — fix built 2026-11-05 in PR #55, held for the cancel check below. **A cancelled
+**41 · FILED 2026-10-29 from `~/docker` TODO I267 (operator, interactive). DONE 2026-11-09 — PR #55. **A cancelled
 `image` job leaves its sample-report container running on the runner's shared DinD daemon.**
 
 *Built (PR #55).* The step now names its container `sightline-ci-sample-${GITHUB_SHA}`, runs `docker rm -f` on
@@ -1342,6 +1342,11 @@ do (operator):* cancel PR #55's `image` job from the web UI during the sample-re
 starts about 1 min into the job, after both builds, and runs about 25 s). Then check
 `docker exec act_runner_dind docker ps` for `sightline-ci-sample-*` once cleanup has run, re-run
 the job, merge PR #55, and mark this item DONE.
+
+*Decided 2026-11-09 (operator): merge on the indirect evidence.* The caltidy cancel on this runner
+shows an `always()` cleanup step runs on a cancel, which is what the fix relies on; the live cancel
+check was not run. If a leaked `sightline-ci-sample-*` container is ever seen on DinD, reopen this
+item.
 
 *Evidence.* The `image` job (`.gitea/workflows/ci.yml`, label `cserv`) runs
 `docker run --rm "sightline:ci-dev-${GITHUB_SHA}" pytest -q -rs tests/test_sample_report.py`
