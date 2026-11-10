@@ -1,0 +1,246 @@
+name: Release
+
+# Roadmap item 49. A pushed `vX.Y.Z` tag builds the `runtime` image and publishes it to Gitea's
+# registry as bitmap/sightline. The operator cuts a release by pushing the tag; a merge never
+# publishes one (roadmap item 49, *Decided 2026-11-02*). docs/DEVELOPMENT.md, *Releases*, is the
+# runbook.
+#
+# `workflow_dispatch` is a DRY RUN by default: every step against the scratch package
+# bitmap/sightline-dryrun with the single tag `dryrun-<run id>`, the version check run against a
+# synthetic tag built from pyproject.toml (or the `version_tag` input), no Gitea release created;
+# then the pushed version is deleted with the same token and its 404 confirmed.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run: push to bitmap/sightline-dryrun and delete it again (a real publish is only from a v* tag ref)"
+        type: boolean
+        default: true
+      version_tag:
+        description: "Dry run only: the tag to check against pyproject.toml (default v<pyproject version>)"
+        type: string
+        default: ""
+
+# One publishing job, never a matrix, and never two at once: concurrent pushes of the same layers to
+# one package raced to `blob unknown` (run 3564, measurements/49-registry-push/).
+concurrency:
+  group: sightline-release
+  cancel-in-progress: false
+
+env:
+  DOCKER_CLI_VERSION: "27.5.1"
+  # From casper the registry is the LAN TLS name; casper's dind resolves it on the LAN, so there is
+  # no --add-host. Never git.bitmapserv.org (Cloudflare, 100 MB request cap) and never gitea:3000 (a
+  # chromaserv-only name).
+  REGISTRY: registry.bitmapserv.org
+  REGISTRY_USER: bitmap
+
+jobs:
+  publish:
+    runs-on: casper
+    permissions:
+      contents: write
+    defaults:
+      run:
+        # Explicit bash runs with -eo pipefail, so `docker push | tee` fails when the push does.
+        shell: bash
+    container:
+      image: node:20
+      # The runner's own docker-in-docker daemon, not the host's: casper allows the mount since
+      # ~/docker PR #762, as chromaserv does for ci.yml's `image` job.
+      options: -v /var/run/docker.sock:/var/run/docker.sock
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The release note needs every tag and the history back to the previous one.
+          fetch-depth: 0
+
+      - name: Plan (real release or dry run)
+        env:
+          EVENT: ${{ github.event_name }}
+          INPUT_DRY_RUN: ${{ inputs.dry_run }}
+          INPUT_VERSION_TAG: ${{ inputs.version_tag }}
+        run: |
+          set -eu
+          git config --global --add safe.directory "$PWD"
+          if [ "$EVENT" = "push" ]; then
+            dry=false
+          elif [ "$INPUT_DRY_RUN" = "false" ]; then
+            case "$GITHUB_REF" in
+              refs/tags/v*) dry=false ;;
+              *) echo "a real publish runs only from a v* tag ref, not $GITHUB_REF" >&2; exit 1 ;;
+            esac
+          else
+            dry=true
+          fi
+          if [ "$dry" = "true" ]; then
+            tag=${INPUT_VERSION_TAG:-v$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')}
+            package=bitmap/sightline-dryrun
+          else
+            tag=$GITHUB_REF_NAME
+            package=bitmap/sightline
+          fi
+          {
+            echo "DRY=$dry"
+            echo "TAG=$tag"
+            echo "PACKAGE=$package"
+            echo "LOCAL=sightline:release-$GITHUB_RUN_ID"
+          } >> "$GITHUB_ENV"
+          echo "RESULT plan: dry_run=$dry tag=$tag package=$package ref=$GITHUB_REF sha=$GITHUB_SHA runner=${RUNNER_NAME:-?}"
+
+      - name: Refuse a tag whose version differs from pyproject.toml
+        run: |
+          set -eu
+          version=$(python3 scripts/release.py check-version "$TAG")
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          echo "RESULT version check: $TAG matches pyproject.toml $version"
+
+      - name: Install the docker CLI
+        run: |
+          curl -fsSL -o /tmp/docker.tgz \
+            "https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKER_CLI_VERSION}.tgz"
+          tar -xzf /tmp/docker.tgz -C /tmp
+          install /tmp/docker/docker /usr/local/bin/docker
+          docker version --format 'client {{.Client.Version}} / daemon {{.Server.Version}}'
+
+      - name: Build the runtime image
+        run: |
+          set -eu
+          docker build --pull --target runtime \
+            --label "org.opencontainers.image.version=$VERSION" \
+            --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+            -t "$LOCAL" .
+          echo "RESULT build: $LOCAL $(docker image inspect -f '{{.Id}} {{.Size}} bytes' "$LOCAL")"
+
+      - name: The image starts and answers its own health endpoint
+        run: ./scripts/image-healthcheck.sh "$LOCAL" "sightline-release-$GITHUB_RUN_ID"
+
+      - name: Choose the registry tags
+        run: |
+          set -eu
+          would=$(python3 scripts/release.py names "$VERSION")
+          if [ "$DRY" = "true" ]; then
+            names="dryrun-$GITHUB_RUN_ID"
+            echo "RESULT names: a real release of $TAG would push: $would"
+          else
+            names=$would
+          fi
+          echo "NAMES=$names" >> "$GITHUB_ENV"
+          echo "RESULT names: pushing $PACKAGE: $names"
+
+      - name: Log in to the registry
+        env:
+          TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+        run: |
+          set -eu
+          printf '%s' "$TOKEN" | docker login "$REGISTRY" -u "$REGISTRY_USER" --password-stdin
+          echo "RESULT login: ok"
+
+      - name: Push
+        id: push
+        run: |
+          set -eu
+          first=""
+          for name in $NAMES; do
+            ref="$REGISTRY/$PACKAGE:$name"
+            docker tag "$LOCAL" "$ref"
+            # Recorded before the push, so a failed push still gets the dry run's delete step.
+            echo "pushed=true" >> "$GITHUB_OUTPUT"
+            docker push "$ref" | tee /tmp/push.log
+            digest=$(sed -n 's/.*digest: \(sha256:[0-9a-f]*\).*/\1/p' /tmp/push.log | head -n 1)
+            echo "RESULT push: $ref $digest"
+            if [ -z "$first" ]; then
+              first=$digest
+            elif [ "$digest" != "$first" ]; then
+              echo "names pushed with different digests: $first and $digest" >&2
+              exit 1
+            fi
+          done
+          echo "DIGEST=$first" >> "$GITHUB_ENV"
+
+      - name: Read the manifests back and confirm one digest
+        env:
+          TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+        run: |
+          set -eu
+          scope="repository:${PACKAGE}:pull"
+          bearer=$(printf 'user = "%s:%s"\n' "$REGISTRY_USER" "$TOKEN" \
+            | curl -fsS -K - "https://${REGISTRY}/v2/token?service=container_registry&scope=${scope}" \
+            | python3 -c 'import json, sys; d = json.load(sys.stdin); print(d.get("token") or d["access_token"])')
+          accept="application/vnd.docker.distribution.manifest.v2+json,application/vnd.oci.image.manifest.v1+json,application/vnd.oci.image.index.v1+json,application/vnd.docker.distribution.manifest.list.v2+json"
+          for name in $NAMES; do
+            served=$(printf 'header = "Authorization: Bearer %s"\n' "$bearer" \
+              | curl -fsS -I -K - -H "Accept: $accept" "https://${REGISTRY}/v2/${PACKAGE}/manifests/${name}" \
+              | tr -d '\r' | sed -n 's/^[Dd]ocker-[Cc]ontent-[Dd]igest: *//p')
+            echo "RESULT served: $PACKAGE:$name $served"
+            if [ "$served" != "$DIGEST" ]; then
+              echo "the registry serves $name as ${served:-nothing}, pushed $DIGEST" >&2
+              exit 1
+            fi
+          done
+
+      - name: Release note
+        run: |
+          set -eu
+          if [ "$DRY" = "true" ]; then
+            python3 scripts/release.py notes "$TAG" --to HEAD > /tmp/release-notes.md
+          else
+            python3 scripts/release.py notes "$TAG" > /tmp/release-notes.md
+          fi
+          echo "----- release note -----"
+          cat /tmp/release-notes.md
+          echo "----- end of release note -----"
+
+      - name: Publish the Gitea release (the job token)
+        if: env.DRY == 'false'
+        env:
+          JOB_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          python3 - > /tmp/release.json <<'PY'
+          import json, os
+          notes = open("/tmp/release-notes.md", encoding="utf-8").read()
+          digest = os.environ["DIGEST"]
+          image = f"{os.environ['REGISTRY']}/{os.environ['PACKAGE']}"
+          body = notes + f"\n## Image\n\n`{image}:{os.environ['VERSION']}`, digest `{digest}`\n"
+          print(json.dumps({"tag_name": os.environ["TAG"], "name": f"Sightline {os.environ['TAG']}",
+                            "body": body, "draft": False, "prerelease": False}))
+          PY
+          url="https://${REGISTRY}/api/v1/repos/${GITHUB_REPOSITORY}/releases"
+          status=$(printf 'header = "Authorization: token %s"\n' "$JOB_TOKEN" \
+            | curl -s -o /tmp/release-response.json -w '%{http_code}' -K - \
+                -H 'Content-Type: application/json' --data @/tmp/release.json "$url")
+          echo "RESULT release: POST $url -> $status"
+          if [ "$status" = "201" ]; then
+            python3 -c 'import json; d = json.load(open("/tmp/release-response.json")); print("RESULT release:", d.get("html_url"))'
+          else
+            # Not fatal: the image is already published and the note is in this log above. The
+            # refusal is recorded on roadmap item 49 for the operator; no other token is used here.
+            head -c 500 /tmp/release-response.json || true
+            echo
+            echo "::warning::the job token could not create the release ($status); the note is in this log"
+          fi
+
+      - name: "Dry run: delete the pushed version with the same token and confirm 404"
+        if: always() && env.DRY == 'true' && steps.push.outputs.pushed == 'true'
+        env:
+          TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+        run: |
+          set -eu
+          url="https://${REGISTRY}/api/v1/packages/${REGISTRY_USER}/container/${PACKAGE#*/}/dryrun-${GITHUB_RUN_ID}"
+          call() { printf 'header = "Authorization: token %s"\n' "$TOKEN" | curl -s -o /dev/null -w '%{http_code}' -K - "$@"; }
+          before=$(call "$url")
+          del=$(call -X DELETE "$url")
+          after=$(call "$url")
+          echo "RESULT dry-run delete: before $before, DELETE $del, after $after (want 200, 204, 404)"
+          [ "$after" = "404" ]
+
+      - name: Clean up
+        if: always()
+        run: |
+          docker logout "$REGISTRY" || true
+          docker rm -f "sightline-release-$GITHUB_RUN_ID" 2>/dev/null || true
+          for name in $NAMES; do docker image rm -f "$REGISTRY/$PACKAGE:$name" 2>/dev/null || true; done
+          docker image rm -f "$LOCAL" 2>/dev/null || true

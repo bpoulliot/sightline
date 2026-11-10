@@ -11,7 +11,7 @@ on:
 # before now.
 #
 # Runner labels (~/docker TODO I226): a job that needs nothing from the host runs on `lan`
-# (chromaserv or sentry, the two runners on the LAN); `image` needs chromaserv's docker-in-docker
+# (chromaserv or casper, the two runners on the LAN); `image` needs chromaserv's docker-in-docker
 # socket and runs on `cserv`, the label only chromaserv carries. Never `portable`: an off-site
 # runner carries it.
 #
@@ -139,26 +139,9 @@ jobs:
           docker run --rm --name "$name" --memory 512m --memory-swap 512m \
             "sightline:ci-dev-${GITHUB_SHA}" pytest -q -rs tests/test_sample_report.py
       - name: The image starts and answers its own health endpoint
-        run: |
-          set -eu
-          name="sightline-ci-${GITHUB_SHA}"
-          docker rm -f "$name" >/dev/null 2>&1 || true
-          docker run -d --name "$name" "sightline:ci-${GITHUB_SHA}"
-          ok=0
-          for _ in $(seq 1 30); do
-            if docker exec "$name" python -c "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3).status == 200 else 1)" 2>/dev/null; then
-              ok=1
-              break
-            fi
-            sleep 2
-          done
-          docker logs "$name" || true
-          docker exec "$name" python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3).read().decode())" || true
-          docker rm -f "$name" >/dev/null 2>&1 || true
-          if [ "$ok" -ne 1 ]; then
-            echo "the image built but never became healthy" >&2
-            exit 1
-          fi
+        # The one health check (scripts/image-healthcheck.sh); release.yml runs it too, on the
+        # image it is about to publish (roadmap item 49).
+        run: ./scripts/image-healthcheck.sh "sightline:ci-${GITHUB_SHA}" "sightline-ci-${GITHUB_SHA}"
       - name: Clean up the containers and images this job created
         if: always()
         run: |

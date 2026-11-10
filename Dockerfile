@@ -55,6 +55,8 @@ FROM deps AS dev
 # the linter and the formatter is the same interpreter and the same dependency set CI uses.
 RUN uv sync --frozen --extra dev
 COPY tests ./tests
+# tests/test_release_script.py exercises the release workflow's decisions (roadmap item 49).
+COPY scripts/release.py ./scripts/release.py
 COPY docs/tokens.css ./docs/tokens.css
 # The suite reads the detector inventory out of SPEC §05 — tests/test_sample_course.py checks that
 # every planted defect names a detector the spec actually lists — so the dev stage needs the spec.
