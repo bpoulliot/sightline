@@ -64,7 +64,7 @@ by item 36's session, PR #43; 44–47 split from item 40 on 2026-10-30).
 | 46 | Queue a run behind the active one | 3 | READY | **DONE** — PR #52 (a Start while a run is active is queued FIFO; *Queued, N ahead*; starter or admin cancels, recorded; survives a restart; waits behind a live command-line run) |
 | 47 | Reference deployment: identity provider, proxy and app | 3 | READY — 44 DONE (PR #50); Authentik decided 2026-10-30 | **DONE** — PR #53 (`docker-compose.signin.yml`: the app behind an Authentik outpost, no app port, an internal network; `docs/SIGN-IN.md`, with oauth2-proxy + Entra ID as a second example) |
 | 48 | Rubric bindings belong to the person who accepts them | 3 | **READY** — decided 2026-11-02 (operator) | **DONE** — PR #56. Sets and history per subject id; states shared by digest; admin reads all, read-only |
-| 49 | A pushed version tag builds the image and publishes it to the Gitea registry | 3 | **READY** — 2026-11-10: the operator's `REGISTRY_TOKEN` (`write:package`) pushes from casper (run 3561); the job token is refused (401, 2026-11-05) | **DONE** — PR #63 (`release.yml` on casper; dry run 3567 green; retention keeps all three names, unchanged). First release `v0.1.0`: see the entry |
+| 49 | A pushed version tag builds the image and publishes it to the Gitea registry | 3 | **READY** — 2026-11-10: the operator's `REGISTRY_TOKEN` (`write:package`) pushes from casper (run 3561); the job token is refused (401, 2026-11-05) | **DONE** — PR #63 (`release.yml` on casper; dry run 3567 green; retention keeps all three names, unchanged). **`v0.1.0` published** (run 3575): `0.1.0`, `0.1`, `latest` = `sha256:4e8ca48a50743de232885b127601ec7dd65375964213e1f02290b4e6d6ac25d2`; Gitea release created |
 | 50 | Pilot readiness: the master key from the environment, a state backup, and a pilot runbook | 3 | **READY** — decided 2026-11-02 (operator); checklist amended 2026-11-04 | **DONE** — PR #58. Sign-in mode refuses to start without `SIGHTLINE_SECRET_KEY`; `python -m sightline.backup` (online backup API, `--check`); `docs/PILOT.md` |
 | 51 | Sign-in admits only members of a users group (or the admin group) | 3 | **READY** — decided 2026-11-04 (operator) | **DONE** — PR #57. `SIGHTLINE_SIGNIN_USER_GROUP`, exact; anybody in neither group gets a 403 page naming it; unset admits all and logs so |
 | 52 | Does a larger model on the existing model host settle the disagreement set? | 3 | **NEEDS MEASUREMENT** — on the pilot's corpus runs, as 12b; filed 2026-11-04 | — |
@@ -1259,6 +1259,19 @@ as stored cannot delete any `sha-<hex>` version. Consistent with that: `accessle
 count, many older than the rule. Not determined: whether Gitea's `cleanup_packages` cron task has
 run since (the session's token has no `read:admin`, and Gitea's log holds no cleanup line). Fixing
 it widens a remove pattern, which this item may not do.
+
+*The first release, 2026-11-10 (operator-authorised).* The merge commit of PR #63, `60d3728`, tagged
+`v0.1.0` (annotated, the one tag pushed). Tag run **3575**, casper, success: *v0.1.0 matches
+pyproject.toml 0.1.0*; build 300,522,321 bytes; `healthy`; pushed `0.1.0`, `0.1` and `latest`, each
+`sha256:4e8ca48a50743de232885b127601ec7dd65375964213e1f02290b4e6d6ac25d2`, and the registry served
+all three back with that digest through the token endpoint. **The job token may create a
+release**: `POST …/releases` → 201, so the Gitea release `v0.1.0` exists with its note (162
+non-merge commits, no earlier tag) and the image digest; no NEEDS DECISION. Checked independently
+of the run: the releases API returns `v0.1.0` (not a draft, not a pre-release); Gitea's DB holds
+versions `0.1.0`, `0.1` and `latest` of `bitmap/sightline`, all three pointing at the manifest blob
+`4e8ca48a…25d2`; `docker pull registry.bitmapserv.org/bitmap/sightline:0.1.0` on the host (which
+already holds a registry login) reported that digest, and the pulled image answered `/healthz` 200
+with `"version":"0.1.0"` (one run, `--rm`, then the image removed).
 
 **50 · FILED 2026-11-02 (operator, interactive). DONE — PR #58 (SPEC §09 *As built (item 50)*).
 Pilot readiness: the master key from the environment, a state backup, and a pilot runbook.** What the pilot on the operator's host (see
@@ -2850,6 +2863,9 @@ to this.**
   something credential-shaped" rather than dropped.
 
 ## Corrections log
+
+**2026-11-10 — `v0.1.0` published.** Tag run 3575 pushed `0.1.0`, `0.1` and `latest` with one
+digest and created the Gitea release with the job token. Item 49's entry records the digest.
 
 **2026-11-10 — item 49 built (PR #63).** `.gitea/workflows/release.yml` publishes a pushed
 `vX.Y.Z` tag from casper; `docs/RELEASING.md` is the runbook; the health check is
