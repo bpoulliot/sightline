@@ -1503,13 +1503,14 @@ and says which check it skipped rather than passing quietly.
 
 ```
 assets/fonts/    the fonts the PDF report is set in, each beside its licence
-docs/            SPEC.md, ROADMAP.md, RUBRIC-PACKS.md, SIGN-IN.md, PILOT.md, tokens.css
+docs/            SPEC.md, ROADMAP.md, RUBRIC-PACKS.md, SIGN-IN.md, PILOT.md, RELEASING.md, tokens.css
 examples/        synthetic sample course and sample report — never anything real
 rubrics/source/  the blank rubric workbooks
 rubrics/maps/    the authored mapping files: capability tags, determinacy tiers, section flags
 rubrics/packs/   the two generated rubric packs, committed
 scripts/         dev.sh (container-backed test/lint/format), build-packs.sh, scan-secrets.sh,
-                 make-sample-report.sh (regenerates examples/sample-report/)
+                 make-sample-report.sh (regenerates examples/sample-report/),
+                 image-healthcheck.sh and release.py (CI and the release workflow, RELEASING.md)
 src/sightline/   the application
   canvas/        the Canvas connector: client, connection test, reference resolution, sanitizer
   acquire/       acquisition and normalization: the API reader, the fetch/unzip layer, the cache

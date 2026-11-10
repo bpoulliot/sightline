@@ -64,7 +64,7 @@ by item 36's session, PR #43; 44–47 split from item 40 on 2026-10-30).
 | 46 | Queue a run behind the active one | 3 | READY | **DONE** — PR #52 (a Start while a run is active is queued FIFO; *Queued, N ahead*; starter or admin cancels, recorded; survives a restart; waits behind a live command-line run) |
 | 47 | Reference deployment: identity provider, proxy and app | 3 | READY — 44 DONE (PR #50); Authentik decided 2026-10-30 | **DONE** — PR #53 (`docker-compose.signin.yml`: the app behind an Authentik outpost, no app port, an internal network; `docs/SIGN-IN.md`, with oauth2-proxy + Entra ID as a second example) |
 | 48 | Rubric bindings belong to the person who accepts them | 3 | **READY** — decided 2026-11-02 (operator) | **DONE** — PR #56. Sets and history per subject id; states shared by digest; admin reads all, read-only |
-| 49 | A pushed version tag builds the image and publishes it to the Gitea registry | 3 | **READY** — 2026-11-10: the operator's `REGISTRY_TOKEN` (`write:package`) pushes from casper (run 3561); the job token is refused (401, 2026-11-05) | measured — PR #60 |
+| 49 | A pushed version tag builds the image and publishes it to the Gitea registry | 3 | **READY** — 2026-11-10: the operator's `REGISTRY_TOKEN` (`write:package`) pushes from casper (run 3561); the job token is refused (401, 2026-11-05) | **DONE** — PR #63 (`release.yml` on casper; dry run 3567 green; retention keeps all three names, unchanged). First release `v0.1.0`: see the entry |
 | 50 | Pilot readiness: the master key from the environment, a state backup, and a pilot runbook | 3 | **READY** — decided 2026-11-02 (operator); checklist amended 2026-11-04 | **DONE** — PR #58. Sign-in mode refuses to start without `SIGHTLINE_SECRET_KEY`; `python -m sightline.backup` (online backup API, `--check`); `docs/PILOT.md` |
 | 51 | Sign-in admits only members of a users group (or the admin group) | 3 | **READY** — decided 2026-11-04 (operator) | **DONE** — PR #57. `SIGHTLINE_SIGNIN_USER_GROUP`, exact; anybody in neither group gets a 403 page naming it; unset admits all and logs so |
 | 52 | Does a larger model on the existing model host settle the disagreement set? | 3 | **NEEDS MEASUREMENT** — on the pilot's corpus runs, as 12b; filed 2026-11-04 | — |
@@ -1204,6 +1204,61 @@ group**: two concurrent pushes of the same layers raced to `blob unknown` (run 3
 Conventional Commits since the previous tag. A retention rule (for example the last five patch
 versions of each minor) is the operator's to set in Gitea; the item documents it rather than
 setting it.
+
+*As built 2026-11-10 (PR #63).* [`docs/RELEASING.md`](RELEASING.md) is the runbook.
+`.gitea/workflows/release.yml` is one job on `casper` under the `concurrency:` group
+`sightline-release`, the dind socket mounted as in ci.yml's `image` job. It refuses a tag that is not
+a plain `vX.Y.Z` or whose version is not `pyproject.toml`'s (`scripts/release.py check-version`),
+builds `--pull --target runtime`, runs `scripts/image-healthcheck.sh` (the health check moved out of
+ci.yml, which now calls the same script; its `image` job stays on `cserv`), logs in to
+`registry.bitmapserv.org` as `bitmap` with `REGISTRY_TOKEN` on stdin, pushes `X.Y.Z` and `X.Y`, and
+`latest` only when the version is the highest `vX.Y.Z` tag by version order, then reads every
+name's manifest back through the token endpoint and fails unless all serve the pushed digest. The
+release note (`scripts/release.py notes`) is the non-merge commits since the previous `vX.Y.Z` tag
+by version order, grouped by Conventional Commit type, a breaking-change section first; it goes to
+the log, then to a Gitea release created with the job token, where a refusal is a warning rather
+than a failure. `workflow_dispatch` is a dry run by default, against `bitmap/sightline-dryrun` with
+the single tag `dryrun-<run id>`; it deletes that version and fails unless it then answers 404. A
+non-dry dispatch is refused off a `v*` tag ref. `tests/test_release_script.py` covers the
+refusals, the `latest` choice and the note (the dev image now carries `scripts/release.py`).
+
+*Proof on the PR branch (head `834aec1`).* Dry run **3567**, casper, success: plan `dry_run=true
+tag=v0.1.0`; *v0.1.0 matches pyproject.toml 0.1.0*; build 300,522,209 bytes; `healthy`; *a real
+release of v0.1.0 would push: 0.1.0 0.1 latest*; `Login Succeeded`; pushed
+`sightline-dryrun:dryrun-3567` `sha256:99da7ceb…f723`, served back with the same digest; the
+note (159 commits, no earlier tag); delete *before 200, DELETE 204, after 404*. Refusal **3568**
+(`version_tag=v9.9.9`), casper, failure at the version check: *tag v9.9.9 says version 9.9.9,
+pyproject.toml says 0.1.0*, exit 1; no build, login or push line in its log. Nothing left behind:
+Gitea's `package_version` table holds no `sightline-dryrun` version but the internal `_upload`
+row (`is_internal = t`), which Gitea keeps for any package that has received a blob, as
+`sightline-measure-49` has since run 3561; it is not a tagged version and the version route
+does not reach it. The log prints no token (the secrets are masked, and no step echoes one).
+
+*Retention, read 2026-11-10 (read-only, Gitea DB `package_cleanup_rule`).* Before-state, verbatim:
+
+```
+ id | enabled | owner_id |   type    | keep_count | keep_pattern | remove_days | remove_pattern | match_full_name | created_unix | updated_unix
+  1 | t       |        1 | container |         10 | ^(main|v.*)$ |           0 | ^sha-          | f               |   1792713489 |   1792713489
+```
+
+Owner 1 is `bitmap`; created 2026-10-22, never updated. Gitea 1.27.3's source
+(`models/packages/package_cleanup_rule.go`, `services/packages/cleanup/cleanup.go`,
+`services/packages/container/cleanup.go`, tag v1.27.3) compiles each pattern as
+`(?i)\A<pattern>\z`, slices off the `keep_count` newest versions, and then keeps a version that is
+`latest` (always, before any pattern), or matches the keep pattern, or is newer than `remove_days`
+(0: none), or does **not** match the remove pattern. **Verdict: all three of Sightline's names are
+kept.** `latest` by the container rule; `X.Y.Z` and `X.Y` because they do not match the remove
+pattern under either reading of it. They do not match the keep pattern either, so the keep pattern
+is not what protects them. **No change was made** and none is needed: the operator's authorisation
+was to add keep patterns only if the rule would delete a release name, and it would not.
+
+*Found while reading it (not changed; `~/docker` I59's, filed there).* Anchored as Gitea anchors
+it, `^sha-` becomes `(?i)\A^sha-\z`, which matches only a version named exactly `sha-`, so the rule
+as stored cannot delete any `sha-<hex>` version. Consistent with that: `accesslens` and
+`accesslens-worker` each hold 90 `sha-*` versions (2026-10-19 to 2026-10-31), 80 beyond the keep
+count, many older than the rule. Not determined: whether Gitea's `cleanup_packages` cron task has
+run since (the session's token has no `read:admin`, and Gitea's log holds no cleanup line). Fixing
+it widens a remove pattern, which this item may not do.
 
 **50 · FILED 2026-11-02 (operator, interactive). DONE — PR #58 (SPEC §09 *As built (item 50)*).
 Pilot readiness: the master key from the environment, a state backup, and a pilot runbook.** What the pilot on the operator's host (see
@@ -2795,6 +2850,11 @@ to this.**
   something credential-shaped" rather than dropped.
 
 ## Corrections log
+
+**2026-11-10 — item 49 built (PR #63).** `.gitea/workflows/release.yml` publishes a pushed
+`vX.Y.Z` tag from casper; `docs/RELEASING.md` is the runbook; the health check is
+`scripts/image-healthcheck.sh`, shared with ci.yml. The retention rule keeps Sightline's release
+names and was not changed. Item 49 is DONE.
 
 **2026-11-05 — item 48 built (PR #56).** SPEC §09 gains *As built (item 48)*, replacing the
 decided-not-built sentence under *As built (item 45)*, and *As built (item 22, part 2)* notes the

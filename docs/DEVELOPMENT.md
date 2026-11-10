@@ -53,6 +53,7 @@ successful test or merge without evidence. A runner crash, timeout or missing co
 event must retain the queue item and its side-effect ledger for a fresh session.
 
 Merging does not authorize deployment, release publication or restarting production.
+Sightline publishes a release only from an operator-pushed tag ([Releasing](RELEASING.md)).
 Use synthetic test data; do not contact live Canvas or expose institution identifiers,
 course exports or credentials. Changes to other projects' processes are out of scope.
 
