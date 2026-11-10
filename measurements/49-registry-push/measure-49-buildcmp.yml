@@ -1,0 +1,85 @@
+# Roadmap item 49, runner comparison (2026-11-10, operator). THIS FILE IS A HARNESS, NOT A WORKFLOW OF
+# THIS REPOSITORY: copy it onto a throwaway branch under .gitea/workflows/, dispatch once, delete the
+# branch. The same `runtime` build on casper and chromaserv, cold then warm, then a timed push and delete.
+name: measure-49 build comparison
+
+on:
+  workflow_dispatch:
+
+env:
+  DOCKER_CLI_VERSION: "27.5.1"
+  PACKAGE: bitmap/sightline-measure-49
+  PKG_NAME: sightline-measure-49
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: casper
+            registry: registry.bitmapserv.org
+            scheme: https
+          - runner: cserv
+            registry: gitea:3000
+            scheme: http
+    runs-on: ${{ matrix.runner }}
+    container:
+      image: node:20
+      options: -v /var/run/docker.sock:/var/run/docker.sock
+    env:
+      REGISTRY: ${{ matrix.registry }}
+      SCHEME: ${{ matrix.scheme }}
+      R: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the docker CLI
+        run: |
+          curl -fsSL -o /tmp/docker.tgz \
+            "https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKER_CLI_VERSION}.tgz"
+          tar -xzf /tmp/docker.tgz -C /tmp
+          install /tmp/docker/docker /usr/local/bin/docker
+          echo "RESULT $R daemon: $(docker info --format '{{.ServerVersion}} cpus={{.NCPU}} mem={{.MemTotal}}')"
+          getent hosts "${REGISTRY%%:*}" || true
+
+      - name: Cold build (no cache, pull)
+        run: |
+          t0=$(date +%s.%N)
+          docker build -q --no-cache --pull --target runtime -t "sightline:cmp-$R-$GITHUB_RUN_ID" . > /dev/null
+          t1=$(date +%s.%N)
+          echo "RESULT $R cold build: $(awk "BEGIN{printf \"%.1f\", $t1-$t0}") s"
+          echo "RESULT $R image size: $(docker image inspect -f '{{.Size}}' "sightline:cmp-$R-$GITHUB_RUN_ID") bytes"
+
+      - name: Warm build (cache)
+        run: |
+          t0=$(date +%s.%N)
+          docker build -q --target runtime -t "sightline:cmp-$R-$GITHUB_RUN_ID" . > /dev/null
+          t1=$(date +%s.%N)
+          echo "RESULT $R warm build: $(awk "BEGIN{printf \"%.1f\", $t1-$t0}") s"
+
+      - name: Push the real image and delete it
+        env:
+          TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+        run: |
+          set -u
+          ver="cmp-$R-$GITHUB_RUN_ID"
+          tag="$REGISTRY/$PACKAGE:$ver"
+          docker tag "sightline:cmp-$R-$GITHUB_RUN_ID" "$tag"
+          printf '%s' "$TOKEN" | docker login "$REGISTRY" -u bitmap --password-stdin > /dev/null 2>&1 \
+            && echo "RESULT $R login: ok" || echo "RESULT $R login: FAILED"
+          t0=$(date +%s.%N)
+          if docker push -q "$tag" > /tmp/push.log 2>&1; then rc=0; else rc=$?; fi
+          t1=$(date +%s.%N)
+          tail -n 3 /tmp/push.log
+          echo "RESULT $R push: exit $rc in $(awk "BEGIN{printf \"%.1f\", $t1-$t0}") s"
+          url="$SCHEME://$REGISTRY/api/v1/packages/bitmap/container/$PKG_NAME/$ver"
+          del=$(printf 'header = "Authorization: token %s"\n' "$TOKEN" | curl -s -o /dev/null -w '%{http_code}' -X DELETE -K - "$url")
+          after=$(printf 'header = "Authorization: token %s"\n' "$TOKEN" | curl -s -o /dev/null -w '%{http_code}' -K - "$url")
+          echo "RESULT $R delete: $del, after $after (want 204, 404)"
+
+      - name: Clean up
+        if: always()
+        run: |
+          docker logout "$REGISTRY" || true
+          docker image rm -f "sightline:cmp-$R-$GITHUB_RUN_ID" "$REGISTRY/$PACKAGE:cmp-$R-$GITHUB_RUN_ID" 2>/dev/null || true

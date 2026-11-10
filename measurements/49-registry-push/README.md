@@ -74,13 +74,38 @@ The operator created a `write:package`-only PAT for `bitmap` as the repository s
 **DNS trap on casper.** Job containers inside casper's dind get *public* DNS, where
 `registry.bitmapserv.org` is chromaserv's WAN address (216.82.9.150); SWAG's direct guard drops that.
 The dind daemon itself resolves through the LAN Pi-hole, so `docker login`/`push` work either way.
-Anything a job runs itself (curl, an API call) needs
-`--add-host=registry.bitmapserv.org:192.168.1.3` in the job container's `options`.
+Anything a job ran itself (curl, an API call) needed
+`--add-host=registry.bitmapserv.org:192.168.1.3` in the job container's `options`. *Fixed at the
+runner the same day (below): no longer needed.*
 
 **Timing.** casper: 6 s per job (setup ~2 s, docker CLI install ~2 s), dind peak ~0.9 core and
 360 MiB, host load 0.14. chromaserv's 2026-11-05 runs took ~61 s, but ~50 s of that was the
 job-token failure path and the by-IP control, which this harness does not run: these runs do not
 compare build speed. A real `runtime` build on each runner would.
+
+### Runner comparison: a real `runtime` build (run 3564)
+
+[`measure-49-buildcmp.yml`](measure-49-buildcmp.yml): both runners at once, the same commit, a
+300.5 MB image. Saturation sampled every ~3 s on each host's CI daemon while the jobs ran.
+
+| | casper (8 CPU, 32 GB) | chromaserv (24 CPU, 64 GB) |
+|---|---|---|
+| cold build (`--no-cache --pull`) | 38.3 s | 37.1 s; 35.1 s run alone |
+| warm build (cache) | 0.1 s | 0.2 s; 0.1 s |
+| push, real image | 6.2 s (`registry.bitmapserv.org`, TLS via SWAG) | refused `blob unknown`; 4.3 s run alone (`gitea:3000`) |
+| whole job | 50 s | 51 s; 45 s |
+| host load during the job | 0.2 – 1.1 | 20.0 – 20.8 (its usual load) |
+| CI daemon CPU, mean / peak | 125 % / 497 % | 84 % / 276 % |
+| CI daemon memory, peak | 266 MiB | 547 MiB |
+
+* **Speed is a wash.** The build is network- and single-thread-bound, so 3x the cores buys about a
+  second. casper does it on an idle host; chromaserv adds it to a load of ~20.
+* **Concurrent pushes of the same layers to one package race.** With both jobs pushing at once,
+  chromaserv's push failed `blob unknown`; re-run alone it passed. The tag build must push from
+  **one** job, under a `concurrency:` group, never from a matrix.
+* **DNS.** `~/docker` PR #765 gave casper's dind `--dns 192.168.1.3 --dns 192.168.1.205`, and the
+  operator deleted the public `registry` record the same day. A casper job now resolves
+  `registry.bitmapserv.org` to 192.168.1.3 with no `--add-host` (this run's `getent`).
 
 ## Nothing left behind (2026-11-05 runs)
 
