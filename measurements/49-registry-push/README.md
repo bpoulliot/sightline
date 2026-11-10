@@ -59,7 +59,30 @@ authenticate the job token and then deny it permission. It does not authenticate
   gave HTTP response to HTTPS client`. Without the flag, every login and push to `gitea:3000`
   would fail the same way. A future workflow must use the name `gitea:3000`, not the address.
 
-## Nothing left behind
+## 2026-11-10: the operator's `REGISTRY_TOKEN` pushes, from casper
+
+The operator created a `write:package`-only PAT for `bitmap` as the repository secret
+`REGISTRY_TOKEN` (recorded in `~/docker/SECRETS.md` §3.21). Harness:
+[`measure-49-casper.yml`](measure-49-casper.yml), run on the **casper** runner (operator's choice).
+
+| run | result |
+|---|---|
+| 3559 | refused before any probe: casper's runner had no `valid_volumes`, so `-v /var/run/docker.sock` was ignored (`is not a valid volume`). Fixed in `~/docker` PR #762 (the same rule chromaserv has) |
+| 3560 | **push landed** (`Login Succeeded`, digest pushed), but every curl probe and the delete got no reply: see the DNS trap below. Its version was deleted by 3561 |
+| 3561 | **all pass.** Package API: token 200, bogus 401. Token endpoint: token 200, bogus 401. `docker login`: bogus exit 1, token exit 0. Push exit 0. Version delete: 200 → 204 → 404; 3560's leftover 204 → 404; no `sightline-measure-49` version remains |
+
+**DNS trap on casper.** Job containers inside casper's dind get *public* DNS, where
+`registry.bitmapserv.org` is chromaserv's WAN address (216.82.9.150); SWAG's direct guard drops that.
+The dind daemon itself resolves through the LAN Pi-hole, so `docker login`/`push` work either way.
+Anything a job runs itself (curl, an API call) needs
+`--add-host=registry.bitmapserv.org:192.168.1.3` in the job container's `options`.
+
+**Timing.** casper: 6 s per job (setup ~2 s, docker CLI install ~2 s), dind peak ~0.9 core and
+360 MiB, host load 0.14. chromaserv's 2026-11-05 runs took ~61 s, but ~50 s of that was the
+job-token failure path and the by-IP control, which this harness does not run: these runs do not
+compare build speed. A real `runtime` build on each runner would.
+
+## Nothing left behind (2026-11-05 runs)
 
 * **Package.** No `sightline-measure-49` package exists. The push never authenticated. Checked
   read-only in Gitea's database: `select count(*) from package where lower_name like '%measure%'`
@@ -82,6 +105,6 @@ authenticate the job token and then deny it permission. It does not authenticate
 4. If a push ever lands, step M6 deletes the manifest with the same token. Check with the database
    query above that the package row is gone too. Then delete the branch.
 
-To test a `write:package` secret instead of the job token, point `JOB_TOKEN` at
-`secrets.<NAME>`. A good result is 200 from the token endpoint, `Login Succeeded`, a pushed
+To test a `write:package` secret instead of the job token, use `measure-49-casper.yml` (casper), or
+point `JOB_TOKEN` at `secrets.<NAME>` in `measure-49.yml` (chromaserv). A good result is 200 from the token endpoint, `Login Succeeded`, a pushed
 digest, then a deleted manifest.

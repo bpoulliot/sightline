@@ -1,0 +1,113 @@
+# Roadmap item 49, second measurement (2026-11-10): does the operator's write:package PAT
+# (`secrets.REGISTRY_TOKEN`) push from casper? THIS FILE IS A HARNESS, NOT A WORKFLOW OF THIS
+# REPOSITORY: copy it onto a throwaway branch as .gitea/workflows/measure-49.yml, dispatch once,
+# delete the branch (README.md, *Re-running it*). Differs from measure-49.yml: runs-on casper; the
+# LAN TLS hostname registry.bitmapserv.org (casper's dind lists no insecure registry, and gitea:3000
+# is a chromaserv-only name); user bitmap with the PAT. The token is never printed.
+name: measure-49 registry push (REGISTRY_TOKEN, casper)
+
+on:
+  workflow_dispatch:
+
+env:
+  DOCKER_CLI_VERSION: "27.5.1"
+  REGISTRY: registry.bitmapserv.org
+  PACKAGE: bitmap/sightline-measure-49
+  PKG_NAME: sightline-measure-49
+
+jobs:
+  push:
+    runs-on: casper
+    container:
+      image: node:20
+      # casper's dind gives job containers PUBLIC DNS, where registry.* is chromaserv's WAN IP
+      # (SWAG's direct guard drops it). Pin the LAN address; the daemon already resolves via pihole.
+      options: -v /var/run/docker.sock:/var/run/docker.sock --add-host=registry.bitmapserv.org:192.168.1.3
+    steps:
+      - name: Install the docker CLI
+        run: |
+          curl -fsSL -o /tmp/docker.tgz \
+            "https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKER_CLI_VERSION}.tgz"
+          tar -xzf /tmp/docker.tgz -C /tmp
+          install /tmp/docker/docker /usr/local/bin/docker
+          docker version --format 'client {{.Client.Version}} / daemon {{.Server.Version}}'
+          echo "runner: ${RUNNER_NAME:-?}  host: $(hostname)"
+
+      - name: "M1: the daemon's registry configuration"
+        run: |
+          echo "insecure CIDRs: $(docker info --format '{{json .RegistryConfig.InsecureRegistryCIDRs}}')"
+          getent hosts "$REGISTRY" || echo "no DNS for $REGISTRY"
+
+      - name: "M2: what the registry serves"
+        run: |
+          echo "https /v2/ -> $(curl -s -o /dev/null -w '%{http_code}' https://${REGISTRY}/v2/) (401 = auth challenge)"
+          curl -s -D - -o /dev/null "https://${REGISTRY}/v2/" | grep -i '^www-authenticate' || true
+
+      - name: "M3a: self-test, the token opens the package API and a bogus one does not"
+        env:
+          TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+        run: |
+          set -u
+          echo "token length: ${#TOKEN}"
+          api="https://${REGISTRY}/api/v1/packages/bitmap?limit=1"
+          probe() { printf '%s\n' "$1" | curl -s -o /dev/null -w '%{http_code}' -K - "$2"; }
+          echo "packages API, REGISTRY_TOKEN -> $(probe "header = \"Authorization: token ${TOKEN}\"" "$api")"
+          echo "packages API, bogus          -> $(probe 'header = "Authorization: token not-a-token"' "$api")"
+
+      - name: "M3: registry token endpoint"
+        env:
+          TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+        run: |
+          set -u
+          url="https://${REGISTRY}/v2/token?service=container_registry&scope=repository:${PACKAGE}:push,pull"
+          probe() { printf '%s\n' "$1" | curl -s -o /dev/null -w '%{http_code}' -K - "$2"; }
+          echo "REGISTRY_TOKEN, user=bitmap -> $(probe "user = \"bitmap:${TOKEN}\"" "$url")"
+          echo "bogus password (control)    -> $(probe 'user = "bitmap:not-a-token"' "$url")"
+
+      - name: "M4: docker login (bogus control, then REGISTRY_TOKEN)"
+        env:
+          TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+        run: |
+          set -u
+          printf '%s' 'not-a-token' | docker login "$REGISTRY" -u bitmap --password-stdin 2>&1 \
+            && echo "RESULT bogus-login: exit 0" || echo "RESULT bogus-login: exit $?"
+          printf '%s' "$TOKEN" | docker login "$REGISTRY" -u bitmap --password-stdin 2>&1 \
+            && echo "RESULT token-login: exit 0" || echo "RESULT token-login: exit $?"
+
+      - name: "M5: build a one-file image and push it"
+        id: push
+        run: |
+          set -u
+          ctx=$(mktemp -d)
+          printf 'sightline roadmap item 49 measurement, run %s\n' "$GITHUB_RUN_ID" > "$ctx/marker"
+          printf 'FROM scratch\nCOPY marker /marker\n' > "$ctx/Dockerfile"
+          ver="run-${GITHUB_RUN_ID}"
+          tag="${REGISTRY}/${PACKAGE}:${ver}"
+          DOCKER_BUILDKIT=0 docker build -q -t "$tag" "$ctx"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "ver=$ver" >> "$GITHUB_OUTPUT"
+          if docker push "$tag" > /tmp/push.log 2>&1; then rc=0; else rc=$?; fi
+          cat /tmp/push.log
+          echo "RESULT push: exit $rc"
+          digest=$(sed -n 's/.*digest: \(sha256:[0-9a-f]*\).*/\1/p' /tmp/push.log | head -n 1)
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+          echo "pushed digest: ${digest:-none}"
+
+      - name: "M6: delete the scratch package version with the same token"
+        if: always() && steps.push.outputs.ver != ''
+        env:
+          TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+          VER: ${{ steps.push.outputs.ver }}
+        run: |
+          set -u
+          url="https://${REGISTRY}/api/v1/packages/bitmap/container/${PKG_NAME}/${VER}"
+          before=$(printf 'header = "Authorization: token %s"\n' "$TOKEN" | curl -s -o /dev/null -w '%{http_code}' -K - "$url")
+          del=$(printf 'header = "Authorization: token %s"\n' "$TOKEN" | curl -s -o /dev/null -w '%{http_code}' -X DELETE -K - "$url")
+          after=$(printf 'header = "Authorization: token %s"\n' "$TOKEN" | curl -s -o /dev/null -w '%{http_code}' -K - "$url")
+          echo "RESULT package version: before $before, DELETE $del, after $after (want 200, 204, 404)"
+
+      - name: Clean up
+        if: always()
+        run: |
+          docker logout "$REGISTRY" || true
+          docker image rm -f "${{ steps.push.outputs.tag }}" 2>/dev/null || true
