@@ -62,7 +62,7 @@ prints the names a real release would push and the note, creates no release, and
 the pushed version with the same token and fails unless the version then answers 404.
 
 Gitea keeps an internal `_upload` row for any package that has received a blob; it is not a
-version, is not listed or pullable, and the dry run cannot delete it.
+tagged version, and the dry run's delete does not reach it.
 
 A dispatch with `dry_run` off publishes for real, and is refused unless it runs on a `v*` tag ref.
 
