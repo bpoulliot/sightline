@@ -45,8 +45,9 @@ same layers raced to `blob unknown`: `measurements/49-registry-push/`, run 3564)
 6. Writes the release note to the log: the Conventional Commits since the previous `vX.Y.Z` tag by
    version order (every commit when there is none), merges excluded, grouped by type
    (`scripts/release.py notes`). It then asks Gitea, with the job's own token, to create the
-   release for the tag with that note and the image digest. A refusal is a warning, not a
-   failure: the image is already published and the note is in the log.
+   release for the tag with that note and the image digest. The job token may do that (201 for
+   `v0.1.0`, run 3575). A refusal would be a warning, not a failure: the image is already published
+   and the note is in the log.
 
 The registry name is the LAN TLS name. Never push through `git.bitmapserv.org` (behind Cloudflare,
 which caps a request at 100 MB), and `gitea:3000` resolves only on chromaserv.
