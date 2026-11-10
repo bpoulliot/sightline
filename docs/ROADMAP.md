@@ -1193,10 +1193,10 @@ personal access token:
 recorded in `~/docker/SECRETS.md` §3.21. The build runs on the **casper** runner (`runs-on: casper`),
 which since `~/docker` PR #762 allows the dind socket mount. From casper the registry is
 **`registry.bitmapserv.org`** over TLS, not `gitea:3000` (a chromaserv-only name): log in as
-`bitmap` there. A step that calls the registry or API itself also needs
-`--add-host=registry.bitmapserv.org:192.168.1.3` in the job container's `options`, because job
-containers on casper get public DNS (`measurements/49-registry-push/`, 2026-11-10 section). Run
-3561 proved login, push and delete with the secret.
+`bitmap` there; casper's dind resolves it on the LAN (`~/docker` PR #765), so no `--add-host`. Run
+3561 proved login, push and delete with the secret. **Push from one job under a `concurrency:`
+group**: two concurrent pushes of the same layers raced to `blob unknown` (run 3564). A real
+`runtime` build takes ~38 s cold on casper, the same as chromaserv (`measurements/49-registry-push/`).
 
 *The build, once READY.* A workflow on `v*` tags: refuse a tag whose version differs from
 `pyproject.toml`'s; build the `runtime` target; run the existing health check against it; push
