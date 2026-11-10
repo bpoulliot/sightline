@@ -64,7 +64,7 @@ by item 36's session, PR #43; 44–47 split from item 40 on 2026-10-30).
 | 46 | Queue a run behind the active one | 3 | READY | **DONE** — PR #52 (a Start while a run is active is queued FIFO; *Queued, N ahead*; starter or admin cancels, recorded; survives a restart; waits behind a live command-line run) |
 | 47 | Reference deployment: identity provider, proxy and app | 3 | READY — 44 DONE (PR #50); Authentik decided 2026-10-30 | **DONE** — PR #53 (`docker-compose.signin.yml`: the app behind an Authentik outpost, no app port, an internal network; `docs/SIGN-IN.md`, with oauth2-proxy + Entra ID as a second example) |
 | 48 | Rubric bindings belong to the person who accepts them | 3 | **READY** — decided 2026-11-02 (operator) | **DONE** — PR #56. Sets and history per subject id; states shared by digest; admin reads all, read-only |
-| 49 | A pushed version tag builds the image and publishes it to the Gitea registry | 3 | **NEEDS DECISION** — measured 2026-11-05: the job token is refused (401); the operator creates a `write:package` token as the `REGISTRY_TOKEN` secret | measured — PR #60 |
+| 49 | A pushed version tag builds the image and publishes it to the Gitea registry | 3 | **READY** — 2026-11-10: the operator's `REGISTRY_TOKEN` (`write:package`) pushes from casper (run 3561); the job token is refused (401, 2026-11-05) | measured — PR #60 |
 | 50 | Pilot readiness: the master key from the environment, a state backup, and a pilot runbook | 3 | **READY** — decided 2026-11-02 (operator); checklist amended 2026-11-04 | **DONE** — PR #58. Sign-in mode refuses to start without `SIGHTLINE_SECRET_KEY`; `python -m sightline.backup` (online backup API, `--check`); `docs/PILOT.md` |
 | 51 | Sign-in admits only members of a users group (or the admin group) | 3 | **READY** — decided 2026-11-04 (operator) | **DONE** — PR #57. `SIGHTLINE_SIGNIN_USER_GROUP`, exact; anybody in neither group gets a 403 page naming it; unset admits all and logs so |
 | 52 | Does a larger model on the existing model host settle the disagreement set? | 3 | **NEEDS MEASUREMENT** — on the pilot's corpus runs, as 12b; filed 2026-11-04 | — |
@@ -1138,7 +1138,7 @@ tests pass unchanged. SPEC §09's *open* bullet under *Sign-in and multiple user
 an *As built (item 48)* paragraph. Screens checked at 1400 and 390 px. Suite, ruff and black
 green, each exit code read separately.
 
-**49 · FILED 2026-11-02 (operator, interactive). MEASURED 2026-11-05 — NEEDS DECISION. A pushed version tag builds the
+**49 · FILED 2026-11-02 (operator, interactive). MEASURED 2026-11-05; READY 2026-11-10. A pushed version tag builds the
 image and publishes it to the Gitea registry.** Today CI builds the image on every PR and throws
 it away; no workflow publishes one (`~/docker` TODO I59 lists Sightline as building nothing).
 
@@ -1189,8 +1189,14 @@ personal access token:
   break the other, unless the operator prefers to share it;
 * the workflow logs in as `bitmap` to `gitea:3000` with `--password-stdin`.
 
-Once the secret exists, this item is READY as specified below. Re-running the harness with
-`JOB_TOKEN` pointed at the secret proves it first.
+*Decided and proved 2026-11-10 (operator).* The secret exists: `REGISTRY_TOKEN`, a separate PAT,
+recorded in `~/docker/SECRETS.md` §3.21. The build runs on the **casper** runner (`runs-on: casper`),
+which since `~/docker` PR #762 allows the dind socket mount. From casper the registry is
+**`registry.bitmapserv.org`** over TLS, not `gitea:3000` (a chromaserv-only name): log in as
+`bitmap` there. A step that calls the registry or API itself also needs
+`--add-host=registry.bitmapserv.org:192.168.1.3` in the job container's `options`, because job
+containers on casper get public DNS (`measurements/49-registry-push/`, 2026-11-10 section). Run
+3561 proved login, push and delete with the secret.
 
 *The build, once READY.* A workflow on `v*` tags: refuse a tag whose version differs from
 `pyproject.toml`'s; build the `runtime` target; run the existing health check against it; push
